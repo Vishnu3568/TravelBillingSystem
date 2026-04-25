@@ -9,7 +9,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface BillRepository extends JpaRepository<Bill, Long> {
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+
+public interface BillRepository extends JpaRepository<Bill, Long>, JpaSpecificationExecutor<Bill> {
     boolean existsByBillNumber(String billNumber);
 
     long countByBillDateGreaterThanEqualAndBillDateLessThan(LocalDateTime start, LocalDateTime end);

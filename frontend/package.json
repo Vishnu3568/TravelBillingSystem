@@ -12,10 +12,12 @@
   "dependencies": {
     "@vitejs/plugin-react": "latest",
     "axios": "latest",
-    "vite": "latest",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^1.11.0",
     "react": "latest",
     "react-dom": "latest",
-    "react-router-dom": "latest"
+    "react-router-dom": "latest",
+    "vite": "latest"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "latest",

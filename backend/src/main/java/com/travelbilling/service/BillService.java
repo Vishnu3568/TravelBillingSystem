@@ -8,10 +8,17 @@ import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.criteria.Predicate;
 
 @Service
 @RequiredArgsConstructor
@@ -50,11 +57,45 @@ public class BillService {
     }
 
     @Transactional(readOnly = true)
-    public List<BillResponse> getBills() {
-        return billRepository.findAllByOrderByCreatedAtDesc()
-                .stream()
-                .map(this::toResponse)
-                .toList();
+    public Page<BillResponse> getBills(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return billRepository.findAll(pageable).map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<BillResponse> searchBills(
+            String billNumber,
+            String companyName,
+            LocalDate fromDate,
+            LocalDate toDate,
+            int page,
+            int size) {
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by("billDate").descending());
+        
+        Specification<Bill> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            
+            if (billNumber != null && !billNumber.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("billNumber")), "%" + billNumber.toLowerCase().trim() + "%"));
+            }
+            
+            if (companyName != null && !companyName.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("companyName")), "%" + companyName.toLowerCase().trim() + "%"));
+            }
+            
+            if (fromDate != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("billDate"), fromDate.atStartOfDay()));
+            }
+            
+            if (toDate != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("billDate"), toDate.atTime(23, 59, 59)));
+            }
+            
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        
+        return billRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)

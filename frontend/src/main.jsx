@@ -6,6 +6,8 @@ import { AuthProvider } from "./context/AuthContext.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import CreateBillPage from "./pages/CreateBillPage.jsx";
+import BillHistoryPage from "./pages/BillHistoryPage.jsx";
+import BillViewPage from "./pages/BillViewPage.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import "./styles/index.css";
 
@@ -29,6 +31,22 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={["OWNER"]}>
             <CreateBillPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "bill-history",
+        element: (
+          <ProtectedRoute allowedRoles={["OWNER", "MANAGER", "EMPLOYEE"]}>
+            <BillHistoryPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "bill-view/:id",
+        element: (
+          <ProtectedRoute allowedRoles={["OWNER", "MANAGER", "EMPLOYEE"]}>
+            <BillViewPage />
           </ProtectedRoute>
         ),
       },
