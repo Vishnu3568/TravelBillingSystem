@@ -19,6 +19,23 @@ public class Bill {
     private String billNumber;
     private Double amount;
     private LocalDateTime billDate;
+    private String companyName;
+    private String vehicleName;
+    private String dutySlipNo;
+    private Double totalKms;
+    private Double totalHours;
+    private Double baseAmount;
+    private Double driverBata;
+    private Double parking;
+    private Double toll;
+    private Double nightCharges;
+    private Double otherCharges;
+
+    @Column(length = 1000)
+    private String notes;
+
+    private Double grandTotal;
+    private String createdBy;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
