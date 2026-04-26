@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import api from "../services/api.js";
@@ -21,22 +21,7 @@ const initialForm = {
   notes: "",
 };
 
-const companies = [
-  "Apex Manufacturing",
-  "Nirali Foods",
-  "Shree Logistics",
-  "Metro Buildcon",
-  "Tulja Industries",
-];
-
-const vehicles = [
-  "MH 12 AB 4582 - Sedan",
-  "MH 14 DR 9021 - Tempo Traveller",
-  "MH 20 CX 3320 - SUV",
-  "MH 11 QA 7742 - Bus",
-  "MH 15 KL 1188 - Mini Bus",
-];
-
+// Companies and vehicles will be loaded from the backend
 const chargeFields = [
   ["Base Amount", "baseAmount"],
   ["Driver Bata", "driverBata"],
@@ -95,6 +80,24 @@ export default function CreateBillPage() {
   const [errors, setErrors] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isSessionExpired, setIsSessionExpired] = useState(false);
+  const [companies, setCompanies] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [companiesRes, vehiclesRes] = await Promise.all([
+          api.get("/companies"),
+          api.get("/vehicles")
+        ]);
+        setCompanies(companiesRes.data);
+        setVehicles(vehiclesRes.data);
+      } catch (err) {
+        console.error("Error fetching master data:", err);
+      }
+    };
+    fetchData();
+  }, []);
 
   const grandTotal = useMemo(
     () => moneyFields.reduce((total, field) => total + numberValue(form[field]), 0),
@@ -298,9 +301,9 @@ export default function CreateBillPage() {
                 <Field label="Customer Company">
                   <select className={inputClass} name="company" value={form.company} onChange={handleChange}>
                     <option value="">Select company</option>
-                    {companies.map((company) => (
-                      <option key={company} value={company}>
-                        {company}
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.name}>
+                        {c.name}
                       </option>
                     ))}
                   </select>
@@ -309,9 +312,9 @@ export default function CreateBillPage() {
                 <Field label="Vehicle">
                   <select className={inputClass} name="vehicle" value={form.vehicle} onChange={handleChange}>
                     <option value="">Select vehicle</option>
-                    {vehicles.map((vehicle) => (
-                      <option key={vehicle} value={vehicle}>
-                        {vehicle}
+                    {vehicles.map((v) => (
+                      <option key={v.id} value={`${v.registrationNumber} - ${v.type}`}>
+                        {v.registrationNumber} ({v.type})
                       </option>
                     ))}
                   </select>

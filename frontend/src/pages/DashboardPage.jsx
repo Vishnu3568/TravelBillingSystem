@@ -18,7 +18,7 @@ const dashboardCopy = {
   },
 };
 
-const quickActions = ["Create Bill", "Manage Companies", "Reports", "Payments"];
+// const quickActions = ["Create Bill", "Bill History", "Manage Companies", "Manage Vehicles", "Reports"];
 
 const toneClasses = {
   cyan: "bg-cyan-50 text-cyan-700 ring-cyan-100",
@@ -218,12 +218,27 @@ function ActivityPanel({ recentUsersActivity }) {
   );
 }
 
-function QuickActions() {
+function QuickActions({ role }) {
   const navigate = useNavigate();
+  
+  const actions = ["Create Bill", "Bill History", "Manage Companies", "Manage Vehicles", "Reports"];
+  if (role === "OWNER") {
+    actions.push("User Management");
+  }
 
   const handleQuickAction = (action) => {
     if (action === "Create Bill") {
       navigate("/create-bill");
+    } else if (action === "Bill History") {
+      navigate("/bill-history");
+    } else if (action === "Manage Companies") {
+      navigate("/companies");
+    } else if (action === "Manage Vehicles") {
+      navigate("/vehicles");
+    } else if (action === "Reports") {
+      navigate("/reports");
+    } else if (action === "User Management") {
+      navigate("/users");
     }
   };
 
@@ -231,7 +246,7 @@ function QuickActions() {
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <h2 className="text-lg font-semibold text-slate-950">Quick Actions</h2>
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-        {quickActions.map((action) => (
+        {actions.map((action) => (
           <button
             className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-800"
             key={action}
@@ -378,7 +393,7 @@ function OwnerDashboard({ username, logout }) {
             <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_360px]">
               <RevenueChart revenueTrend={revenueTrend} />
               <div className="grid gap-6">
-                <QuickActions />
+                <QuickActions role="OWNER" />
                 <ActivityPanel recentUsersActivity={recentUsersActivity} />
               </div>
             </div>

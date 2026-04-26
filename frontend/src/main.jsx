@@ -8,6 +8,10 @@ import DashboardPage from "./pages/DashboardPage.jsx";
 import CreateBillPage from "./pages/CreateBillPage.jsx";
 import BillHistoryPage from "./pages/BillHistoryPage.jsx";
 import BillViewPage from "./pages/BillViewPage.jsx";
+import CompanyPage from "./pages/CompanyPage.jsx";
+import VehiclePage from "./pages/VehiclePage.jsx";
+import ReportsPage from "./pages/ReportsPage.jsx";
+import UserManagementPage from "./pages/UserManagementPage.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import "./styles/index.css";
 
@@ -47,6 +51,38 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={["OWNER", "MANAGER", "EMPLOYEE"]}>
             <BillViewPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "companies",
+        element: (
+          <ProtectedRoute allowedRoles={["OWNER", "MANAGER"]}>
+            <CompanyPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "vehicles",
+        element: (
+          <ProtectedRoute allowedRoles={["OWNER", "MANAGER"]}>
+            <VehiclePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "reports",
+        element: (
+          <ProtectedRoute allowedRoles={["OWNER", "MANAGER"]}>
+            <ReportsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "users",
+        element: (
+          <ProtectedRoute allowedRoles={["OWNER"]}>
+            <UserManagementPage />
           </ProtectedRoute>
         ),
       },
