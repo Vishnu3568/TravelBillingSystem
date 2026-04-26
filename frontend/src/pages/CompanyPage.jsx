@@ -19,7 +19,7 @@ const CompanyPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({ name: "", address: "", gstNumber: "" });
+  const [formData, setFormData] = useState({ name: "", address: "", gstNumber: "", hasGst: false });
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -49,8 +49,8 @@ const CompanyPage = () => {
       }
       setIsAdding(false);
       setEditingId(null);
-      setFormData({ name: "", address: "", gstNumber: "" });
-      fetchCompanies();
+        setFormData({ name: "", address: "", gstNumber: "", hasGst: false });
+        fetchCompanies();
     } catch (err) {
       console.error("Error saving company:", err);
       setError("Failed to save company");
@@ -62,7 +62,8 @@ const CompanyPage = () => {
     setFormData({ 
       name: company.name, 
       address: company.address, 
-      gstNumber: company.gstNumber 
+      gstNumber: company.gstNumber, 
+      hasGst: !!company.gstNumber 
     });
     setIsAdding(true);
   };
@@ -81,7 +82,7 @@ const CompanyPage = () => {
 
   const filteredCompanies = companies.filter(c => 
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.gstNumber.toLowerCase().includes(searchQuery.toLowerCase())
+    (c.gstNumber && c.gstNumber.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -130,17 +131,29 @@ const CompanyPage = () => {
                   placeholder="e.g. Acme Corp"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">GST Number</label>
+              <div className="flex items-center">
                 <input
-                  type="text"
-                  required
-                  value={formData.gstNumber}
-                  onChange={(e) => setFormData({ ...formData, gstNumber: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  placeholder="27AAAAA0000A1Z5"
+                  type="checkbox"
+                  id="hasGst"
+                  checked={formData.hasGst}
+                  onChange={(e) => setFormData({ ...formData, hasGst: e.target.checked, gstNumber: e.target.checked ? formData.gstNumber : "" })}
+                  className="mr-2 h-4 w-4 text-indigo-600 border-gray-300 rounded"
                 />
+                <label htmlFor="hasGst" className="text-sm font-medium text-slate-700">Has GST Number?</label>
               </div>
+              {formData.hasGst && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">GST Number</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.gstNumber}
+                    onChange={(e) => setFormData({ ...formData, gstNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="27AAAAA0000A1Z5"
+                  />
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
                 <input
@@ -219,7 +232,7 @@ const CompanyPage = () => {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2 text-slate-600">
                           <FileText size={14} className="text-slate-400" />
-                          {company.gstNumber}
+                          {company.gstNumber ? company.gstNumber : <span className="text-slate-400 italic">N/A</span>}
                         </div>
                       </td>
                       <td className="px-6 py-4">

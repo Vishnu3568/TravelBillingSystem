@@ -10,4 +10,5 @@ public class CompanyRequest {
     private String name;
     private String address;
     private String gstNumber;
+    private Boolean hasGst;
 }

@@ -29,7 +29,7 @@ public class CompanyService {
         Company company = Company.builder()
                 .name(request.getName())
                 .address(request.getAddress())
-                .gstNumber(request.getGstNumber())
+                .gstNumber(request.getHasGst() != null && request.getHasGst() ? request.getGstNumber() : null)
                 .build();
         Company saved = companyRepository.save(company);
         auditLogService.logAction("CREATE_COMPANY", "COMPANY", "Created company: " + saved.getName());
@@ -43,7 +43,7 @@ public class CompanyService {
         
         company.setName(request.getName());
         company.setAddress(request.getAddress());
-        company.setGstNumber(request.getGstNumber());
+        company.setGstNumber(request.getHasGst() != null && request.getHasGst() ? request.getGstNumber() : null);
         
         Company saved = companyRepository.save(company);
         auditLogService.logAction("UPDATE_COMPANY", "COMPANY", "Updated company: " + saved.getName());
