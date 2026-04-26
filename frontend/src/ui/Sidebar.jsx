@@ -1,0 +1,46 @@
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import { Home, Building2, Truck, Users, BarChart2, Database, ClipboardList, Settings } from 'lucide-react';
+import { useAuth } from '../context/AuthContext'; // Adjust import path to your auth context
+
+const routes = [
+  { to: '/', icon: Home, label: 'Dashboard' },
+  { to: '/companies', icon: Building2, label: 'Companies' },
+  { to: '/vehicles', icon: Truck, label: 'Vehicles' },
+  { to: '/users', icon: Users, label: 'Users', roles: ['OWNER'] },
+  { to: '/reports', icon: BarChart2, label: 'Reports' },
+  { to: '/backup', icon: Database, label: 'Backup' },
+  { to: '/audit-logs', icon: ClipboardList, label: 'Audit Logs', roles: ['OWNER'] },
+  { to: '/settings', icon: Settings, label: 'Settings' },
+];
+
+export default function Sidebar() {
+  const { role } = useAuth(); // role string like 'OWNER', 'MANAGER', 'EMPLOYEE'
+  return (
+    <nav className="hidden md:flex flex-col w-64 bg-slate-900 text-slate-100 h-screen p-4">
+      <div className="text-lg font-semibold mb-6">Travel Billing</div>
+      <ul className="flex-1 space-y-1">
+        {routes
+          .filter(r => !r.roles || r.roles.includes(role))
+          .map(route => (
+            <li key={route.to}>
+              <NavLink
+                to={route.to}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                    isActive ? 'bg-primary/20 text-primary' : 'hover:bg-slate-800'
+                  }`
+                }
+              >
+                <route.icon size={18} />
+                {route.label}
+              </NavLink>
+            </li>
+          ))}
+      </ul>
+      <div className="mt-4 text-xs text-slate-400">
+        Logged in as <span className="font-medium">{role}</span>
+      </div>
+    </nav>
+  );
+}

@@ -17,6 +17,8 @@ import AuditLogPage from "./pages/AuditLogPage.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import "./styles/index.css";
 
+import MainLayout from "./ui/MainLayout.jsx";
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -25,102 +27,107 @@ const router = createBrowserRouter([
       { index: true, element: <Navigate to="/login" replace /> },
       { path: "login", element: <LoginPage /> },
       {
-        path: "owner-dashboard",
-        element: (
-          <ProtectedRoute allowedRoles={["OWNER"]}>
-            <DashboardPage role="OWNER" />
-          </ProtectedRoute>
-        ),
+        element: <MainLayout />,
+        children: [
+          {
+            path: "owner-dashboard",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER"]}>
+                <DashboardPage role="OWNER" />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "create-bill",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER"]}>
+                <CreateBillPage />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "bill-history",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER", "MANAGER", "EMPLOYEE"]}>
+                <BillHistoryPage />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "bill-view/:id",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER", "MANAGER", "EMPLOYEE"]}>
+                <BillViewPage />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "companies",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER", "MANAGER"]}>
+                <CompanyPage />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "vehicles",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER", "MANAGER"]}>
+                <VehiclePage />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "reports",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER", "MANAGER"]}>
+                <ReportsPage />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "users",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER"]}>
+                <UserManagementPage />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "backup",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER"]}>
+                <BackupPage />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "audit-logs",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER"]}>
+                <AuditLogPage />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "manager-dashboard",
+            element: (
+              <ProtectedRoute allowedRoles={["MANAGER"]}>
+                <DashboardPage role="MANAGER" />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "employee-dashboard",
+            element: (
+              <ProtectedRoute allowedRoles={["EMPLOYEE"]}>
+                <DashboardPage role="EMPLOYEE" />
+              </ProtectedRoute>
+            ),
+          },
+          { path: "*", element: <Navigate to="/login" replace /> },
+        ],
       },
-      {
-        path: "create-bill",
-        element: (
-          <ProtectedRoute allowedRoles={["OWNER"]}>
-            <CreateBillPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "bill-history",
-        element: (
-          <ProtectedRoute allowedRoles={["OWNER", "MANAGER", "EMPLOYEE"]}>
-            <BillHistoryPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "bill-view/:id",
-        element: (
-          <ProtectedRoute allowedRoles={["OWNER", "MANAGER", "EMPLOYEE"]}>
-            <BillViewPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "companies",
-        element: (
-          <ProtectedRoute allowedRoles={["OWNER", "MANAGER"]}>
-            <CompanyPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "vehicles",
-        element: (
-          <ProtectedRoute allowedRoles={["OWNER", "MANAGER"]}>
-            <VehiclePage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "reports",
-        element: (
-          <ProtectedRoute allowedRoles={["OWNER", "MANAGER"]}>
-            <ReportsPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "users",
-        element: (
-          <ProtectedRoute allowedRoles={["OWNER"]}>
-            <UserManagementPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "backup",
-        element: (
-          <ProtectedRoute allowedRoles={["OWNER"]}>
-            <BackupPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "audit-logs",
-        element: (
-          <ProtectedRoute allowedRoles={["OWNER"]}>
-            <AuditLogPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "manager-dashboard",
-        element: (
-          <ProtectedRoute allowedRoles={["MANAGER"]}>
-            <DashboardPage role="MANAGER" />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "employee-dashboard",
-        element: (
-          <ProtectedRoute allowedRoles={["EMPLOYEE"]}>
-            <DashboardPage role="EMPLOYEE" />
-          </ProtectedRoute>
-        ),
-      },
-      { path: "*", element: <Navigate to="/login" replace /> },
     ],
   },
 ]);
@@ -129,6 +136,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthProvider>
       <RouterProvider router={router} />
+      <Toaster position="top-right" />
     </AuthProvider>
   </React.StrictMode>,
 );
