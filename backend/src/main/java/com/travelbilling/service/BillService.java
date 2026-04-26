@@ -27,6 +27,7 @@ public class BillService {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final BillRepository billRepository;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public BillResponse createBill(BillRequest request, String createdBy) {
@@ -53,7 +54,45 @@ public class BillService {
                 .createdBy(createdBy)
                 .build();
 
-        return toResponse(billRepository.save(bill));
+        Bill saved = billRepository.save(bill);
+        auditLogService.logAction("CREATE_BILL", "BILL", "Bill " + saved.getBillNumber() + " created for " + saved.getCompanyName());
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public BillResponse updateBill(Long id, BillRequest request) {
+        Bill bill = billRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Bill not found"));
+
+        double grandTotal = calculateGrandTotal(request);
+        
+        bill.setBillDate(request.getBillDate().atStartOfDay());
+        bill.setCompanyName(request.getCompanyName().trim());
+        bill.setVehicleName(request.getVehicleName().trim());
+        bill.setDutySlipNo(request.getDutySlipNo().trim());
+        bill.setTotalKms(safeAmount(request.getTotalKms()));
+        bill.setTotalHours(safeAmount(request.getTotalHours()));
+        bill.setBaseAmount(safeAmount(request.getBaseAmount()));
+        bill.setDriverBata(safeAmount(request.getDriverBata()));
+        bill.setParking(safeAmount(request.getParking()));
+        bill.setToll(safeAmount(request.getToll()));
+        bill.setNightCharges(safeAmount(request.getNightCharges()));
+        bill.setOtherCharges(safeAmount(request.getOtherCharges()));
+        bill.setNotes(request.getNotes());
+        bill.setGrandTotal(grandTotal);
+
+        Bill saved = billRepository.save(bill);
+        auditLogService.logAction("UPDATE_BILL", "BILL", "Bill " + saved.getBillNumber() + " updated");
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public void deleteBill(Long id) {
+        Bill bill = billRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Bill not found"));
+        String billNumber = bill.getBillNumber();
+        billRepository.delete(bill);
+        auditLogService.logAction("DELETE_BILL", "BILL", "Bill " + billNumber + " deleted");
     }
 
     @Transactional(readOnly = true)

@@ -224,6 +224,8 @@ function QuickActions({ role }) {
   const actions = ["Create Bill", "Bill History", "Manage Companies", "Manage Vehicles", "Reports"];
   if (role === "OWNER") {
     actions.push("User Management");
+    actions.push("Backup & Restore");
+    actions.push("Audit Logs");
   }
 
   const handleQuickAction = (action) => {
@@ -239,6 +241,10 @@ function QuickActions({ role }) {
       navigate("/reports");
     } else if (action === "User Management") {
       navigate("/users");
+    } else if (action === "Backup & Restore") {
+      navigate("/backup");
+    } else if (action === "Audit Logs") {
+      navigate("/audit-logs");
     }
   };
 

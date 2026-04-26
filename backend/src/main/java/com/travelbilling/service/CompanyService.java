@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 public class CompanyService {
 
     private final CompanyRepository companyRepository;
+    private final AuditLogService auditLogService;
 
     public List<CompanyResponse> getAllCompanies() {
         return companyRepository.findAll().stream()
@@ -30,7 +31,9 @@ public class CompanyService {
                 .address(request.getAddress())
                 .gstNumber(request.getGstNumber())
                 .build();
-        return mapToResponse(companyRepository.save(company));
+        Company saved = companyRepository.save(company);
+        auditLogService.logAction("CREATE_COMPANY", "COMPANY", "Created company: " + saved.getName());
+        return mapToResponse(saved);
     }
 
     @Transactional
@@ -42,15 +45,18 @@ public class CompanyService {
         company.setAddress(request.getAddress());
         company.setGstNumber(request.getGstNumber());
         
-        return mapToResponse(companyRepository.save(company));
+        Company saved = companyRepository.save(company);
+        auditLogService.logAction("UPDATE_COMPANY", "COMPANY", "Updated company: " + saved.getName());
+        return mapToResponse(saved);
     }
 
     @Transactional
     public void deleteCompany(Long id) {
-        if (!companyRepository.existsById(id)) {
-            throw new RuntimeException("Company not found");
-        }
-        companyRepository.deleteById(id);
+        Company company = companyRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Company not found"));
+        String name = company.getName();
+        companyRepository.delete(company);
+        auditLogService.logAction("DELETE_COMPANY", "COMPANY", "Deleted company: " + name);
     }
 
     private CompanyResponse mapToResponse(Company company) {

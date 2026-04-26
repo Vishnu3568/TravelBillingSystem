@@ -18,6 +18,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
 
     public List<UserResponse> getAllUsers() {
         return userRepository.findAll().stream()
@@ -43,7 +44,9 @@ public class UserService {
                 .active(true)
                 .build();
 
-        return mapToResponse(userRepository.save(user));
+        User saved = userRepository.save(user);
+        auditLogService.logAction("CREATE_USER", "USER", "Created user " + saved.getUsername() + " with role " + saved.getRole());
+        return mapToResponse(saved);
     }
 
     @Transactional
@@ -56,7 +59,9 @@ public class UserService {
         if (request.getRole() != null) user.setRole(request.getRole());
         if (request.getActive() != null) user.setActive(request.getActive());
 
-        return mapToResponse(userRepository.save(user));
+        User saved = userRepository.save(user);
+        auditLogService.logAction("UPDATE_USER", "USER", "Updated user " + saved.getUsername());
+        return mapToResponse(saved);
     }
 
     @Transactional
@@ -65,6 +70,7 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+        auditLogService.logAction("RESET_PASSWORD", "USER", "Reset password for user " + user.getUsername());
     }
 
     @Transactional
@@ -73,6 +79,7 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         user.setActive(false); // Soft delete / disable
         userRepository.save(user);
+        auditLogService.logAction("DELETE_USER", "USER", "Disabled/Deleted user " + user.getUsername());
     }
 
     private UserResponse mapToResponse(User user) {

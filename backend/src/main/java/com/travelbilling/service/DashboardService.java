@@ -58,7 +58,7 @@ public class DashboardService {
                 .toList();
 
         List<OwnerDashboardResponse.UserActivity> activity = auditLogRepository
-                .findAllByOrderByActionTimeDesc(PageRequest.of(0, 5))
+                .findAllByOrderByCreatedAtDesc(PageRequest.of(0, 5))
                 .stream()
                 .map(this::toUserActivity)
                 .toList();
@@ -97,14 +97,12 @@ public class DashboardService {
     }
 
     private OwnerDashboardResponse.UserActivity toUserActivity(AuditLog auditLog) {
-        LocalDateTime actionTime = auditLog.getActionTime() == null
-                ? auditLog.getCreatedAt()
-                : auditLog.getActionTime();
+        LocalDateTime actionTime = auditLog.getCreatedAt();
 
         return new OwnerDashboardResponse.UserActivity(
                 auditLog.getId(),
                 valueOrFallback(auditLog.getAction(), "Activity recorded"),
-                valueOrFallback(auditLog.getPerformedBy(), "System"),
+                valueOrFallback(auditLog.getUsername(), "System"),
                 actionTime == null ? null : actionTime.format(DATE_TIME_FORMAT));
     }
 

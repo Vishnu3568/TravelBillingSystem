@@ -12,6 +12,8 @@ import CompanyPage from "./pages/CompanyPage.jsx";
 import VehiclePage from "./pages/VehiclePage.jsx";
 import ReportsPage from "./pages/ReportsPage.jsx";
 import UserManagementPage from "./pages/UserManagementPage.jsx";
+import BackupPage from "./pages/BackupPage.jsx";
+import AuditLogPage from "./pages/AuditLogPage.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import "./styles/index.css";
 
@@ -83,6 +85,22 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={["OWNER"]}>
             <UserManagementPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "backup",
+        element: (
+          <ProtectedRoute allowedRoles={["OWNER"]}>
+            <BackupPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "audit-logs",
+        element: (
+          <ProtectedRoute allowedRoles={["OWNER"]}>
+            <AuditLogPage />
           </ProtectedRoute>
         ),
       },

@@ -25,6 +25,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final AuditLogService auditLogService;
 
     public LoginResponse login(LoginRequest request) {
         String username = request.getUsername().trim();
@@ -54,6 +55,8 @@ public class AuthService {
                 .authorities(new SimpleGrantedAuthority("ROLE_" + role))
                 .build();
         String token = jwtUtil.generateToken(userDetails);
+
+        auditLogService.logAction("LOGIN", "AUTH", "User " + username + " logged in successfully");
 
         return new LoginResponse(token, "Bearer", userDetails.getUsername(), role);
     }

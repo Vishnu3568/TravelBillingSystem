@@ -15,20 +15,17 @@ public class AuditLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private String username;
+    private String role;
     private String action;
-    private String performedBy;
-    private LocalDateTime actionTime;
-
+    private String module;
+    private String description;
+    private String ipAddress;
+    
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        createdAt = updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        createdAt = LocalDateTime.now();
     }
 }

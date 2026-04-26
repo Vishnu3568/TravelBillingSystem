@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 public class VehicleService {
 
     private final VehicleRepository vehicleRepository;
+    private final AuditLogService auditLogService;
 
     public List<VehicleResponse> getAllVehicles() {
         return vehicleRepository.findAll().stream()
@@ -30,7 +31,9 @@ public class VehicleService {
                 .type(request.getType())
                 .model(request.getModel())
                 .build();
-        return mapToResponse(vehicleRepository.save(vehicle));
+        Vehicle saved = vehicleRepository.save(vehicle);
+        auditLogService.logAction("CREATE_VEHICLE", "VEHICLE", "Created vehicle: " + saved.getRegistrationNumber());
+        return mapToResponse(saved);
     }
 
     @Transactional
@@ -42,15 +45,18 @@ public class VehicleService {
         vehicle.setType(request.getType());
         vehicle.setModel(request.getModel());
         
-        return mapToResponse(vehicleRepository.save(vehicle));
+        Vehicle saved = vehicleRepository.save(vehicle);
+        auditLogService.logAction("UPDATE_VEHICLE", "VEHICLE", "Updated vehicle: " + saved.getRegistrationNumber());
+        return mapToResponse(saved);
     }
 
     @Transactional
     public void deleteVehicle(Long id) {
-        if (!vehicleRepository.existsById(id)) {
-            throw new RuntimeException("Vehicle not found");
-        }
-        vehicleRepository.deleteById(id);
+        Vehicle vehicle = vehicleRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Vehicle not found"));
+        String reg = vehicle.getRegistrationNumber();
+        vehicleRepository.delete(vehicle);
+        auditLogService.logAction("DELETE_VEHICLE", "VEHICLE", "Deleted vehicle: " + reg);
     }
 
     private VehicleResponse mapToResponse(Vehicle vehicle) {
