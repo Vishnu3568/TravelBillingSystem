@@ -191,10 +191,9 @@ export default function BillViewPage() {
           </div>
         </div>
 
-        {/* Traditional Bill Format - Locked to A4 Sheet */}
-        <div className="bill-paper-wrapper mx-auto w-[21cm] min-h-[29.7cm] bg-white shadow-2xl print:shadow-none print:w-full print:min-h-0 mb-20 print:mb-0 border border-slate-200">
-          <div className="bill-container p-0 text-black leading-tight border-[4px] border-black h-full min-h-[29.7cm] print:min-h-0" style={{ fontFamily: '"Bookman Old Style", serif' }}>
-            <div className="border-[1.5px] border-black p-10 h-full min-h-[29.5cm] print:min-h-0 relative flex flex-col">
+        <div className="bill-paper-wrapper mx-auto w-[21cm] min-h-[29.6cm] bg-white shadow-2xl print:shadow-none print:w-full print:min-h-0 mb-20 print:mb-0 border border-slate-200 overflow-hidden">
+          <div className="bill-container p-0 text-black leading-tight border-[4px] border-black h-full min-h-[29.6cm] print:min-h-0" style={{ fontFamily: '"Bookman Old Style", serif' }}>
+            <div className="border-[1.5px] border-black p-8 h-full min-h-[29.4cm] print:min-h-0 relative flex flex-col overflow-hidden">
             {/* Header Section */}
             <div className="header-section text-center mb-8">
               <p className="text-[12px] mb-2 font-bold" style={{ fontFamily: '"Imprint MT Shadow", Georgia, serif' }}>Mobile No: 94405 22 814, 99892 08711, 9000 240 410</p>
@@ -282,7 +281,7 @@ export default function BillViewPage() {
           </div>
 
           {/* Amount in Words */}
-          <div className="mb-10 text-[14px]">
+          <div className="mb-8 text-[14px]">
             <p><span className="font-bold">Rupees (in words):</span> <span className="ml-2 font-bold uppercase underline decoration-solid underline-offset-4">{words} ONLY</span></p>
           </div>
 
@@ -312,12 +311,12 @@ export default function BillViewPage() {
       {/* Print Specific Styles */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          @page { size: A4; margin: 0; }
-          body { background: white !important; -webkit-print-color-adjust: exact; }
+          @page { size: A4; margin: 0.5cm; }
+          body { background: white !important; -webkit-print-color-adjust: exact; margin: 0 !important; }
           .print\\:hidden { display: none !important; }
-          .bill-paper-wrapper { width: 100% !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; min-height: 0 !important; border: none !important; }
-          .bill-container { border: 4px solid black !important; padding: 0 !important; width: 100% !important; min-height: 0 !important; }
-          .bill-container > div { padding: 1.5cm !important; border: 1.5px solid black !important; min-height: 0 !important; }
+          .bill-paper-wrapper { width: 100% !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; min-height: 0 !important; border: none !important; height: auto !important; }
+          .bill-container { border: 4px solid black !important; padding: 0 !important; width: 100% !important; min-height: 0 !important; height: auto !important; break-inside: avoid; }
+          .bill-container > div { padding: 1cm !important; border: 1.5px solid black !important; min-height: 0 !important; height: auto !important; }
           * { font-family: "Bookman Old Style", serif !important; }
           .header-title, .header-address, .header-contact { font-family: "Imprint MT Shadow", Georgia, serif !important; }
         }
