@@ -9,7 +9,8 @@ import {
   Calendar, 
   Building2, 
   FileText,
-  Filter
+  Filter,
+  Pencil
 } from "lucide-react";
 import api from "../services/api";
 import { format } from "date-fns";
@@ -266,6 +267,13 @@ export default function BillHistoryPage() {
                             title="Download PDF"
                           >
                             <FileDown className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => navigate(`/edit-bill/${bill.id}`)}
+                            className="p-1.5 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-all"
+                            title="Edit Bill"
+                          >
+                            <Pencil className="w-5 h-5" />
                           </button>
                         </div>
                       </td>

@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { 
-  Building2, 
-  Plus, 
-  Search, 
-  Edit2, 
-  Trash2, 
-  X, 
-  Check, 
+import {
+  Building2,
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
+  X,
+  Check,
   Loader2,
   MapPin,
   FileText
@@ -49,8 +49,8 @@ const CompanyPage = () => {
       }
       setIsAdding(false);
       setEditingId(null);
-        setFormData({ name: "", address: "", gstNumber: "", hasGst: false });
-        fetchCompanies();
+      setFormData({ name: "", address: "", gstNumber: "", hasGst: false });
+      fetchCompanies();
     } catch (err) {
       console.error("Error saving company:", err);
       setError("Failed to save company");
@@ -59,16 +59,17 @@ const CompanyPage = () => {
 
   const handleEdit = (company) => {
     setEditingId(company.id);
-    setFormData({ 
-      name: company.name, 
-      address: company.address, 
-      gstNumber: company.gstNumber, 
-      hasGst: !!company.gstNumber 
+    setFormData({
+      name: company.name,
+      address: company.address,
+      gstNumber: company.gstNumber,
+      hasGst: !!company.gstNumber
     });
     setIsAdding(true);
   };
 
   const handleDelete = async (id) => {
+    console.log("handleDelete called for id:", id);
     if (window.confirm("Are you sure you want to delete this company?")) {
       try {
         await api.delete(`/companies/${id}`);
@@ -80,7 +81,7 @@ const CompanyPage = () => {
     }
   };
 
-  const filteredCompanies = companies.filter(c => 
+  const filteredCompanies = companies.filter(c =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (c.gstNumber && c.gstNumber.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -242,7 +243,7 @@ const CompanyPage = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex justify-end gap-2 transition-opacity">
                           <button
                             onClick={() => handleEdit(company)}
                             className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
@@ -251,11 +252,10 @@ const CompanyPage = () => {
                             <Edit2 size={16} />
                           </button>
                           <button
-                            onClick={() => handleDelete(company.id)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                            title="Delete"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); console.log("DEBUG_DELETE_CLICKED", company.id); handleDelete(company.id); }}
+                            className="px-3 py-1 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-all"
                           >
-                            <Trash2 size={16} />
+                            DELETE
                           </button>
                         </div>
                       </td>

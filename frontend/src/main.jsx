@@ -14,17 +14,27 @@ import ReportsPage from "./pages/ReportsPage.jsx";
 import UserManagementPage from "./pages/UserManagementPage.jsx";
 import BackupPage from "./pages/BackupPage.jsx";
 import AuditLogPage from "./pages/AuditLogPage.jsx";
+import EditBillPage from "./pages/EditBillPage.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import { Toaster } from "sonner";
 import "./styles/index.css";
 
 import MainLayout from "./ui/MainLayout.jsx";
+import { useAuth } from "./context/AuthContext.jsx";
+import { dashboardPathForRole } from "./utils/routes.js";
+
+function HomeRedirect() {
+  const { isAuthenticated, role } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return <Navigate to={dashboardPathForRole(role)} replace />;
+}
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
     children: [
-      { index: true, element: <Navigate to="/login" replace /> },
+      { index: true, element: <HomeRedirect /> },
       { path: "login", element: <LoginPage /> },
       {
         element: <MainLayout />,
@@ -58,6 +68,14 @@ const router = createBrowserRouter([
             element: (
               <ProtectedRoute allowedRoles={["OWNER", "MANAGER", "EMPLOYEE"]}>
                 <BillViewPage />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "edit-bill/:id",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER", "MANAGER"]}>
+                <EditBillPage />
               </ProtectedRoute>
             ),
           },
@@ -136,7 +154,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthProvider>
       <RouterProvider router={router} />
-      <Toaster position="top-right" />
+      <Toaster position="top-right" richColors />
     </AuthProvider>
   </React.StrictMode>,
 );

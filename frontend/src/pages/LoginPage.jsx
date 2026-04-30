@@ -38,13 +38,13 @@ export default function LoginPage() {
             <div>
               <div className="flex items-center gap-3">
                 <div className="grid h-10 w-10 place-items-center rounded bg-cyan-400 font-bold text-slate-950">
-                  TB
+                  STB
                 </div>
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-widest text-cyan-200">
-                    Travel Billing System
+                    Sri Tulja Bhavani Travels
                   </p>
-                  <p className="text-sm text-slate-400">Secure operations console</p>
+                  <p className="text-sm text-slate-400">Rent a car Billing System</p>
                 </div>
               </div>
               <div className="mt-20 max-w-xl">
@@ -79,13 +79,13 @@ export default function LoginPage() {
             <div className="mb-8 lg:hidden">
               <div className="flex items-center gap-3">
                 <div className="grid h-10 w-10 place-items-center rounded bg-slate-950 font-bold text-white">
-                  TB
+                  STB
                 </div>
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-widest text-slate-500">
-                    Travel Billing System
+                    Sri Tulja Bhavani Travels
                   </p>
-                  <p className="text-sm text-slate-500">Secure operations console</p>
+                  <p className="text-sm text-slate-500">Rent a car Billing System</p>
                 </div>
               </div>
             </div>

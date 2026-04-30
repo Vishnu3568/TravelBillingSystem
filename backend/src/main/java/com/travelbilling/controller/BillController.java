@@ -74,7 +74,7 @@ public class BillController {
         byte[] pdfContent = pdfService.generateInvoicePdf(id);
         
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Invoice-" + bill.billNumber() + ".pdf\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Invoice-" + bill.getBillNumber() + ".pdf\"")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdfContent);
     }

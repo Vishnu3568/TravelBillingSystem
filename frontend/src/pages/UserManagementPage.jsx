@@ -232,7 +232,7 @@ const UserManagementPage = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-2 transition-opacity">
                           <button 
                             onClick={() => { setSelectedUser(user); setIsResetModalOpen(true); }}
                             className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
@@ -241,8 +241,8 @@ const UserManagementPage = () => {
                             <Key size={18} />
                           </button>
                           <button 
-                            onClick={() => handleDeleteUser(user.id)}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteUser(user.id); }}
+                            className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition"
                             title="Disable User"
                           >
                             <Trash2 size={18} />

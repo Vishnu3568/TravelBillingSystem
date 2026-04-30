@@ -68,6 +68,7 @@ const VehiclePage = () => {
   };
 
   const handleDelete = async (id) => {
+    console.log("handleDelete called for vehicle id:", id);
     if (window.confirm("Are you sure you want to delete this vehicle?")) {
       try {
         await api.delete(`/vehicles/${id}`);
@@ -236,7 +237,7 @@ const VehiclePage = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex justify-end gap-2 transition-opacity">
                           <button
                             onClick={() => handleEdit(vehicle)}
                             className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
@@ -245,11 +246,11 @@ const VehiclePage = () => {
                             <Edit2 size={16} />
                           </button>
                           <button
-                            onClick={() => handleDelete(vehicle.id)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            onClick={(e) => { e.stopPropagation(); handleDelete(vehicle.id); }}
+                            className="p-2 text-red-600 hover:bg-red-100 rounded-lg"
                             title="Delete"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={18} />
                           </button>
                         </div>
                       </td>

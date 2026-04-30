@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Home, Building2, Truck, Users, BarChart2, Database, ClipboardList, Settings } from 'lucide-react';
-import { useAuth } from '../context/AuthContext'; // Adjust import path to your auth context
+import { useAuth } from '../context/AuthContext.jsx'; // Adjust import path to your auth context
 
 const routes = [
   { to: '/', icon: Home, label: 'Dashboard' },
@@ -18,7 +18,7 @@ export default function Sidebar() {
   const { role } = useAuth(); // role string like 'OWNER', 'MANAGER', 'EMPLOYEE'
   return (
     <nav className="hidden md:flex flex-col w-64 bg-slate-900 text-slate-100 h-screen p-4">
-      <div className="text-lg font-semibold mb-6">Travel Billing</div>
+      <div className="text-lg font-semibold mb-6 leading-tight">Sri Tulja Bhavani Travels</div>
       <ul className="flex-1 space-y-1">
         {routes
           .filter(r => !r.roles || r.roles.includes(role))

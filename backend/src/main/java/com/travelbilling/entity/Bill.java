@@ -22,8 +22,14 @@ public class Bill {
     private String companyName;
     private String vehicleName;
     private String dutySlipNo;
+    private LocalDateTime tripDate;
+    private String vehicleType;
+    private String acNonAc;
     private Double totalKms;
     private Double totalHours;
+    private Double extraKms;
+    private Double extraHours;
+    private String tripType;
     private Double baseAmount;
     private Double driverBata;
     private Double parking;
@@ -33,6 +39,13 @@ public class Bill {
 
     @Column(length = 1000)
     private String notes;
+
+    @Column(columnDefinition = "TEXT")
+    private String dynamicCharges;
+
+    private String contactPerson;
+    private String bookedBy;
+    private String managerName;
 
     private Double grandTotal;
     private String createdBy;
