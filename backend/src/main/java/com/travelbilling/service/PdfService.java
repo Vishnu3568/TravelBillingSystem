@@ -97,55 +97,54 @@ public class PdfService {
                 mainTable.addHeaderCell(new Cell().add(new Paragraph(header).setBold().setFontSize(8.5f)).setTextAlignment(TextAlignment.CENTER));
             }
 
-            // CALCULATION LOGIC
+            // CALCULATION LOGIC FOR ROW-BY-ROW DISPLAY
             double kms = bill.getTotalKms() != null ? bill.getTotalKms() : 0;
             double hrs = bill.getTotalHours() != null ? bill.getTotalHours() : 0;
             String vType = bill.getVehicleType() != null ? bill.getVehicleType().toUpperCase() : "SEDAN";
             boolean isLongTrip = kms > 200;
 
-            String extraKmText = "";
-            String extraHrText = "";
-            String amtText = "";
-            double rowTotal = 0;
-
-            if (isLongTrip) {
-                double rate = vType.contains("CRYSTA") ? 18 : 14;
-                amtText = ((int)kms) + "x" + ((int)rate);
-                rowTotal = kms * rate;
-            } else {
-                amtText = "8/80";
-                rowTotal = 2800;
-
-                if (kms > 80) {
-                    int extraKm = (int)kms - 80;
-                    extraKmText = extraKm + "x16";
-                    rowTotal += extraKm * 16;
-                }
-
-                if (hrs > 8) {
-                    int extraHr = (int)hrs - 8;
-                    extraHrText = extraHr + "x130";
-                    rowTotal += extraHr * 130;
-                }
-            }
-
-            // Trip Row
+            // 1. Base Trip Row
             mainTable.addCell(new Cell().add(new Paragraph(bill.getDutySlipNo() != null ? bill.getDutySlipNo() : "")).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
             mainTable.addCell(new Cell().add(new Paragraph(bill.getTripDate() != null ? bill.getTripDate().format(TRIP_DATE_FORMATTER) : "")).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
             mainTable.addCell(new Cell().add(new Paragraph(bill.getVehicleName() != null ? bill.getVehicleName() : "")).setFontSize(8.5f).setTextAlignment(TextAlignment.LEFT));
             mainTable.addCell(new Cell().add(new Paragraph(String.valueOf((int)kms))).setFontSize(8.5f).setTextAlignment(TextAlignment.RIGHT));
             mainTable.addCell(new Cell().add(new Paragraph(String.valueOf((int)hrs))).setFontSize(8.5f).setTextAlignment(TextAlignment.RIGHT));
-            mainTable.addCell(new Cell().add(new Paragraph(extraKmText)).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
-            mainTable.addCell(new Cell().add(new Paragraph(extraHrText)).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
-            mainTable.addCell(new Cell().add(new Paragraph(amtText)).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
-            mainTable.addCell(new Cell().add(new Paragraph(String.format("%.2f", rowTotal))).setFontSize(9).setBold().setTextAlignment(TextAlignment.RIGHT));
+            mainTable.addCell(new Cell().add(new Paragraph("")).setFontSize(8.5f)); // Extra Km empty
+            mainTable.addCell(new Cell().add(new Paragraph("")).setFontSize(8.5f)); // Extra Hr empty
+            
+            if (isLongTrip) {
+                double rate = vType.contains("CRYSTA") ? 18 : 14;
+                mainTable.addCell(new Cell().add(new Paragraph(((int)kms) + "x" + ((int)rate))).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
+                mainTable.addCell(new Cell().add(new Paragraph(String.format("%.2f", kms * rate))).setFontSize(9).setBold().setTextAlignment(TextAlignment.RIGHT));
+            } else {
+                mainTable.addCell(new Cell().add(new Paragraph("8/80")).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
+                mainTable.addCell(new Cell().add(new Paragraph("2800.00")).setFontSize(9).setBold().setTextAlignment(TextAlignment.RIGHT));
 
-            // Additional Charges
+                // 2. Extra Km Row
+                if (kms > 80) {
+                    for (int j = 0; j < 5; j++) mainTable.addCell(new Cell().add(new Paragraph("")));
+                    int ekm = (int)kms - 80;
+                    mainTable.addCell(new Cell().add(new Paragraph(ekm + "x16")).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
+                    mainTable.addCell(new Cell().add(new Paragraph("")).setFontSize(8.5f));
+                    mainTable.addCell(new Cell().add(new Paragraph("")).setFontSize(8.5f));
+                    mainTable.addCell(new Cell().add(new Paragraph(String.format("%.2f", (double)ekm * 16))).setFontSize(9).setBold().setTextAlignment(TextAlignment.RIGHT));
+                }
+
+                // 3. Extra Hr Row
+                if (hrs > 8) {
+                    for (int j = 0; j < 6; j++) mainTable.addCell(new Cell().add(new Paragraph("")));
+                    int eh = (int)hrs - 8;
+                    mainTable.addCell(new Cell().add(new Paragraph(eh + "x130")).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
+                    mainTable.addCell(new Cell().add(new Paragraph("")).setFontSize(8.5f));
+                    mainTable.addCell(new Cell().add(new Paragraph(String.format("%.2f", (double)eh * 130))).setFontSize(9).setBold().setTextAlignment(TextAlignment.RIGHT));
+                }
+            }
+
+            // 4. Additional Charges
             List<ChargeDTO> charges = deserializeCharges(bill.getDynamicCharges());
             if (charges != null) {
                 for (ChargeDTO charge : charges) {
                     String name = charge.getName().toLowerCase();
-                    // Skip system charges already handled in trip row
                     if (name.contains("base amount") || name.contains("extra km") || 
                         name.contains("extra hours") || name.contains("distance charge")) continue;
 
@@ -188,7 +187,7 @@ public class PdfService {
             document.add(footerTable);
 
             // Mobile Numbers
-            document.add(new Paragraph("\nMobile: 98480 12345, 98480 67890")
+            document.add(new Paragraph("\nMobile: 9440522814, 9989208711, 9000240410")
                     .setFontSize(8)
                     .setTextAlignment(TextAlignment.RIGHT));
 

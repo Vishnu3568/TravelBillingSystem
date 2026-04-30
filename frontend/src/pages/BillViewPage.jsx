@@ -59,59 +59,81 @@ export default function BillViewPage() {
     window.print();
   };
 
-  // CALCULATION LOGIC FOR DISPLAY
-  const tripRowData = useMemo(() => {
-    if (!bill) return null;
+  // REFINED CALCULATION LOGIC FOR ROW-BY-ROW DISPLAY
+  const billRows = useMemo(() => {
+    if (!bill) return [];
 
     const kms = Number(bill.totalKms || 0);
     const hrs = Number(bill.totalHours || 0);
     const vType = (bill.vehicleType || "SEDAN").toUpperCase();
     const isLongTrip = kms > 200;
 
-    let extraKmText = "";
-    let extraHrText = "";
-    let amtText = "";
-    let rowTotal = 0;
+    const rows = [];
 
+    // 1. BASE TRIP ROW
     if (isLongTrip) {
       const rate = vType.includes("CRYSTA") ? 18 : 14;
-      amtText = `${kms}x${rate}`;
-      rowTotal = kms * rate;
+      rows.push({
+        isFirst: true,
+        extraKm: "",
+        extraHr: "",
+        amt: `${kms}x${rate}`,
+        total: kms * rate
+      });
     } else {
-      amtText = "8/80";
-      rowTotal = 2800;
+      rows.push({
+        isFirst: true,
+        extraKm: "",
+        extraHr: "",
+        amt: "8/80",
+        total: 2800
+      });
 
+      // 2. EXTRA KM ROW
       if (kms > 80) {
-        const extraKm = kms - 80;
-        extraKmText = `${extraKm}x16`;
-        rowTotal += extraKm * 16;
+        const ekm = kms - 80;
+        rows.push({
+          isFirst: false,
+          extraKm: `${ekm}x16`,
+          extraHr: "",
+          amt: "",
+          total: ekm * 16
+        });
       }
 
+      // 3. EXTRA HOURS ROW
       if (hrs > 8) {
-        const extraHr = hrs - 8;
-        extraHrText = `${extraHr}x130`;
-        rowTotal += extraHr * 130;
+        const eh = hrs - 8;
+        rows.push({
+          isFirst: false,
+          extraKm: "",
+          extraHr: `${eh}x130`,
+          amt: "",
+          total: eh * 130
+        });
       }
     }
 
-    // Filter dynamic charges to exclude the ones we just put in columns
-    // We identify system charges by their name
-    const additionalCharges = (bill.dynamicCharges || []).filter(c => {
+    // 4. ADDITIONAL CHARGES
+    const additional = (bill.dynamicCharges || []).filter(c => {
       const name = c.name.toLowerCase();
-      if (name.includes("base amount")) return false;
-      if (name.includes("extra km")) return false;
-      if (name.includes("extra hours")) return false;
-      if (name.includes("distance charge")) return false;
-      return true;
+      return !name.includes("base amount") && 
+             !name.includes("extra km") && 
+             !name.includes("extra hours") && 
+             !name.includes("distance charge");
     });
 
-    return {
-      extraKmText,
-      extraHrText,
-      amtText,
-      rowTotal,
-      additionalCharges
-    };
+    additional.forEach(c => {
+      rows.push({
+        isFirst: false,
+        extraKm: "",
+        extraHr: "",
+        amt: c.name,
+        total: c.amount
+      });
+    });
+
+    return rows;
   }, [bill]);
 
   if (loading) {
@@ -169,14 +191,14 @@ export default function BillViewPage() {
         </div>
 
         {/* Traditional Bill Format */}
-        <div className="bill-container bg-white p-[1cm] md:p-[1.5cm] print:p-0 font-serif text-black leading-tight">
+        <div className="bill-container bg-white p-[1cm] md:p-[1.5cm] print:p-0 text-black leading-tight" style={{ fontFamily: '"Bookman Old Style", serif' }}>
           
           {/* Header */}
           <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold mb-0" style={{ fontFamily: '"Times New Roman", Times, serif' }}>SRI TULJA BHAVANI TRAVELS</h1>
-            <h2 className="text-xl font-bold text-red-600 mb-1">RENT-A-CAR</h2>
-            <p className="text-xs mb-0">1-11-113/3, P2 Sai Shikara Apartments, Shyamlal Building Begumpet, Hyderabad - 500016</p>
-            <p className="text-xs underline">srituljabhavanitravels.rentacar@gmail.com</p>
+            <h1 className="header-title text-3xl font-bold mb-0" style={{ fontFamily: '"Imprint MT Shadow", Georgia, serif', letterSpacing: '1px' }}>SRI TULJA BHAVANI TRAVELS</h1>
+            <h2 className="header-title text-xl font-bold text-red-600 mb-1" style={{ fontFamily: '"Imprint MT Shadow", Georgia, serif' }}>RENT-A-CAR</h2>
+            <p className="header-address text-xs mb-0" style={{ fontFamily: '"Imprint MT Shadow", Georgia, serif' }}>1-11-113/3, P2 Sai Shikara Apartments, Shyamlal Building Begumpet, Hyderabad - 500016</p>
+            <p className="header-contact text-xs underline" style={{ fontFamily: '"Imprint MT Shadow", Georgia, serif' }}>srituljabhavanitravels.rentacar@gmail.com</p>
           </div>
 
           <div className="w-full mb-4">
@@ -184,12 +206,12 @@ export default function BillViewPage() {
               <tbody>
                 <tr>
                   <td className="w-1/2 py-1">
-                    <p>Bill No. {bill.billNumber}</p>
+                    <p style={{ whiteSpace: 'nowrap' }}>Bill No. {bill.billNumber}</p>
                     <p className="mt-2">To.</p>
                     <p className="font-bold">{bill.companyName}</p>
                   </td>
                   <td className="w-1/2 text-right align-top py-1">
-                    <p>Date: {bill.billDate ? format(new Date(bill.billDate), "dd-MM-yyyy") : "-"}</p>
+                    <p style={{ whiteSpace: 'nowrap' }}>Date: {bill.billDate ? format(new Date(bill.billDate), "dd-MM-yyyy") : "-"}</p>
                   </td>
                 </tr>
               </tbody>
@@ -213,30 +235,20 @@ export default function BillViewPage() {
                 </tr>
               </thead>
               <tbody>
-                {/* Main Trip Row */}
-                <tr>
-                  <td className="border border-black p-1 text-center">{bill.dutySlipNo || ""}</td>
-                  <td className="border border-black p-1 text-center whitespace-nowrap">
-                    {bill.tripDate ? format(new Date(bill.tripDate), "dd-MM-yy") : ""}
-                  </td>
-                  <td className="border border-black p-1 text-left">{bill.vehicleName || ""}</td>
-                  <td className="border border-black p-1 text-right">{bill.totalKms || ""}</td>
-                  <td className="border border-black p-1 text-right">{bill.totalHours || ""}</td>
-                  <td className="border border-black p-1 text-center">{tripRowData.extraKmText}</td>
-                  <td className="border border-black p-1 text-center">{tripRowData.extraHrText}</td>
-                  <td className="border border-black p-1 text-center">{tripRowData.amtText}</td>
-                  <td className="border border-black p-1 text-right font-bold">
-                    {tripRowData.rowTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </td>
-                </tr>
-
-                {/* Additional Charges Rows */}
-                {tripRowData.additionalCharges.map((charge, idx) => (
+                {billRows.map((row, idx) => (
                   <tr key={idx}>
-                    <td className="border border-black p-1" colSpan={7}></td>
-                    <td className="border border-black p-1 text-center">{charge.name}</td>
+                    <td className="border border-black p-1 text-center">{row.isFirst ? (bill.dutySlipNo || "") : ""}</td>
+                    <td className="border border-black p-1 text-center whitespace-nowrap">
+                      {row.isFirst && bill.tripDate ? format(new Date(bill.tripDate), "dd-MM-yy") : ""}
+                    </td>
+                    <td className="border border-black p-1 text-left whitespace-nowrap">{row.isFirst ? (bill.vehicleName || "") : ""}</td>
+                    <td className="border border-black p-1 text-right">{row.isFirst ? (bill.totalKms || "") : ""}</td>
+                    <td className="border border-black p-1 text-right">{row.isFirst ? (bill.totalHours || "") : ""}</td>
+                    <td className="border border-black p-1 text-center">{row.extraKm}</td>
+                    <td className="border border-black p-1 text-center">{row.extraHr}</td>
+                    <td className="border border-black p-1 text-center">{row.amt}</td>
                     <td className="border border-black p-1 text-right font-bold">
-                      {charge.amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      {row.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
                 ))}
@@ -270,8 +282,8 @@ export default function BillViewPage() {
             </div>
           </div>
 
-          <div className="text-right text-[9px] mt-4">
-            <p>Mobile: 98480 12345, 98480 67890</p>
+          <div className="header-contact text-right text-[10px] mt-4" style={{ fontFamily: '"Imprint MT Shadow", Georgia, serif', whiteSpace: 'nowrap' }}>
+            <p>Mobile: 9440522814, 9989208711, 9000240410</p>
           </div>
 
         </div>
@@ -284,7 +296,8 @@ export default function BillViewPage() {
           body { background: white !important; -webkit-print-color-adjust: exact; }
           .print\\:hidden { display: none !important; }
           .bill-container { padding: 1.5cm !important; width: 100% !important; border: none !important; box-shadow: none !important; }
-          * { font-family: "Times New Roman", Times, serif !important; }
+          * { font-family: "Bookman Old Style", serif !important; }
+          .header-title, .header-address, .header-contact { font-family: "Imprint MT Shadow", Georgia, serif !important; }
         }
         .bill-container {
           box-shadow: none;
