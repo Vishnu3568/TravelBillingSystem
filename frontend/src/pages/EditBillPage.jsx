@@ -5,6 +5,7 @@ import api from "../services/api.js";
 import { numberToWords } from "../utils/numberToWords.js";
 import { calculateCharges } from "../utils/pricingUtils.js";
 import { toast } from "sonner";
+import { Undo2, Redo2, RotateCcw } from "lucide-react";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -39,6 +40,13 @@ export default function EditBillPage() {
   const { logout } = useAuth();
   const [form, setForm] = useState(initialForm);
   const [manualCharges, setManualCharges] = useState([]); // User added rows
+  
+  // History Stack for Undo/Redo
+  const [history, setHistory] = useState({
+    past: [],
+    future: []
+  });
+
   const [companies, setCompanies] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -60,7 +68,7 @@ export default function EditBillPage() {
         const system = allCharges.filter(c => c.isSystem);
         const manual = allCharges.filter(c => !c.isSystem);
 
-        setForm({
+        const initialFormData = {
           billNumber: bill.billNumber,
           date: bill.billDate || today(),
           company: bill.companyName,
@@ -78,11 +86,17 @@ export default function EditBillPage() {
           notes: bill.notes || "",
           contactPerson: bill.contactPerson || "",
           bookedBy: bill.bookedBy || "",
-          managerName: bill.managerName || "Sri Tulja Bhavani Travels",
-          dynamicCharges: system
-        });
+        const initialManual = manual.length > 0 ? manual : [{ name: "", calculation: "", amount: "", isSystem: false }];
+
+        setForm(initialFormData);
+        setManualCharges(initialManual);
         
-        setManualCharges(manual.length > 0 ? manual : [{ name: "", calculation: "", amount: "", isSystem: false }]);
+        // Initialize history with the first state
+        setHistory({
+          past: [],
+          future: []
+        });
+
         setCompanies(companiesRes.data);
         setVehicles(vehiclesRes.data);
       } catch (err) {
@@ -121,22 +135,70 @@ export default function EditBillPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    saveToHistory();
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
   const handleManualChargeChange = (index, field, value) => {
+    saveToHistory();
     const newCharges = [...manualCharges];
     newCharges[index][field] = value;
     setManualCharges(newCharges);
   };
 
   const addManualRow = () => {
+    saveToHistory();
     setManualCharges(prev => [...prev, { name: "", calculation: "", amount: "", isSystem: false }]);
   };
 
   const removeManualRow = (index) => {
+    saveToHistory();
     const newCharges = manualCharges.filter((_, i) => i !== index);
     setManualCharges(newCharges.length > 0 ? newCharges : [{ name: "", calculation: "", amount: "", isSystem: false }]);
+  };
+
+  // HISTORY LOGIC
+  const saveToHistory = () => {
+    setHistory(prev => ({
+      past: [...prev.past.slice(-49), { form: JSON.parse(JSON.stringify(form)), manualCharges: JSON.parse(JSON.stringify(manualCharges)) }],
+      future: []
+    }));
+  };
+
+  const undo = () => {
+    if (history.past.length === 0) return;
+    
+    const previous = history.past[history.past.length - 1];
+    const newPast = history.past.slice(0, history.past.length - 1);
+    
+    setHistory({
+      past: newPast,
+      future: [{ form: JSON.parse(JSON.stringify(form)), manualCharges: JSON.parse(JSON.stringify(manualCharges)) }, ...history.future]
+    });
+    
+    setForm(previous.form);
+    setManualCharges(previous.manualCharges);
+  };
+
+  const redo = () => {
+    if (history.future.length === 0) return;
+    
+    const next = history.future[0];
+    const newFuture = history.future.slice(1);
+    
+    setHistory({
+      past: [...history.past, { form: JSON.parse(JSON.stringify(form)), manualCharges: JSON.parse(JSON.stringify(manualCharges)) }],
+      future: newFuture
+    });
+    
+    setForm(next.form);
+    setManualCharges(next.manualCharges);
+  };
+
+  const resetToOriginal = () => {
+    if (window.confirm("This will clear ALL your current changes. Are you sure?")) {
+      window.location.reload();
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -200,7 +262,37 @@ export default function EditBillPage() {
             <h1 className="text-xl font-bold text-slate-900">Edit Bill (Auto-Calculation Active)</h1>
             <p className="text-sm text-slate-500">Bill Number: {form.billNumber}</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
+            {/* MS Word Style Quick Access Buttons */}
+            <div className="flex items-center gap-1 border-r border-slate-200 pr-3 mr-1">
+              <button
+                type="button"
+                onClick={undo}
+                disabled={history.past.length === 0}
+                title="Undo (Ctrl+Z)"
+                className="p-1.5 rounded hover:bg-slate-100 text-slate-600 disabled:opacity-30 transition-colors"
+              >
+                <Undo2 className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={redo}
+                disabled={history.future.length === 0}
+                title="Redo (Ctrl+Y)"
+                className="p-1.5 rounded hover:bg-slate-100 text-slate-600 disabled:opacity-30 transition-colors"
+              >
+                <Redo2 className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={resetToOriginal}
+                title="Reset to Original"
+                className="p-1.5 rounded hover:bg-slate-100 text-slate-600 transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            </div>
+
             <button
               onClick={() => navigate(-1)}
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
