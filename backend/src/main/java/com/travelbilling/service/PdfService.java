@@ -1,17 +1,19 @@
 package com.travelbilling.service;
 
-import com.itextpdf.kernel.colors.ColorConstants;
-import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.colors.DeviceRgb;
+import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.borders.Border;
+import com.itextpdf.layout.borders.DoubleBorder;
+import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.Cell;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
+import com.itextpdf.layout.properties.VerticalAlignment;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelbilling.dto.ChargeDTO;
@@ -20,7 +22,6 @@ import com.travelbilling.repository.BillRepository;
 import com.travelbilling.util.NumberToWordsUtil;
 import java.io.ByteArrayOutputStream;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -43,160 +44,178 @@ public class PdfService {
             PdfWriter writer = new PdfWriter(out);
             PdfDocument pdf = new PdfDocument(writer);
             Document document = new Document(pdf, PageSize.A4);
-            document.setMargins(40, 40, 40, 40);
+            document.setMargins(15, 15, 15, 15);
 
-            // 1. Header (Centered)
-            document.add(new Paragraph("SRI TULJA BHAVANI TRAVELS")
-                    .setFontSize(24)
+            // 1. MASTER PAGE BORDER (Double Border)
+            Table pageWrapper = new Table(UnitValue.createPercentArray(new float[]{100}))
+                    .useAllAvailableWidth()
+                    .setMinHeight(PageSize.A4.getHeight() - 30) // Lock to A4 height
+                    .setBorder(new DoubleBorder(3));
+
+            Cell innerCell = new Cell()
+                    .setBorder(new SolidBorder(0.8f)) // Inner bold border
+                    .setPadding(30)
+                    .setVerticalAlignment(VerticalAlignment.TOP);
+
+            // 2. HEADER SECTION
+            innerCell.add(new Paragraph("SRI TULJA BHAVANI TRAVELS")
+                    .setFontSize(26)
                     .setBold()
                     .setTextAlignment(TextAlignment.CENTER)
                     .setMarginBottom(0));
             
-            document.add(new Paragraph("RENT-A-CAR")
+            innerCell.add(new Paragraph("RENT-A-CAR")
                     .setFontSize(14)
                     .setBold()
-                    .setFontColor(new DeviceRgb(255, 0, 0))
+                    .setFontColor(new DeviceRgb(220, 38, 38)) // Professional Red
                     .setTextAlignment(TextAlignment.CENTER)
-                    .setMarginBottom(2));
+                    .setMarginBottom(5));
             
-            document.add(new Paragraph("1-11-113/3, P2 Sai Shikara Apartments, Shyamlal Building Begumpet, Hyderabad - 500016")
+            innerCell.add(new Paragraph("1-11-113/3, P2 Sai Shikara Apartments, Shyamlal Building Begumpet, Hyderabad - 500016")
                     .setFontSize(8)
                     .setTextAlignment(TextAlignment.CENTER)
                     .setMarginBottom(0));
             
-            document.add(new Paragraph("srituljabhavanitravels.rentacar@gmail.com")
+            innerCell.add(new Paragraph("srituljabhavanitravels.rentacar@gmail.com")
                     .setFontSize(8)
                     .setUnderline()
                     .setTextAlignment(TextAlignment.CENTER)
-                    .setMarginBottom(20));
+                    .setMarginBottom(25));
 
-            // 2. Bill Meta Row (Bill No & Date)
-            Table metaTable = new Table(UnitValue.createPercentArray(new float[]{70, 30}))
+            // 3. BILL META DATA
+            Table metaTable = new Table(UnitValue.createPercentArray(new float[]{60, 40}))
                     .useAllAvailableWidth()
-                    .setMarginBottom(10);
+                    .setMarginBottom(15);
             
             metaTable.addCell(new Cell().add(new Paragraph("Bill No. " + bill.getBillNumber())).setBorder(Border.NO_BORDER).setFontSize(10));
             metaTable.addCell(new Cell().add(new Paragraph("Date: " + bill.getBillDate().format(DATE_FORMATTER))).setBorder(Border.NO_BORDER).setTextAlignment(TextAlignment.RIGHT).setFontSize(10));
             
-            metaTable.addCell(new Cell().add(new Paragraph("\nTo.")).setBorder(Border.NO_BORDER).setFontSize(10));
+            metaTable.addCell(new Cell().add(new Paragraph("\nTo.")).setBorder(Border.NO_BORDER).setFontSize(10).setPaddingBottom(0));
             metaTable.addCell(new Cell().setBorder(Border.NO_BORDER));
             
-            metaTable.addCell(new Cell().add(new Paragraph(bill.getCompanyName())).setBorder(Border.NO_BORDER).setBold().setFontSize(11));
+            metaTable.addCell(new Cell().add(new Paragraph(bill.getCompanyName().toUpperCase())).setBorder(Border.NO_BORDER).setBold().setFontSize(11));
             metaTable.addCell(new Cell().setBorder(Border.NO_BORDER));
             
-            document.add(metaTable);
+            innerCell.add(metaTable);
 
-            // 3. Main Table (9 Columns)
+            // 4. MAIN INVOICE TABLE (9 COLUMNS)
             Table mainTable = new Table(UnitValue.createPercentArray(new float[]{10, 10, 15, 8, 8, 8, 8, 18, 15}))
-                    .useAllAvailableWidth()
-                    .setMarginBottom(10);
+                    .useAllAvailableWidth();
 
-            // Header Cells
-            String[] headers = {"Duty Slip No", "Date", "Vehicle No", "Total Kms", "Total Hrs", "Extra Kms", "Extra Hrs", "Amt", "Total Amount"};
-            for (String header : headers) {
-                mainTable.addHeaderCell(new Cell().add(new Paragraph(header).setBold().setFontSize(8.5f)).setTextAlignment(TextAlignment.CENTER));
+            // Table Headers with SOLID borders
+            String[] headers = {"Duty Slip", "Date", "Vehicle", "Kms", "Hrs", "Extra Kms", "Extra Hrs", "Amt", "Total"};
+            for (String h : headers) {
+                mainTable.addHeaderCell(new Cell().add(new Paragraph(h).setBold().setFontSize(8)).setTextAlignment(TextAlignment.CENTER).setBorder(new SolidBorder(0.5f)));
             }
 
-            // CALCULATION LOGIC FOR ROW-BY-ROW DISPLAY
+            // Calculation Constants
             double kms = bill.getTotalKms() != null ? bill.getTotalKms() : 0;
             double hrs = bill.getTotalHours() != null ? bill.getTotalHours() : 0;
-            String vType = bill.getVehicleType() != null ? bill.getVehicleType().toUpperCase() : "SEDAN";
+            String vType = (bill.getVehicleType() != null ? bill.getVehicleType() : "SEDAN").toUpperCase();
             boolean isLongTrip = kms > 200;
 
-            // 1. Base Trip Row
-            mainTable.addCell(new Cell().add(new Paragraph(bill.getDutySlipNo() != null ? bill.getDutySlipNo() : "")).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
-            mainTable.addCell(new Cell().add(new Paragraph(bill.getTripDate() != null ? bill.getTripDate().format(TRIP_DATE_FORMATTER) : "")).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
-            mainTable.addCell(new Cell().add(new Paragraph(bill.getVehicleName() != null ? bill.getVehicleName() : "")).setFontSize(8.5f).setTextAlignment(TextAlignment.LEFT));
-            mainTable.addCell(new Cell().add(new Paragraph(String.valueOf((int)kms))).setFontSize(8.5f).setTextAlignment(TextAlignment.RIGHT));
-            mainTable.addCell(new Cell().add(new Paragraph(String.valueOf((int)hrs))).setFontSize(8.5f).setTextAlignment(TextAlignment.RIGHT));
-            mainTable.addCell(new Cell().add(new Paragraph("")).setFontSize(8.5f)); // Extra Km empty
-            mainTable.addCell(new Cell().add(new Paragraph("")).setFontSize(8.5f)); // Extra Hr empty
+            // --- BASE ROW ---
+            mainTable.addCell(createCell(bill.getDutySlipNo(), TextAlignment.CENTER));
+            mainTable.addCell(createCell(bill.getTripDate().format(TRIP_DATE_FORMATTER), TextAlignment.CENTER));
+            mainTable.addCell(createCell(bill.getVehicleName(), TextAlignment.LEFT));
+            mainTable.addCell(createCell(String.valueOf((int)kms), TextAlignment.RIGHT));
+            mainTable.addCell(createCell(String.valueOf((int)hrs), TextAlignment.RIGHT));
+            mainTable.addCell(createCell("", TextAlignment.CENTER));
+            mainTable.addCell(createCell("", TextAlignment.CENTER));
             
             if (isLongTrip) {
                 double rate = vType.contains("CRYSTA") ? 18 : 14;
-                mainTable.addCell(new Cell().add(new Paragraph(((int)kms) + "x" + ((int)rate))).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
-                mainTable.addCell(new Cell().add(new Paragraph(String.format("%.2f", kms * rate))).setFontSize(9).setBold().setTextAlignment(TextAlignment.RIGHT));
+                mainTable.addCell(createCell(((int)kms) + "x" + ((int)rate), TextAlignment.CENTER));
+                mainTable.addCell(createCell(String.format("%.2f", kms * rate), TextAlignment.RIGHT).setBold());
             } else {
-                mainTable.addCell(new Cell().add(new Paragraph("8/80")).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
-                mainTable.addCell(new Cell().add(new Paragraph("2800.00")).setFontSize(9).setBold().setTextAlignment(TextAlignment.RIGHT));
+                mainTable.addCell(createCell("8/80", TextAlignment.CENTER));
+                mainTable.addCell(createCell("2800.00", TextAlignment.RIGHT).setBold());
 
-                // 2. Extra Km Row
+                // EXTRA KM ROW
                 if (kms > 80) {
-                    for (int j = 0; j < 5; j++) mainTable.addCell(new Cell().add(new Paragraph("")));
-                    int ekm = (int)kms - 80;
-                    mainTable.addCell(new Cell().add(new Paragraph(ekm + "x16")).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
-                    mainTable.addCell(new Cell().add(new Paragraph("")).setFontSize(8.5f));
-                    mainTable.addCell(new Cell().add(new Paragraph("")).setFontSize(8.5f));
-                    mainTable.addCell(new Cell().add(new Paragraph(String.format("%.2f", (double)ekm * 16))).setFontSize(9).setBold().setTextAlignment(TextAlignment.RIGHT));
+                    for(int i=0; i<5; i++) mainTable.addCell(createCell("", TextAlignment.CENTER));
+                    mainTable.addCell(createCell(((int)kms-80) + "x16", TextAlignment.CENTER));
+                    mainTable.addCell(createCell("", TextAlignment.CENTER));
+                    mainTable.addCell(createCell("", TextAlignment.CENTER));
+                    mainTable.addCell(createCell(String.format("%.2f", (kms-80)*16), TextAlignment.RIGHT).setBold());
                 }
-
-                // 3. Extra Hr Row
+                // EXTRA HR ROW
                 if (hrs > 8) {
-                    for (int j = 0; j < 6; j++) mainTable.addCell(new Cell().add(new Paragraph("")));
-                    int eh = (int)hrs - 8;
-                    mainTable.addCell(new Cell().add(new Paragraph(eh + "x130")).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
-                    mainTable.addCell(new Cell().add(new Paragraph("")).setFontSize(8.5f));
-                    mainTable.addCell(new Cell().add(new Paragraph(String.format("%.2f", (double)eh * 130))).setFontSize(9).setBold().setTextAlignment(TextAlignment.RIGHT));
+                    for(int i=0; i<6; i++) mainTable.addCell(createCell("", TextAlignment.CENTER));
+                    mainTable.addCell(createCell(((int)hrs-8) + "x130", TextAlignment.CENTER));
+                    mainTable.addCell(createCell("", TextAlignment.CENTER));
+                    mainTable.addCell(createCell(String.format("%.2f", (hrs-8)*130), TextAlignment.RIGHT).setBold());
                 }
             }
 
-            // 4. Additional Charges
+            // ADDITIONAL CHARGES (Filter 0)
             List<ChargeDTO> charges = deserializeCharges(bill.getDynamicCharges());
             if (charges != null) {
                 for (ChargeDTO charge : charges) {
                     String name = charge.getName().toLowerCase();
-                    if (name.contains("base amount") || name.contains("extra km") || 
-                        name.contains("extra hours") || name.contains("distance charge")) continue;
+                    if (name.contains("base amount") || name.contains("extra km") || name.contains("extra hours") || name.contains("distance charge")) continue;
+                    if (charge.getAmount() <= 0) continue;
 
-                    for (int j = 0; j < 7; j++) mainTable.addCell(new Cell().add(new Paragraph("")).setBorder(Border.NO_BORDER));
-                    mainTable.addCell(new Cell().add(new Paragraph(charge.getName())).setFontSize(8.5f).setTextAlignment(TextAlignment.CENTER));
-                    mainTable.addCell(new Cell().add(new Paragraph(String.format("%.2f", charge.getAmount()))).setFontSize(9).setBold().setTextAlignment(TextAlignment.RIGHT));
+                    for(int i=0; i<7; i++) mainTable.addCell(new Cell().setBorder(new SolidBorder(0.5f))); // Maintain grid
+                    mainTable.addCell(createCell(charge.getName(), TextAlignment.CENTER));
+                    mainTable.addCell(createCell(String.format("%.2f", charge.getAmount()), TextAlignment.RIGHT).setBold());
                 }
             }
 
-            // Grand Total Row
-            for (int i = 0; i < 7; i++) mainTable.addCell(new Cell().setBorder(Border.NO_BORDER));
-            mainTable.addCell(new Cell().add(new Paragraph("Grand Total").setBold().setFontSize(9)).setTextAlignment(TextAlignment.CENTER));
-            mainTable.addCell(new Cell().add(new Paragraph(String.format("%.2f", bill.getGrandTotal())).setBold().setFontSize(10)).setTextAlignment(TextAlignment.RIGHT));
+            // GRAND TOTAL ROW
+            Cell totalLabel = new Cell(1, 8).add(new Paragraph("Grand Total")).setBold().setTextAlignment(TextAlignment.CENTER).setBorder(new SolidBorder(0.5f));
+            mainTable.addCell(totalLabel);
+            mainTable.addCell(new Cell().add(new Paragraph(String.format("%.2f", bill.getGrandTotal()))).setBold().setTextAlignment(TextAlignment.RIGHT).setBorder(new SolidBorder(0.5f)));
 
-            document.add(mainTable);
+            innerCell.add(mainTable);
 
-            // 4. Amount in Words
+            // 5. AMOUNT IN WORDS
             String words = NumberToWordsUtil.convertToRupees(bill.getGrandTotal()).toUpperCase();
-            document.add(new Paragraph("Rupees (in words):  " + words + " ONLY")
+            innerCell.add(new Paragraph("\nRupees (in words):  " + words + " ONLY")
                     .setFontSize(10)
                     .setBold()
-                    .setMarginBottom(30));
+                    .setMarginTop(15)
+                    .setMarginBottom(15));
 
-            // 5. Footer Section
+            // 6. BOTTOM SPACER (To push footer)
+            Table spacer = new Table(1).useAllAvailableWidth().setBorder(Border.NO_BORDER);
+            spacer.addCell(new Cell().setMinHeight(50).setBorder(Border.NO_BORDER));
+            innerCell.add(spacer);
+
+            // 7. SIGNATURE SECTION
             Table footerTable = new Table(UnitValue.createPercentArray(new float[]{50, 50}))
-                    .useAllAvailableWidth();
+                    .useAllAvailableWidth()
+                    .setMarginTop(20);
 
-            // Left Footer
-            Cell leftFooter = new Cell().setBorder(Border.NO_BORDER);
-            leftFooter.add(new Paragraph("For " + (bill.getContactPerson() != null ? bill.getContactPerson() : "")).setUnderline().setFontSize(9));
-            leftFooter.add(new Paragraph("\nBooked by " + (bill.getCompanyName())).setFontSize(9));
-            footerTable.addCell(leftFooter);
+            Cell customerCell = new Cell().setBorder(Border.NO_BORDER);
+            customerCell.add(new Paragraph("For " + bill.getContactPerson()).setUnderline().setFontSize(9));
+            customerCell.add(new Paragraph("\nBooked by " + bill.getCompanyName()).setFontSize(9));
+            footerTable.addCell(customerCell);
 
-            // Right Footer
-            Cell rightFooter = new Cell().setBorder(Border.NO_BORDER).setTextAlignment(TextAlignment.RIGHT);
-            rightFooter.add(new Paragraph("For Sri Tulja Bhavani Travels").setBold().setFontSize(10));
-            rightFooter.add(new Paragraph("\n\n\nManager").setFontSize(9));
-            footerTable.addCell(rightFooter);
+            Cell agencyCell = new Cell().setBorder(Border.NO_BORDER).setTextAlignment(TextAlignment.RIGHT);
+            agencyCell.add(new Paragraph("For Sri Tulja Bhavani Travels").setBold().setFontSize(10));
+            agencyCell.add(new Paragraph("\n\n\nManager").setFontSize(9));
+            footerTable.addCell(agencyCell);
 
-            document.add(footerTable);
+            innerCell.add(footerTable);
 
-            // Mobile Numbers
-            document.add(new Paragraph("\nMobile: 9440522814, 9989208711, 9000240410")
+            // 8. CONTACT LINE
+            innerCell.add(new Paragraph("\nMobile: 9440522814, 9989208711, 9000240410")
                     .setFontSize(8)
                     .setTextAlignment(TextAlignment.RIGHT));
 
+            pageWrapper.addCell(innerCell);
+            document.add(pageWrapper);
             document.close();
         } catch (Exception e) {
-            throw new RuntimeException("Error generating PDF", e);
+            throw new RuntimeException("Critical failure in PDF generation", e);
         }
 
         return out.toByteArray();
+    }
+
+    private Cell createCell(String text, TextAlignment align) {
+        return new Cell().add(new Paragraph(text != null ? text : "")).setFontSize(8.5f).setTextAlignment(align).setBorder(new SolidBorder(0.5f));
     }
 
     private List<ChargeDTO> deserializeCharges(String chargesJson) {

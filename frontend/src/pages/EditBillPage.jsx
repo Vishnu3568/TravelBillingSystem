@@ -86,6 +86,10 @@ export default function EditBillPage() {
           notes: bill.notes || "",
           contactPerson: bill.contactPerson || "",
           bookedBy: bill.bookedBy || "",
+          managerName: bill.managerName || "Sri Tulja Bhavani Travels",
+          dynamicCharges: system
+        };
+
         const initialManual = manual.length > 0 ? manual : [{ name: "", calculation: "", amount: "", isSystem: false }];
 
         setForm(initialFormData);
