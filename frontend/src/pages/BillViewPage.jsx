@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
   ArrowLeft, 
@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import { format } from "date-fns";
+import { numberToWords } from "../utils/numberToWords";
 
 export default function BillViewPage() {
   const { id } = useParams();
@@ -58,6 +59,61 @@ export default function BillViewPage() {
     window.print();
   };
 
+  // CALCULATION LOGIC FOR DISPLAY
+  const tripRowData = useMemo(() => {
+    if (!bill) return null;
+
+    const kms = Number(bill.totalKms || 0);
+    const hrs = Number(bill.totalHours || 0);
+    const vType = (bill.vehicleType || "SEDAN").toUpperCase();
+    const isLongTrip = kms > 200;
+
+    let extraKmText = "";
+    let extraHrText = "";
+    let amtText = "";
+    let rowTotal = 0;
+
+    if (isLongTrip) {
+      const rate = vType.includes("CRYSTA") ? 18 : 14;
+      amtText = `${kms}x${rate}`;
+      rowTotal = kms * rate;
+    } else {
+      amtText = "8/80";
+      rowTotal = 2800;
+
+      if (kms > 80) {
+        const extraKm = kms - 80;
+        extraKmText = `${extraKm}x16`;
+        rowTotal += extraKm * 16;
+      }
+
+      if (hrs > 8) {
+        const extraHr = hrs - 8;
+        extraHrText = `${extraHr}x130`;
+        rowTotal += extraHr * 130;
+      }
+    }
+
+    // Filter dynamic charges to exclude the ones we just put in columns
+    // We identify system charges by their name
+    const additionalCharges = (bill.dynamicCharges || []).filter(c => {
+      const name = c.name.toLowerCase();
+      if (name.includes("base amount")) return false;
+      if (name.includes("extra km")) return false;
+      if (name.includes("extra hours")) return false;
+      if (name.includes("distance charge")) return false;
+      return true;
+    });
+
+    return {
+      extraKmText,
+      extraHrText,
+      amtText,
+      rowTotal,
+      additionalCharges
+    };
+  }, [bill]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -71,11 +127,13 @@ export default function BillViewPage() {
 
   if (!bill) return null;
 
+  const words = numberToWords(bill.grandTotal).toUpperCase();
+
   return (
-    <div className="min-h-screen bg-slate-100 p-4 md:p-8 print:p-0 print:bg-white">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-white p-0 md:p-8 print:p-0">
+      <div className="max-w-[21cm] mx-auto">
         {/* Navigation & Actions */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 print:hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 print:hidden px-4 md:px-0">
           <button
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors group"
@@ -111,73 +169,73 @@ export default function BillViewPage() {
         </div>
 
         {/* Traditional Bill Format */}
-        <div className="bg-white p-8 md:p-12 shadow-sm border border-slate-200 print:shadow-none print:border-none print:p-4 font-serif text-slate-900">
+        <div className="bill-container bg-white p-[1cm] md:p-[1.5cm] print:p-0 font-serif text-black leading-tight">
           
           {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold tracking-tight mb-1" style={{ fontFamily: 'serif' }}>SRI TULJA BHAVANI TRAVELS</h1>
-            <h2 className="text-2xl font-bold text-red-600 mb-2">RENT-A-CAR</h2>
-            <p className="text-sm">1-11-113/3, P2 Sai Shikara Apartments, Shyamlal Building Begumpet, Hyderabad - 500016</p>
-            <p className="text-sm underline">srituljabhavanitravels.rentacar@gmail.com</p>
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-bold mb-0" style={{ fontFamily: '"Times New Roman", Times, serif' }}>SRI TULJA BHAVANI TRAVELS</h1>
+            <h2 className="text-xl font-bold text-red-600 mb-1">RENT-A-CAR</h2>
+            <p className="text-xs mb-0">1-11-113/3, P2 Sai Shikara Apartments, Shyamlal Building Begumpet, Hyderabad - 500016</p>
+            <p className="text-xs underline">srituljabhavanitravels.rentacar@gmail.com</p>
           </div>
 
-          <div className="border-t border-slate-300 pt-6 mb-6">
-            <div className="flex justify-between items-start text-lg">
-              <div className="space-y-1">
-                <p><span className="font-medium">Bill No.</span> {bill.billNumber}</p>
-                <p className="mt-4"><span className="font-medium">To.</span></p>
-                <p className="font-bold text-xl">{bill.companyName}</p>
-              </div>
-              <div className="text-right">
-                <p><span className="font-medium">Date:</span> {bill.billDate ? format(new Date(bill.billDate), "dd-MM-yyyy") : "-"}</p>
-              </div>
-            </div>
+          <div className="w-full mb-4">
+            <table className="w-full text-sm">
+              <tbody>
+                <tr>
+                  <td className="w-1/2 py-1">
+                    <p>Bill No. {bill.billNumber}</p>
+                    <p className="mt-2">To.</p>
+                    <p className="font-bold">{bill.companyName}</p>
+                  </td>
+                  <td className="w-1/2 text-right align-top py-1">
+                    <p>Date: {bill.billDate ? format(new Date(bill.billDate), "dd-MM-yyyy") : "-"}</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           {/* Main Table */}
-          <div className="overflow-x-auto mb-6">
-            <table className="w-full border-collapse border border-slate-400 text-sm">
+          <div className="w-full mb-4">
+            <table className="w-full border-collapse border border-black text-[11px]">
               <thead>
-                <tr className="bg-slate-50">
-                  <th className="border border-slate-400 p-2 text-center font-bold">Duty Slip No.</th>
-                  <th className="border border-slate-400 p-2 text-center font-bold">Date</th>
-                  <th className="border border-slate-400 p-2 text-center font-bold">Vehicle No.</th>
-                  <th className="border border-slate-400 p-2 text-center font-bold">Total Kms.</th>
-                  <th className="border border-slate-400 p-2 text-center font-bold">Total Hrs.</th>
-                  <th className="border border-slate-400 p-2 text-center font-bold">Extra Kms.</th>
-                  <th className="border border-slate-400 p-2 text-center font-bold">Extra Hrs.</th>
-                  <th className="border border-slate-400 p-2 text-center font-bold">Amt</th>
-                  <th className="border border-slate-400 p-2 text-center font-bold">Total Amount</th>
+                <tr>
+                  <th className="border border-black p-1 text-center font-bold">Duty Slip No</th>
+                  <th className="border border-black p-1 text-center font-bold">Date</th>
+                  <th className="border border-black p-1 text-center font-bold">Vehicle No</th>
+                  <th className="border border-black p-1 text-center font-bold">Total Kms</th>
+                  <th className="border border-black p-1 text-center font-bold">Total Hrs</th>
+                  <th className="border border-black p-1 text-center font-bold">Extra Kms</th>
+                  <th className="border border-black p-1 text-center font-bold">Extra Hrs</th>
+                  <th className="border border-black p-1 text-center font-bold">Amt</th>
+                  <th className="border border-black p-1 text-center font-bold">Total Amount</th>
                 </tr>
               </thead>
               <tbody>
-                {/* First Row with trip details */}
+                {/* Main Trip Row */}
                 <tr>
-                  <td className="border border-slate-400 p-2 text-center">{bill.dutySlipNo || "-"}</td>
-                  <td className="border border-slate-400 p-2 text-center">{bill.tripDate ? format(new Date(bill.tripDate), "dd-MM-yy") : "-"}</td>
-                  <td className="border border-slate-400 p-2 text-center">
-                    {bill.vehicleName} {bill.acNonAc && `(${bill.acNonAc})`}
+                  <td className="border border-black p-1 text-center">{bill.dutySlipNo || ""}</td>
+                  <td className="border border-black p-1 text-center whitespace-nowrap">
+                    {bill.tripDate ? format(new Date(bill.tripDate), "dd-MM-yy") : ""}
                   </td>
-                  <td className="border border-slate-400 p-2 text-center">{bill.totalKms}</td>
-                  <td className="border border-slate-400 p-2 text-center">{bill.totalHours}</td>
-                  <td className="border border-slate-400 p-2 text-center">{bill.extraKms || ""}</td>
-                  <td className="border border-slate-400 p-2 text-center">{bill.extraHours || ""}</td>
-                  
-                  {/* Charges Rendered as Rows inside Table */}
-                  <td className="border border-slate-400 p-2 text-center align-top" rowSpan={bill.dynamicCharges?.length || 1}>
-                    {bill.dynamicCharges?.[0]?.calculation || bill.dynamicCharges?.[0]?.name || ""}
-                  </td>
-                  <td className="border border-slate-400 p-2 text-right font-bold align-top" rowSpan={bill.dynamicCharges?.length || 1}>
-                    {bill.dynamicCharges?.[0]?.amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  <td className="border border-black p-1 text-left">{bill.vehicleName || ""}</td>
+                  <td className="border border-black p-1 text-right">{bill.totalKms || ""}</td>
+                  <td className="border border-black p-1 text-right">{bill.totalHours || ""}</td>
+                  <td className="border border-black p-1 text-center">{tripRowData.extraKmText}</td>
+                  <td className="border border-black p-1 text-center">{tripRowData.extraHrText}</td>
+                  <td className="border border-black p-1 text-center">{tripRowData.amtText}</td>
+                  <td className="border border-black p-1 text-right font-bold">
+                    {tripRowData.rowTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
 
-                {/* Additional Charge Rows */}
-                {bill.dynamicCharges?.slice(1).map((charge, idx) => (
+                {/* Additional Charges Rows */}
+                {tripRowData.additionalCharges.map((charge, idx) => (
                   <tr key={idx}>
-                    <td className="border border-slate-400 p-2" colSpan={7}></td>
-                    <td className="border border-slate-400 p-2 text-center">{charge.name}</td>
-                    <td className="border border-slate-400 p-2 text-right font-bold">
+                    <td className="border border-black p-1" colSpan={7}></td>
+                    <td className="border border-black p-1 text-center">{charge.name}</td>
+                    <td className="border border-black p-1 text-right font-bold">
                       {charge.amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
@@ -185,9 +243,9 @@ export default function BillViewPage() {
 
                 {/* Grand Total Row */}
                 <tr>
-                  <td className="border-none p-2" colSpan={7}></td>
-                  <td className="border border-slate-400 p-2 text-center font-bold bg-slate-50">Grand Total</td>
-                  <td className="border border-slate-400 p-2 text-right font-bold text-lg bg-slate-50">
+                  <td className="border-none" colSpan={7}></td>
+                  <td className="border border-black p-1 text-center font-bold">Grand Total</td>
+                  <td className="border border-black p-1 text-right font-bold text-[13px]">
                     {bill.grandTotal?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
@@ -196,23 +254,23 @@ export default function BillViewPage() {
           </div>
 
           {/* Amount in Words */}
-          <div className="mb-12 text-lg">
-            <p><span className="font-bold italic">Rupees (in words):</span> <span className="ml-4 font-bold uppercase">{bill.amountInWords || "One Thousand Five Hundred Fifty only"}</span></p>
+          <div className="mb-8 text-[12px]">
+            <p><span className="font-bold italic">Rupees (in words):</span> <span className="ml-2 font-bold uppercase">{words} ONLY</span></p>
           </div>
 
           {/* Footer Section */}
-          <div className="flex justify-between items-end mt-12 mb-8">
-            <div className="space-y-4">
-              <p className="underline underline-offset-4">For {bill.contactPerson || "Mr. Manjunath"}</p>
+          <div className="flex justify-between items-end mt-12">
+            <div className="space-y-4 text-[12px]">
+              <p className="border-b border-black inline-block min-w-[150px]">For {bill.contactPerson || ""}</p>
               <p>Booked by <span className="font-bold">{bill.companyName}</span></p>
             </div>
-            <div className="text-right space-y-12">
-              <p className="font-bold text-lg">For Sri Tulja Bhavani Travels</p>
+            <div className="text-right space-y-12 text-[12px]">
+              <p className="font-bold">For Sri Tulja Bhavani Travels</p>
               <p className="font-bold mr-8">Manager</p>
             </div>
           </div>
 
-          <div className="text-right text-sm font-medium border-t border-slate-200 pt-4">
+          <div className="text-right text-[9px] mt-4">
             <p>Mobile: 98480 12345, 98480 67890</p>
           </div>
 
@@ -222,10 +280,14 @@ export default function BillViewPage() {
       {/* Print Specific Styles */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          @page { size: A4; margin: 1cm; }
-          body { background: white !important; }
+          @page { size: A4; margin: 0; }
+          body { background: white !important; -webkit-print-color-adjust: exact; }
           .print\\:hidden { display: none !important; }
-          .font-serif { font-family: 'Times New Roman', Times, serif !important; }
+          .bill-container { padding: 1.5cm !important; width: 100% !important; border: none !important; box-shadow: none !important; }
+          * { font-family: "Times New Roman", Times, serif !important; }
+        }
+        .bill-container {
+          box-shadow: none;
         }
       `}} />
     </div>

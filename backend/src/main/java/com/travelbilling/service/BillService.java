@@ -57,6 +57,7 @@ public class BillService {
                 .extraKms(safeAmount(request.getExtraKms()))
                 .extraHours(safeAmount(request.getExtraHours()))
                 .tripType(request.getTripType())
+                .pricingType(request.getPricingType())
                 .notes(request.getNotes())
                 .dynamicCharges(serializeCharges(request.getDynamicCharges()))
                 .grandTotal(grandTotal)
@@ -92,6 +93,7 @@ public class BillService {
         bill.setExtraKms(safeAmount(request.getExtraKms()));
         bill.setExtraHours(safeAmount(request.getExtraHours()));
         bill.setTripType(request.getTripType());
+        bill.setPricingType(request.getPricingType());
         bill.setDynamicCharges(serializeCharges(request.getDynamicCharges()));
         bill.setNotes(request.getNotes());
         bill.setGrandTotal(grandTotal);
@@ -241,6 +243,7 @@ public class BillService {
                 safeAmount(bill.getExtraKms()),
                 safeAmount(bill.getExtraHours()),
                 bill.getTripType(),
+                bill.getPricingType(),
                 safeAmount(bill.getBaseAmount()),
                 safeAmount(bill.getDriverBata()),
                 safeAmount(bill.getParking()),

@@ -42,6 +42,7 @@ public class BillRequest {
     private Double extraHours = 0.0;
 
     private String tripType;
+    private String pricingType;
 
     @DecimalMin(value = "0.0")
     private Double baseAmount = 0.0;

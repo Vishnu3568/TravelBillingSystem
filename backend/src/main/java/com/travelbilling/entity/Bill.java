@@ -30,6 +30,7 @@ public class Bill {
     private Double extraKms;
     private Double extraHours;
     private String tripType;
+    private String pricingType; // BASE | PER_KM
     private Double baseAmount;
     private Double driverBata;
     private Double parking;

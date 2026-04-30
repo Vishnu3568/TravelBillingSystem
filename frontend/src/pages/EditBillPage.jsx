@@ -1,8 +1,9 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useMemo, useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import api from "../services/api.js";
 import { numberToWords } from "../utils/numberToWords.js";
+import { calculateCharges } from "../utils/pricingUtils.js";
 import { toast } from "sonner";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -14,29 +15,19 @@ const initialForm = {
   vehicle: "",
   dutySlipNumber: "",
   tripDate: today(),
-  vehicleType: "",
+  vehicleType: "SEDAN",
   acNonAc: "Non-AC",
   totalKms: "",
   totalHours: "",
   extraKms: "",
   extraHours: "",
   tripType: "Local",
+  pricingType: "BASE",
   notes: "",
   contactPerson: "",
   bookedBy: "",
   managerName: "Sri Tulja Bhavani Travels",
-  dynamicCharges: [
-    { name: "Base Amount", calculation: "", amount: "" },
-    { name: "Driver Bata", calculation: "", amount: "" },
-    { name: "Parking", calculation: "", amount: "" },
-    { name: "Toll", calculation: "", amount: "" },
-    { name: "", calculation: "", amount: "" },
-    { name: "", calculation: "", amount: "" },
-    { name: "", calculation: "", amount: "" },
-    { name: "", calculation: "", amount: "" },
-    { name: "", calculation: "", amount: "" },
-    { name: "", calculation: "", amount: "" },
-  ],
+  dynamicCharges: [], // This will hold both system and manual charges
 };
 
 const inputClass = "w-full border-none bg-transparent px-2 py-1 text-slate-900 focus:ring-0 outline-none";
@@ -47,6 +38,7 @@ export default function EditBillPage() {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const [form, setForm] = useState(initialForm);
+  const [manualCharges, setManualCharges] = useState([]); // User added rows
   const [companies, setCompanies] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -62,13 +54,11 @@ export default function EditBillPage() {
         ]);
         
         const bill = billRes.data;
+        const allCharges = bill.dynamicCharges || [];
         
-        // Map backend response to form state
-        // Ensure at least 10 rows in dynamicCharges
-        let charges = bill.dynamicCharges || [];
-        while (charges.length < 10) {
-          charges.push({ name: "", calculation: "", amount: "" });
-        }
+        // Separate system charges from manual ones
+        const system = allCharges.filter(c => c.isSystem);
+        const manual = allCharges.filter(c => !c.isSystem);
 
         setForm({
           billNumber: bill.billNumber,
@@ -77,24 +67,22 @@ export default function EditBillPage() {
           vehicle: bill.vehicleName,
           dutySlipNumber: bill.dutySlipNo,
           tripDate: bill.tripDate || today(),
-          vehicleType: bill.vehicleType || "",
+          vehicleType: bill.vehicleType || "SEDAN",
           acNonAc: bill.acNonAc || "Non-AC",
           totalKms: bill.totalKms || "",
           totalHours: bill.totalHours || "",
           extraKms: bill.extraKms || "",
           extraHours: bill.extraHours || "",
           tripType: bill.tripType || "Local",
+          pricingType: bill.pricingType || "BASE",
           notes: bill.notes || "",
           contactPerson: bill.contactPerson || "",
           bookedBy: bill.bookedBy || "",
           managerName: bill.managerName || "Sri Tulja Bhavani Travels",
-          dynamicCharges: charges.map(c => ({
-            name: c.name || "",
-            calculation: c.calculation || "",
-            amount: c.amount || ""
-          }))
+          dynamicCharges: system
         });
         
+        setManualCharges(manual.length > 0 ? manual : [{ name: "", calculation: "", amount: "", isSystem: false }]);
         setCompanies(companiesRes.data);
         setVehicles(vehiclesRes.data);
       } catch (err) {
@@ -108,9 +96,26 @@ export default function EditBillPage() {
     fetchData();
   }, [id, navigate]);
 
+  // AUTO-CALCULATION ENGINE
+  useEffect(() => {
+    if (isLoading) return;
+
+    const result = calculateCharges(form.totalKms, form.totalHours, form.vehicleType);
+    
+    setForm(prev => ({
+      ...prev,
+      pricingType: result.pricingType,
+      dynamicCharges: result.charges
+    }));
+  }, [form.totalKms, form.totalHours, form.vehicleType, isLoading]);
+
+  const allDisplayCharges = useMemo(() => {
+    return [...form.dynamicCharges, ...manualCharges];
+  }, [form.dynamicCharges, manualCharges]);
+
   const grandTotal = useMemo(() => {
-    return form.dynamicCharges.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  }, [form.dynamicCharges]);
+    return allDisplayCharges.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  }, [allDisplayCharges]);
 
   const amountInWords = useMemo(() => numberToWords(grandTotal), [grandTotal]);
 
@@ -119,27 +124,23 @@ export default function EditBillPage() {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleChargeChange = (index, field, value) => {
-    const newCharges = [...form.dynamicCharges];
+  const handleManualChargeChange = (index, field, value) => {
+    const newCharges = [...manualCharges];
     newCharges[index][field] = value;
-    setForm(prev => ({ ...prev, dynamicCharges: newCharges }));
+    setManualCharges(newCharges);
   };
 
-  const addChargeRow = () => {
-    setForm(prev => ({
-      ...prev,
-      dynamicCharges: [...prev.dynamicCharges, { name: "", calculation: "", amount: "" }]
-    }));
+  const addManualRow = () => {
+    setManualCharges(prev => [...prev, { name: "", calculation: "", amount: "", isSystem: false }]);
   };
 
-  const removeChargeRow = (index) => {
-    if (form.dynamicCharges.length <= 1) return;
-    const newCharges = form.dynamicCharges.filter((_, i) => i !== index);
-    setForm(prev => ({ ...prev, dynamicCharges: newCharges }));
+  const removeManualRow = (index) => {
+    const newCharges = manualCharges.filter((_, i) => i !== index);
+    setManualCharges(newCharges.length > 0 ? newCharges : [{ name: "", calculation: "", amount: "", isSystem: false }]);
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setIsSaving(true);
     
     try {
@@ -156,14 +157,16 @@ export default function EditBillPage() {
         extraKms: Number(form.extraKms) || 0,
         extraHours: Number(form.extraHours) || 0,
         tripType: form.tripType,
+        pricingType: form.pricingType,
         notes: form.notes,
         contactPerson: form.contactPerson,
         bookedBy: form.bookedBy,
         managerName: form.managerName,
-        dynamicCharges: form.dynamicCharges.filter(c => c.name.trim() !== "" || c.amount !== "").map(c => ({
+        dynamicCharges: allDisplayCharges.filter(c => c.name.trim() !== "" || c.amount !== "").map(c => ({
           name: c.name,
           calculation: c.calculation,
-          amount: Number(c.amount) || 0
+          amount: Number(c.amount) || 0,
+          isSystem: c.isSystem || false
         }))
       };
 
@@ -194,7 +197,7 @@ export default function EditBillPage() {
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Edit Bill</h1>
+            <h1 className="text-xl font-bold text-slate-900">Edit Bill (Auto-Calculation Active)</h1>
             <p className="text-sm text-slate-500">Bill Number: {form.billNumber}</p>
           </div>
           <div className="flex gap-3">
@@ -218,190 +221,63 @@ export default function EditBillPage() {
       <main className="mx-auto mt-8 max-w-5xl px-6">
         <form onSubmit={handleSubmit} className="space-y-8 rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
           
-          {/* SECTION 1: BASIC INFO */}
           <section>
             <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">1. Basic Information</h2>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Bill No</label>
-                <input
-                  type="text"
-                  readOnly
-                  value={form.billNumber}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-500 outline-none"
-                />
+                <label className="mb-1 block text-sm font-medium text-slate-700">Bill Date</label>
+                <input type="date" name="date" value={form.date} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Bill Date</label>
-                <input
-                  type="date"
-                  name="date"
-                  value={form.date}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                />
-              </div>
-              <div className="md:col-span-1">
                 <label className="mb-1 block text-sm font-medium text-slate-700">Customer</label>
-                <select
-                  name="company"
-                  value={form.company}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                >
+                <select name="company" value={form.company} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500">
                   <option value="">Select Company</option>
                   {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Duty Slip No</label>
-                <input
-                  type="text"
-                  name="dutySlipNumber"
-                  value={form.dutySlipNumber}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                />
+                <input type="text" name="dutySlipNumber" value={form.dutySlipNumber} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Pricing Mode</label>
+                <div className="mt-2 text-sm font-bold text-cyan-600">{form.pricingType === "PER_KM" ? "LONG TRIP (>200KM)" : "LOCAL PACKAGE (8/80)"}</div>
               </div>
             </div>
           </section>
 
-          {/* SECTION 2: TRIP DETAILS */}
           <section className="rounded-lg bg-slate-50 p-6">
-            <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">2. Trip Details</h2>
+            <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">2. Trip Data (Triggers Auto-Calc)</h2>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Trip Date</label>
-                <input
-                  type="date"
-                  name="tripDate"
-                  value={form.tripDate}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                />
+                <label className="mb-1 block text-sm font-medium text-slate-700 text-cyan-700 font-bold">Total Kms *</label>
+                <input type="number" name="totalKms" value={form.totalKms} onChange={handleChange} className="w-full rounded-lg border-2 border-cyan-300 px-3 py-2 text-sm outline-none focus:border-cyan-600 bg-white" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700 text-cyan-700 font-bold">Total Hours *</label>
+                <input type="number" name="totalHours" value={form.totalHours} onChange={handleChange} className="w-full rounded-lg border-2 border-cyan-300 px-3 py-2 text-sm outline-none focus:border-cyan-600 bg-white" />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Vehicle Type</label>
-                <select
-                  name="vehicleType"
-                  value={form.vehicleType}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                >
-                  <option value="">Select Type</option>
-                  <option value="Swift Dzire">Swift Dzire</option>
-                  <option value="Ertiga">Ertiga</option>
-                  <option value="Innova">Innova</option>
-                  <option value="Innova Crysta">Innova Crysta</option>
-                  <option value="Tempo Traveller">Tempo Traveller</option>
-                  <option value="Bus">Bus</option>
+                <select name="vehicleType" value={form.vehicleType} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 bg-white">
+                  <option value="SEDAN">SEDAN (₹14/km)</option>
+                  <option value="CRYSTA">CRYSTA (₹18/km)</option>
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">AC / Non-AC</label>
-                <select
-                  name="acNonAc"
-                  value={form.acNonAc}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                >
-                  <option value="AC">AC</option>
-                  <option value="Non-AC">Non-AC</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Vehicle Number</label>
-                <select
-                  name="vehicle"
-                  value={form.vehicle}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                >
+                <label className="mb-1 block text-sm font-medium text-slate-700">Vehicle No</label>
+                <select name="vehicle" value={form.vehicle} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 bg-white">
                   <option value="">Select Vehicle</option>
                   {vehicles.map(v => <option key={v.id} value={v.registrationNumber}>{v.registrationNumber}</option>)}
                 </select>
               </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Total Kms</label>
-                <input
-                  type="number"
-                  name="totalKms"
-                  value={form.totalKms}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Total Hours</label>
-                <input
-                  type="number"
-                  name="totalHours"
-                  value={form.totalHours}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Extra Kms</label>
-                <input
-                  type="number"
-                  name="extraKms"
-                  value={form.extraKms}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Extra Hours</label>
-                <input
-                  type="number"
-                  name="extraHours"
-                  value={form.extraHours}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium text-slate-700">Trip Type</label>
-                <select
-                  name="tripType"
-                  value={form.tripType}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                >
-                  <option value="Local">Local Trip</option>
-                  <option value="Outstation">Outstation Trip</option>
-                  <option value="Full Day">Full Day</option>
-                  <option value="Pickup/Drop">Pickup / Drop</option>
-                </select>
-              </div>
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium text-slate-700">Notes / Remarks</label>
-                <input
-                  type="text"
-                  name="notes"
-                  placeholder="Additional trip info..."
-                  value={form.notes}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                />
-              </div>
             </div>
           </section>
 
-          {/* SECTION 3: DYNAMIC CHARGES TABLE */}
           <section>
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">3. Charges & Particulars</h2>
-              <button
-                type="button"
-                onClick={addChargeRow}
-                className="text-xs font-bold text-cyan-600 hover:text-cyan-700"
-              >
-                + Add Row
-              </button>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">3. Charges Table</h2>
+              <button type="button" onClick={addManualRow} className="text-xs font-bold text-cyan-600 hover:text-cyan-700">+ Add Extra Charge</button>
             </div>
             <div className="overflow-hidden rounded-lg border border-slate-300 shadow-sm">
               <table className="w-full border-collapse">
@@ -415,46 +291,40 @@ export default function EditBillPage() {
                   </tr>
                 </thead>
                 <tbody>
+                  {/* System Charges (Read-only) */}
                   {form.dynamicCharges.map((charge, index) => (
-                    <tr key={index} className="group hover:bg-slate-50 transition-colors">
-                      <td className="border-t border-slate-300 py-2 text-center text-xs text-slate-400 font-medium">
-                        {index + 1}
+                    <tr key={`sys-${index}`} className="bg-slate-50 italic">
+                      <td className="border-t border-slate-300 py-2 text-center text-xs text-slate-400 font-medium">SYS</td>
+                      <td className={`${cellClass} border-t border-l bg-slate-50/50`}>
+                        <input type="text" readOnly value={charge.name} className={`${inputClass} text-slate-500 font-bold`} />
                       </td>
-                      <td className={`${cellClass} border-t border-l`}>
-                        <input
-                          type="text"
-                          value={charge.name}
-                          placeholder="e.g. Driver Bata"
-                          onChange={(e) => handleChargeChange(index, "name", e.target.value)}
-                          className={inputClass}
-                        />
+                      <td className={`${cellClass} border-t border-l bg-slate-50/50`}>
+                        <input type="text" readOnly value={charge.calculation} className={`${inputClass} text-slate-500`} />
                       </td>
-                      <td className={`${cellClass} border-t border-l`}>
-                        <input
-                          type="text"
-                          value={charge.calculation}
-                          placeholder="e.g. 400 x 2"
-                          onChange={(e) => handleChargeChange(index, "calculation", e.target.value)}
-                          className={inputClass}
-                        />
-                      </td>
-                      <td className={`${cellClass} border-t border-l`}>
-                        <input
-                          type="number"
-                          value={charge.amount}
-                          placeholder="0.00"
-                          onChange={(e) => handleChargeChange(index, "amount", e.target.value)}
-                          className={`${inputClass} text-right font-semibold`}
-                        />
+                      <td className={`${cellClass} border-t border-l bg-slate-50/50`}>
+                        <input type="text" readOnly value={charge.amount} className={`${inputClass} text-right font-bold text-cyan-700`} />
                       </td>
                       <td className="border-t border-l border-slate-300 text-center">
-                        <button
-                          type="button"
-                          onClick={() => removeChargeRow(index)}
-                          className="text-slate-300 hover:text-red-500 group-hover:opacity-100 opacity-0 transition-all"
-                        >
-                          ×
-                        </button>
+                        <span className="text-[10px] font-bold text-slate-300 uppercase">Auto</span>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {/* Manual Charges */}
+                  {manualCharges.map((charge, index) => (
+                    <tr key={`man-${index}`} className="group hover:bg-cyan-50/30 transition-colors">
+                      <td className="border-t border-slate-300 py-2 text-center text-xs text-slate-400 font-medium">{index + 1}</td>
+                      <td className={`${cellClass} border-t border-l`}>
+                        <input type="text" value={charge.name} placeholder="Extra charge name..." onChange={(e) => handleManualChargeChange(index, "name", e.target.value)} className={inputClass} />
+                      </td>
+                      <td className={`${cellClass} border-t border-l`}>
+                        <input type="text" value={charge.calculation} placeholder="Optional calc..." onChange={(e) => handleManualChargeChange(index, "calculation", e.target.value)} className={inputClass} />
+                      </td>
+                      <td className={`${cellClass} border-t border-l`}>
+                        <input type="number" value={charge.amount} placeholder="0" onChange={(e) => handleManualChargeChange(index, "amount", e.target.value)} className={`${inputClass} text-right font-semibold`} />
+                      </td>
+                      <td className="border-t border-l border-slate-300 text-center">
+                        <button type="button" onClick={() => removeManualRow(index)} className="text-slate-300 hover:text-red-500 group-hover:opacity-100 opacity-0 transition-all">×</button>
                       </td>
                     </tr>
                   ))}
@@ -463,63 +333,31 @@ export default function EditBillPage() {
             </div>
           </section>
 
-          {/* SECTION 4: TOTAL SECTION */}
-          <section className="border-t border-slate-100 pt-6">
-            <div className="flex flex-col items-end gap-2">
-              <div className="flex items-baseline gap-8">
-                <span className="text-sm font-bold text-slate-500 uppercase">Grand Total:</span>
-                <span className="text-3xl font-black text-slate-900">₹ {grandTotal.toLocaleString("en-IN")}</span>
-              </div>
-              <p className="text-sm font-medium italic text-slate-500">
-                Rupees {amountInWords}
-              </p>
+          <section className="flex flex-col items-end gap-2 border-t border-slate-100 pt-6">
+            <div className="flex items-baseline gap-8">
+              <span className="text-sm font-bold text-slate-500 uppercase">Grand Total:</span>
+              <span className="text-3xl font-black text-slate-900">₹ {grandTotal.toLocaleString("en-IN")}</span>
             </div>
+            <p className="text-sm font-medium italic text-slate-500 uppercase">Rupees {amountInWords}</p>
           </section>
 
-          {/* SECTION 5: FOOTER SECTION */}
           <section className="rounded-lg border border-dashed border-slate-200 p-6">
-            <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">4. Office & Footer Details</h2>
+            <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">4. Office Details</h2>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Customer Contact Person</label>
-                <input
-                  type="text"
-                  name="contactPerson"
-                  value={form.contactPerson}
-                  onChange={handleChange}
-                  placeholder="Name of person who hired"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                />
+                <label className="mb-1 block text-sm font-medium text-slate-700">Customer Person</label>
+                <input type="text" name="contactPerson" value={form.contactPerson} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Booked By</label>
-                <input
-                  type="text"
-                  name="bookedBy"
-                  value={form.bookedBy}
-                  onChange={handleChange}
-                  placeholder="Agent / Employee name"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                />
+                <input type="text" name="bookedBy" value={form.bookedBy} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Manager Signature Name</label>
-                <input
-                  type="text"
-                  name="managerName"
-                  value={form.managerName}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                />
+                <label className="mb-1 block text-sm font-medium text-slate-700">Manager Signature</label>
+                <input type="text" name="managerName" value={form.managerName} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
               </div>
             </div>
-            
-            <div className="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-xs text-slate-400 font-medium">
-              <span>Mobile: 9876543210, 8877665544</span>
-              <span>Address: 123, Travel Plaza, Main Road, City - 400001</span>
-            </div>
           </section>
-
         </form>
       </main>
     </div>

@@ -27,6 +27,7 @@ public class BillResponse {
     private Double extraKms;
     private Double extraHours;
     private String tripType;
+    private String pricingType;
 
     private Double baseAmount;
     private Double driverBata;
