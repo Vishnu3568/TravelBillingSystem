@@ -103,7 +103,7 @@ const VehiclePage = () => {
               setEditingId(null);
               setFormData({ registrationNumber: "", type: "", model: "" });
             }}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-md"
+            className="bg-indigo-600 text-white px-4 py-2 rounded-none flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-md"
           >
             <Plus size={20} />
             Add Vehicle
@@ -111,7 +111,7 @@ const VehiclePage = () => {
         </div>
 
         {isAdding && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8 transition-all animate-in fade-in slide-in-from-top-4">
+          <div className="bg-white p-6 rounded-none shadow-sm border border-slate-200 mb-8 transition-all animate-in fade-in slide-in-">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-slate-800">
                 {editingId ? "Edit Vehicle" : "New Vehicle"}
@@ -128,7 +128,7 @@ const VehiclePage = () => {
                   required
                   value={formData.registrationNumber}
                   onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none uppercase"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500 outline-none uppercase"
                   placeholder="MH 12 AB 1234"
                 />
               </div>
@@ -138,7 +138,7 @@ const VehiclePage = () => {
                   required
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500 outline-none"
                 >
                   <option value="">Select Type</option>
                   <option value="Sedan">Sedan</option>
@@ -156,7 +156,7 @@ const VehiclePage = () => {
                   required
                   value={formData.model}
                   onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500 outline-none"
                   placeholder="e.g. Swift Dzire"
                 />
               </div>
@@ -164,13 +164,13 @@ const VehiclePage = () => {
                 <button
                   type="button"
                   onClick={() => setIsAdding(false)}
-                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-none transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-all shadow-sm flex items-center gap-2"
+                  className="bg-indigo-600 text-white px-6 py-2 rounded-none hover:bg-indigo-700 transition-all shadow-sm flex items-center gap-2"
                 >
                   <Check size={20} />
                   {editingId ? "Update Vehicle" : "Save Vehicle"}
@@ -180,7 +180,7 @@ const VehiclePage = () => {
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-none shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -189,7 +189,7 @@ const VehiclePage = () => {
                 placeholder="Search by reg number or type..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
               />
             </div>
             <div className="text-sm text-slate-500">
@@ -218,14 +218,14 @@ const VehiclePage = () => {
                     <tr key={vehicle.id} className="hover:bg-slate-50 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-[10px]">
+                          <div className="w-8 h-8 rounded-none bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-[10px]">
                             {vehicle.registrationNumber.substring(0, 2)}
                           </div>
                           <span className="font-bold text-slate-800 tracking-wider uppercase">{vehicle.registrationNumber}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-none text-xs font-medium bg-blue-50 text-blue-700">
                           <Tag size={12} />
                           {vehicle.type}
                         </span>
@@ -240,14 +240,14 @@ const VehiclePage = () => {
                         <div className="flex justify-end gap-2 transition-opacity">
                           <button
                             onClick={() => handleEdit(vehicle)}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-none transition-all"
                             title="Edit"
                           >
                             <Edit2 size={16} />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDelete(vehicle.id); }}
-                            className="p-2 text-red-600 hover:bg-red-100 rounded-lg"
+                            className="p-2 text-red-600 hover:bg-red-100 rounded-none"
                             title="Delete"
                           >
                             <Trash2 size={18} />

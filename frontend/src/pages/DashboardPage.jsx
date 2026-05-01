@@ -59,41 +59,15 @@ function formatDateTime(value) {
 
 // AppHeader removed to favor global header in MainLayout
 
-function MetricCard({ metric }) {
-  const Icon = metric.icon || DollarSign;
-  return (
-    <article className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1">
-      <div className="flex items-center justify-between mb-4">
-        <div className={`p-2.5 rounded-xl border ${toneClasses[metric.tone]}`}>
-          <Icon size={20} />
-        </div>
-        <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border ${toneClasses[metric.tone]}`}>
-          {metric.note}
-        </span>
-      </div>
-      <div>
-        <p className="text-sm font-medium text-slate-500 mb-1">{metric.label}</p>
-        <div className="flex items-baseline gap-2">
-           <p className="text-2xl font-bold text-slate-900">{metric.value}</p>
-           {metric.trend && (
-             <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
-               <TrendingUp size={10} /> {metric.trend}%
-             </span>
-           )}
-        </div>
-      </div>
-    </article>
-  );
-}
 
 function RevenueChart({ revenueTrend }) {
   const maxValue = Math.max(...revenueTrend.map((item) => item.revenue), 1);
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-none border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-slate-950">Revenue Trend</h2>
+          <h2 className="text-lg font-semibold text-black">Revenue Trend</h2>
           <p className="text-sm text-slate-500">Last six months from bills</p>
         </div>
         <p className="text-sm font-semibold text-emerald-700">Live database data</p>
@@ -102,9 +76,9 @@ function RevenueChart({ revenueTrend }) {
       <div className="mt-8 flex h-64 items-end gap-3 sm:gap-5">
         {revenueTrend.map((item) => (
           <div className="flex flex-1 flex-col items-center gap-3" key={item.month}>
-            <div className="flex h-52 w-full items-end rounded-md bg-slate-100">
+            <div className="flex h-52 w-full items-end rounded-none bg-slate-100">
               <div
-                className="w-full rounded-md bg-gradient-to-t from-cyan-700 to-cyan-400 transition-all duration-300 group-hover:from-cyan-600 group-hover:to-cyan-300"
+                className="w-full rounded-none    transition-all duration-300 group-hover: group-hover:"
                 style={{ height: `${Math.max((item.revenue / maxValue) * 100, item.revenue > 0 ? 8 : 0)}%` }}
                 title={formatMoney(item.revenue)}
               />
@@ -119,9 +93,9 @@ function RevenueChart({ revenueTrend }) {
 
 function RecentBillsTable({ recentBills }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+    <section className="rounded-none border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 p-5">
-        <h2 className="text-lg font-semibold text-slate-950">Recent Bills</h2>
+        <h2 className="text-lg font-semibold text-black">Recent Bills</h2>
         <p className="text-sm text-slate-500">Latest billing activity across companies</p>
       </div>
       <div className="overflow-x-auto">
@@ -140,14 +114,14 @@ function RecentBillsTable({ recentBills }) {
             {recentBills.length ? (
               recentBills.map((bill) => (
                 <tr className="hover:bg-slate-50" key={bill.id}>
-                  <td className="px-5 py-4 font-semibold text-slate-950">{bill.billNumber}</td>
+                  <td className="px-5 py-4 font-semibold text-black">{bill.billNumber}</td>
                   <td className="px-5 py-4 text-slate-700">{bill.companyName}</td>
                   <td className="px-5 py-4 text-slate-500">{bill.vehicleRegistrationNumber}</td>
-                  <td className="px-5 py-4 font-semibold text-slate-950">{formatMoney(bill.amount)}</td>
+                  <td className="px-5 py-4 font-semibold text-black">{formatMoney(bill.amount)}</td>
                   <td className="px-5 py-4 text-slate-700">{formatMoney(bill.pendingAmount)}</td>
                   <td className="px-5 py-4">
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${bill.status === "Paid"
+                      className={`rounded-none px-2.5 py-1 text-xs font-semibold ${bill.status === "Paid"
                           ? "bg-emerald-50 text-emerald-700"
                           : bill.status === "Pending"
                             ? "bg-amber-50 text-amber-700"
@@ -173,63 +147,37 @@ function RecentBillsTable({ recentBills }) {
   );
 }
 
-function ActivityPanel({ recentUsersActivity }) {
-  return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-semibold text-slate-950">Recent Users Activity</h2>
-      <div className="mt-5 space-y-4">
-        {recentUsersActivity.length ? (
-          recentUsersActivity.map((activity) => (
-            <div className="flex gap-3" key={activity.id}>
-              <div className="mt-1 h-2.5 w-2.5 rounded-full bg-cyan-600" />
-              <div className="min-w-0 flex-1">
-                <p className="font-medium text-slate-950">{activity.action}</p>
-                <p className="text-sm text-slate-500">
-                  {activity.performedBy} - {formatDateTime(activity.actionTime)}
-                </p>
-              </div>
-            </div>
-          ))
-        ) : (
-          <p className="text-sm text-slate-500">No activity recorded yet.</p>
-        )}
-      </div>
-    </section>
-  );
-}
-
 function QuickActions({ role }) {
   const navigate = useNavigate();
 
   const actionConfigs = [
-    { label: "Create Bill", icon: PlusCircle, path: "/create-bill", desc: "New invoice", color: "bg-cyan-500" },
-    { label: "History", icon: History, path: "/bill-history", desc: "View all bills", color: "bg-indigo-500" },
-    { label: "Companies", icon: Building2, path: "/companies", desc: "Client master", color: "bg-violet-500" },
-    { label: "Vehicles", icon: Truck, path: "/vehicles", desc: "Fleet master", color: "bg-amber-500" },
-    { label: "Reports", icon: BarChart3, path: "/reports", desc: "Revenue analytics", color: "bg-emerald-500" },
+    { label: "Create Bill", icon: PlusCircle, path: "/create-bill", desc: "New invoice", color: "bg-black" },
+    { label: "History", icon: History, path: "/bill-history", desc: "View all bills", color: "bg-black" },
+    { label: "Companies", icon: Building2, path: "/companies", desc: "Client master", color: "bg-black" },
+    { label: "Vehicles", icon: Truck, path: "/vehicles", desc: "Fleet master", color: "bg-black" },
+    { label: "Reports", icon: BarChart3, path: "/reports", desc: "Revenue analytics", color: "bg-black" },
+    { label: "Users", icon: Users, path: "/users", desc: "Team management", color: "bg-black" },
   ];
 
   if (role === "OWNER") {
-    actionConfigs.push({ label: "Users", icon: Users, path: "/users", desc: "Team management", color: "bg-slate-700" });
-    actionConfigs.push({ label: "Bulk Import", icon: FileText, path: "/import-bills", desc: "Word doc upload", color: "bg-blue-600" });
-    actionConfigs.push({ label: "Audit Logs", icon: ShieldCheck, path: "/audit-logs", desc: "System security", color: "bg-rose-600" });
+    // Already added in the static list above for simplicity in this replacement
   }
 
   return (
     <section>
-      <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Quick Actions</h2>
-      <div className="grid grid-cols-2 gap-4">
+      <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-8 text-center">Quick Actions</h2>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-10">
         {actionConfigs.map((action) => (
           <button
             key={action.label}
             onClick={() => navigate(action.path)}
-            className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 text-left transition-all hover:border-transparent hover:shadow-xl"
+            className="group flex flex-col items-center text-center transition-all hover:-translate-y-1"
           >
-            <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl text-white transition-transform group-hover:scale-110 ${action.color}`}>
-              <action.icon size={20} />
+            <div className={`mb-4 flex h-16 w-16 items-center justify-center rounded-none text-white transition-all group-hover:scale-110 group-hover:shadow-lg ${action.color}`}>
+              <action.icon size={28} />
             </div>
-            <h3 className="font-bold text-slate-900 group-hover:text-cyan-600 transition-colors">{action.label}</h3>
-            <p className="text-[11px] text-slate-500">{action.desc}</p>
+            <h3 className="text-sm font-bold text-black group-hover:text-cyan-600 transition-colors">{action.label}</h3>
+            <p className="mt-1 text-[10px] text-slate-500 uppercase tracking-tighter opacity-70">{action.desc}</p>
           </button>
         ))}
       </div>
@@ -239,9 +187,9 @@ function QuickActions({ role }) {
 
 function LoadingState() {
   return (
-    <div className="mt-6 grid min-h-[320px] place-items-center rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+    <div className="mt-6 grid min-h-[320px] place-items-center rounded-none border border-slate-200 bg-white p-8 shadow-sm">
       <div className="text-center">
-        <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-cyan-700" />
+        <div className="mx-auto h-12 w-12 animate-spin rounded-none border-4 border-slate-200 border-t-cyan-700" />
         <p className="mt-4 text-sm font-semibold text-slate-700">Loading owner dashboard data</p>
         <p className="mt-1 text-sm text-slate-500">Fetching live billing, revenue, and operations metrics.</p>
       </div>
@@ -251,13 +199,13 @@ function LoadingState() {
 
 function SessionExpiredState({ onSignIn }) {
   return (
-    <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-6 shadow-sm">
+    <div className="mt-6 rounded-none border border-amber-200 bg-amber-50 p-6 shadow-sm">
       <p className="text-lg font-semibold text-amber-900">Session expired</p>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-amber-800">
         Your login token is missing, expired, or no longer valid. Sign in again to reload the owner dashboard.
       </p>
       <button
-        className="mt-5 rounded-md bg-amber-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-800"
+        className="mt-5 rounded-none bg-amber-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-800"
         type="button"
         onClick={onSignIn}
       >
@@ -330,14 +278,14 @@ function OwnerDashboard({ username, logout }) {
   const recentUsersActivity = dashboard?.recentUsersActivity ?? [];
 
   return (
-    <div className="text-slate-950">
+    <div className="text-black">
       <section className="mx-auto max-w-7xl py-4">
-        <div className="relative mb-10 overflow-hidden rounded-3xl bg-slate-950 p-8 text-white shadow-2xl">
+        <div className="relative mb-10 overflow-hidden rounded-none bg-black p-8 text-white shadow-2xl">
           <div className="relative z-10 flex flex-col justify-between gap-6 md:flex-row md:items-center">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 text-[10px] font-bold uppercase tracking-wider">Executive Workspace</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></span>
+                <span className="px-2 py-0.5 rounded-none bg-cyan-500/20 text-cyan-400 text-[10px] font-bold uppercase tracking-wider">Executive Workspace</span>
+                <span className="w-1.5 h-1.5 rounded-none bg-cyan-500 animate-pulse"></span>
               </div>
               <h2 className="text-3xl font-bold tracking-tight">Welcome back, {username}</h2>
               <p className="mt-3 max-w-xl text-slate-400 text-sm leading-relaxed">
@@ -346,31 +294,23 @@ function OwnerDashboard({ username, logout }) {
             </div>
             
             <div className="flex gap-4">
-              <Link to="/create-bill" className="flex items-center gap-2 rounded-xl bg-cyan-500 px-6 py-3 text-sm font-bold text-slate-950 transition-all hover:bg-cyan-400 hover:scale-105 active:scale-95 shadow-lg shadow-cyan-500/20">
+              <Link to="/create-bill" className="flex items-center gap-2 rounded-none bg-cyan-500 px-6 py-3 text-sm font-bold text-black transition-all hover:bg-cyan-400 hover:scale-105 active:scale-95 shadow-lg shadow-cyan-500/20">
                 <PlusCircle size={18} />
                 Create New Bill
               </Link>
             </div>
           </div>
-          
-          {/* Subtle background decoration */}
-          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl"></div>
-          <div className="absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl"></div>
         </div>
 
         {isSessionExpired ? <SessionExpiredState onSignIn={handleSignInAgain} /> : null}
 
         {error ? (
-          <div className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          <div className="mb-6 rounded-none border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
             {error}
           </div>
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {metrics.map((metric) => (
-            <MetricCard key={metric.label} metric={metric} />
-          ))}
-        </div>
+        {/* Metrics removed per request */}
 
         {isLoading ? (
           <LoadingState />
@@ -380,7 +320,6 @@ function OwnerDashboard({ username, logout }) {
               <RevenueChart revenueTrend={revenueTrend} />
               <div className="grid gap-6">
                 <QuickActions role="OWNER" />
-                <ActivityPanel recentUsersActivity={recentUsersActivity} />
               </div>
             </div>
 
@@ -398,8 +337,8 @@ function SimpleDashboard({ role, username, logout }) {
   const copy = dashboardCopy[role];
 
   return (
-    <div className="text-slate-950 px-6 py-8">
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="text-black px-6 py-8">
+        <div className="rounded-none border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm text-slate-500">Signed in as</p>
           <p className="mt-1 text-lg font-semibold">{username}</p>
           <p className="mt-6 text-2xl font-semibold">{copy.subtitle}</p>

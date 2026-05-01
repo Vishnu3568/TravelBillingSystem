@@ -15,20 +15,18 @@ const routes = [
   { to: '/vehicles', icon: Truck, label: 'Vehicles', roles: ['OWNER', 'MANAGER'] },
   { to: '/users', icon: Users, label: 'Users', roles: ['OWNER'] },
   { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['OWNER', 'MANAGER'] },
-  { to: '/import-bills', icon: UploadCloud, label: 'Bulk Import', roles: ['OWNER'] },
   { to: '/backup', icon: Database, label: 'Backup', roles: ['OWNER'] },
-  { to: '/audit-logs', icon: ClipboardList, label: 'Audit Logs', roles: ['OWNER'] },
-  { to: '/settings', icon: Settings, label: 'Settings', roles: ['OWNER'] },
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export default function Sidebar() {
   const { role } = useAuth(); // role string like 'OWNER', 'MANAGER', 'EMPLOYEE'
   return (
-    <nav className="hidden md:flex flex-col w-64 shrink-0 bg-slate-950 text-slate-100 h-screen sticky top-0 p-6 shadow-2xl z-20">
+    <nav className="hidden md:flex flex-col w-64 shrink-0 bg-black text-slate-100 h-screen sticky top-0 p-6 shadow-2xl z-20">
       <div className="mb-10">
         <div className="flex items-center gap-2 mb-1">
-          <div className="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center">
-            <span className="font-bold text-slate-950 text-lg">T</span>
+          <div className="w-8 h-8 bg-cyan-500 rounded-none flex items-center justify-center">
+            <span className="font-bold text-black text-lg">T</span>
           </div>
           <span className="text-xl font-bold tracking-tight">Sri Tulja Bhavani</span>
         </div>
@@ -42,7 +40,7 @@ export default function Sidebar() {
               <NavLink
                 to={route.to}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                  `flex items-center gap-3 px-3 py-2 rounded-none transition-colors ${
                     isActive ? 'bg-primary/20 text-primary' : 'hover:bg-slate-800'
                   }`
                 }

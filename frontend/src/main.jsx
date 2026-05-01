@@ -16,6 +16,7 @@ import BackupPage from "./pages/BackupPage.jsx";
 import AuditLogPage from "./pages/AuditLogPage.jsx";
 import EditBillPage from "./pages/EditBillPage.jsx";
 import ImportBillsPage from "./pages/ImportBillsPage.jsx";
+import SettingsPage from "./pages/SettingsPage.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import { Toaster } from "sonner";
 import "./styles/index.css";
@@ -40,6 +41,7 @@ const router = createBrowserRouter([
       {
         element: <MainLayout />,
         children: [
+          // ... all the routes ...
           {
             path: "owner-dashboard",
             element: (
@@ -152,12 +154,22 @@ const router = createBrowserRouter([
               </ProtectedRoute>
             ),
           },
+          {
+            path: "settings",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER", "MANAGER", "EMPLOYEE"]}>
+                <SettingsPage />
+              </ProtectedRoute>
+            ),
+          },
           { path: "*", element: <Navigate to="/login" replace /> },
         ],
       },
     ],
   },
-]);
+], {
+  basename: import.meta.env.BASE_URL
+});
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

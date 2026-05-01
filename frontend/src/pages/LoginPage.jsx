@@ -31,13 +31,13 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-950">
+    <main className="min-h-screen bg-slate-100 text-black">
       <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="hidden bg-slate-950 text-white lg:flex">
+        <section className="hidden bg-black text-white lg:flex">
           <div className="flex w-full flex-col justify-between px-14 py-12">
             <div>
               <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded bg-cyan-400 font-bold text-slate-950">
+                <div className="grid h-10 w-10 place-items-center rounded-none bg-cyan-400 font-bold text-black">
                   STB
                 </div>
                 <div>
@@ -78,7 +78,7 @@ export default function LoginPage() {
           <div className="w-full max-w-md">
             <div className="mb-8 lg:hidden">
               <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded bg-slate-950 font-bold text-white">
+                <div className="grid h-10 w-10 place-items-center rounded-none bg-black font-bold text-white">
                   STB
                 </div>
                 <div>
@@ -90,10 +90,10 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-panel sm:p-8">
+            <div className="rounded-none border border-slate-200 bg-white p-6 shadow-panel sm:p-8">
               <div>
                 <p className="text-sm font-medium text-cyan-700">Welcome back</p>
-                <h2 className="mt-2 text-3xl font-semibold text-slate-950">Sign in</h2>
+                <h2 className="mt-2 text-3xl font-semibold text-black">Sign in</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
                   Enter your account credentials to continue.
                 </p>
@@ -105,7 +105,7 @@ export default function LoginPage() {
                     Username
                   </label>
                   <input
-                    className="mt-2 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-cyan-600 focus:ring-4 focus:ring-cyan-100"
+                    className="mt-2 w-full rounded-none border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-cyan-600 focus:ring-4 focus:ring-cyan-100"
                     id="username"
                     name="username"
                     type="text"
@@ -121,7 +121,7 @@ export default function LoginPage() {
                     Password
                   </label>
                   <input
-                    className="mt-2 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-cyan-600 focus:ring-4 focus:ring-cyan-100"
+                    className="mt-2 w-full rounded-none border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-cyan-600 focus:ring-4 focus:ring-cyan-100"
                     id="password"
                     name="password"
                     type="password"
@@ -133,13 +133,13 @@ export default function LoginPage() {
                 </div>
 
                 {error ? (
-                  <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                  <div className="rounded-none border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                     {error}
                   </div>
                 ) : null}
 
                 <button
-                  className="flex w-full items-center justify-center rounded-md bg-slate-950 px-4 py-3 text-base font-semibold text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-300 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  className="flex w-full items-center justify-center rounded-none bg-black px-4 py-3 text-base font-semibold text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-300 disabled:cursor-not-allowed disabled:bg-slate-400"
                   type="submit"
                   disabled={isSubmitting}
                 >

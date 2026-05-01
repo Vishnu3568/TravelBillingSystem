@@ -117,9 +117,9 @@ const BackupPage = () => {
   if (role !== "OWNER") {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50 p-6">
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center max-w-md">
+        <div className="bg-white p-8 rounded-none shadow-sm border border-slate-200 text-center max-w-md">
           <AlertTriangle className="mx-auto text-red-500 mb-4" size={48} />
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Access Denied</h2>
+          <h2 className="text-2xl font-bold text-black mb-2">Access Denied</h2>
           <p className="text-slate-500">Backup and Restore tools are restricted to OWNER accounts only.</p>
         </div>
       </div>
@@ -130,7 +130,7 @@ const BackupPage = () => {
     <div className="p-6 bg-slate-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-black flex items-center gap-3">
             <Database className="text-indigo-600" size={32} />
             Backup & Restore
           </h1>
@@ -138,7 +138,7 @@ const BackupPage = () => {
         </div>
 
         {message.text && (
-          <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300 ${
+          <div className={`mb-6 p-4 rounded-none flex items-center gap-3 animate-in fade-in slide-in- duration-300 ${
             message.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-red-50 text-red-700 border border-red-100"
           }`}>
             {message.type === "success" ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
@@ -148,29 +148,29 @@ const BackupPage = () => {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center group hover:border-indigo-200 transition-colors">
-            <div className="p-4 rounded-2xl bg-indigo-50 text-indigo-600 mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+          <div className="bg-white p-8 rounded-none shadow-sm border border-slate-200 flex flex-col items-center text-center group hover:border-indigo-200 transition-colors">
+            <div className="p-4 rounded-none bg-indigo-50 text-indigo-600 mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
               <HardDrive size={40} />
             </div>
-            <h2 className="text-xl font-bold text-slate-900 mb-2">Create Instant Backup</h2>
+            <h2 className="text-xl font-bold text-black mb-2">Create Instant Backup</h2>
             <p className="text-slate-500 mb-6 max-w-xs text-sm leading-relaxed">
               Generate a full snapshot of the database including all bills, users, companies, and vehicles.
             </p>
             <button 
               disabled={actionLoading}
               onClick={handleCreateBackup}
-              className="w-full bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-indigo-600 text-white px-6 py-3 rounded-none font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {actionLoading ? <Loader2 className="animate-spin" size={20} /> : <RefreshCw size={20} />}
               Start Backup Process
             </button>
           </div>
 
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center group hover:border-amber-200 transition-colors">
-            <div className="p-4 rounded-2xl bg-amber-50 text-amber-600 mb-4 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+          <div className="bg-white p-8 rounded-none shadow-sm border border-slate-200 flex flex-col items-center text-center group hover:border-amber-200 transition-colors">
+            <div className="p-4 rounded-none bg-amber-50 text-amber-600 mb-4 group-hover:bg-amber-600 group-hover:text-white transition-colors">
               <Upload size={40} />
             </div>
-            <h2 className="text-xl font-bold text-slate-900 mb-2">Restore from File</h2>
+            <h2 className="text-xl font-bold text-black mb-2">Restore from File</h2>
             <p className="text-slate-500 mb-6 max-w-xs text-sm leading-relaxed">
               Upload a previously downloaded .sql file to restore the database state.
             </p>
@@ -184,7 +184,7 @@ const BackupPage = () => {
             <button 
               disabled={actionLoading}
               onClick={() => fileInputRef.current.click()}
-              className="w-full bg-amber-600 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-amber-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-amber-600 text-white px-6 py-3 rounded-none font-bold flex items-center justify-center gap-2 hover:bg-amber-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {actionLoading ? <Loader2 className="animate-spin" size={20} /> : <Database size={20} />}
               Upload & Restore
@@ -192,13 +192,13 @@ const BackupPage = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-none shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
             <h3 className="font-bold text-slate-800 flex items-center gap-2">
               <History size={18} />
               Recent Backup History
             </h3>
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded-none">
               Local Storage
             </span>
           </div>
@@ -230,7 +230,7 @@ const BackupPage = () => {
                   history.map((item) => (
                     <tr key={item.fileName} className="hover:bg-slate-50 transition-colors group">
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-3 font-medium text-slate-900">
+                        <div className="flex items-center gap-3 font-medium text-black">
                           <FileText className="text-slate-400" size={20} />
                           {item.fileName}
                         </div>
@@ -248,14 +248,14 @@ const BackupPage = () => {
                         <div className="flex items-center justify-end gap-2">
                           <button 
                             onClick={() => handleDownload(item.fileName)}
-                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-none transition"
                             title="Download SQL"
                           >
                             <Download size={18} />
                           </button>
                           <button 
                             onClick={() => handleDelete(item.fileName)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-none transition"
                             title="Delete"
                           >
                             <Trash2 size={18} />

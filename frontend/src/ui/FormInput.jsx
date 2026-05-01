@@ -14,7 +14,7 @@ export default function FormInput({ label, id, type = 'text', required = false, 
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className={`w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base focus:border-primary-600 focus:ring-2 focus:ring-primary-200 outline-none ${className}`}
+        className={`w-full rounded-none border border-slate-300 bg-white px-3 py-2 text-base focus:border-primary-600 focus:ring-2 focus:ring-primary-200 outline-none ${className}`}
       />
     </div>
   );
