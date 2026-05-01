@@ -82,7 +82,7 @@ const ReportsPage = () => {
     <div className="p-6 bg-slate-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-black flex items-center gap-3">
             <BarChart3 className="text-indigo-600" size={32} />
             Reports & Analytics
           </h1>
@@ -91,20 +91,20 @@ const ReportsPage = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
           {cards.map((card, i) => (
-            <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-5 transition-all hover:shadow-md hover:-translate-y-1">
-              <div className={`p-4 rounded-xl ${card.color}`}>
+            <div key={i} className="bg-white p-6 rounded-none shadow-sm border border-slate-200 flex items-center gap-5 transition-all hover:shadow-md hover:-translate-y-1">
+              <div className={`p-4 rounded-none ${card.color}`}>
                 <card.icon size={28} />
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-1 uppercase tracking-wider">{card.label}</p>
-                <p className="text-2xl font-bold text-slate-900">{card.value}</p>
+                <p className="text-2xl font-bold text-black">{card.value}</p>
               </div>
             </div>
           ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <div className="bg-white p-6 rounded-none shadow-sm border border-slate-200">
             <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
               <Users className="text-indigo-600" size={24} />
               Top 5 Companies by Revenue
@@ -137,7 +137,7 @@ const ReportsPage = () => {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <div className="bg-white p-6 rounded-none shadow-sm border border-slate-200">
             <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
               <Car className="text-indigo-600" size={24} />
               Top 5 Vehicles by Revenue
@@ -172,7 +172,7 @@ const ReportsPage = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-none shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-5 border-b border-slate-100 bg-slate-50/50">
               <h3 className="font-bold text-slate-800">Top Companies Detailed</h3>
             </div>
@@ -187,14 +187,14 @@ const ReportsPage = () => {
                 {topCompanies.map((c, i) => (
                   <tr key={i} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-700">{c.name}</td>
-                    <td className="px-6 py-4 text-right font-bold text-slate-900">{formatCurrency(c.revenue)}</td>
+                    <td className="px-6 py-4 text-right font-bold text-black">{formatCurrency(c.revenue)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-none shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-5 border-b border-slate-100 bg-slate-50/50">
               <h3 className="font-bold text-slate-800">Top Vehicles Detailed</h3>
             </div>
@@ -209,7 +209,7 @@ const ReportsPage = () => {
                 {topVehicles.map((v, i) => (
                   <tr key={i} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-700">{v.name}</td>
-                    <td className="px-6 py-4 text-right font-bold text-slate-900">{formatCurrency(v.revenue)}</td>
+                    <td className="px-6 py-4 text-right font-bold text-black">{formatCurrency(v.revenue)}</td>
                   </tr>
                 ))}
               </tbody>

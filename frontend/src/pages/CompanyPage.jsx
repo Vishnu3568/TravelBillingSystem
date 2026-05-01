@@ -103,7 +103,7 @@ const CompanyPage = () => {
               setEditingId(null);
               setFormData({ name: "", address: "", gstNumber: "" });
             }}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-md"
+            className="bg-indigo-600 text-white px-4 py-2 rounded-none flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-md"
           >
             <Plus size={20} />
             Add Company
@@ -111,7 +111,7 @@ const CompanyPage = () => {
         </div>
 
         {isAdding && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8 transition-all animate-in fade-in slide-in-from-top-4">
+          <div className="bg-white p-6 rounded-none shadow-sm border border-slate-200 mb-8 transition-all animate-in fade-in slide-in-">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-slate-800">
                 {editingId ? "Edit Company" : "New Company"}
@@ -128,7 +128,7 @@ const CompanyPage = () => {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500 outline-none"
                   placeholder="e.g. Acme Corp"
                 />
               </div>
@@ -138,7 +138,7 @@ const CompanyPage = () => {
                   id="hasGst"
                   checked={formData.hasGst}
                   onChange={(e) => setFormData({ ...formData, hasGst: e.target.checked, gstNumber: e.target.checked ? formData.gstNumber : "" })}
-                  className="mr-2 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                  className="mr-2 h-4 w-4 text-indigo-600 border-gray-300 rounded-none"
                 />
                 <label htmlFor="hasGst" className="text-sm font-medium text-slate-700">Has GST Number?</label>
               </div>
@@ -150,7 +150,7 @@ const CompanyPage = () => {
                     required
                     value={formData.gstNumber}
                     onChange={(e) => setFormData({ ...formData, gstNumber: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500 outline-none"
                     placeholder="27AAAAA0000A1Z5"
                   />
                 </div>
@@ -162,7 +162,7 @@ const CompanyPage = () => {
                   required
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500 outline-none"
                   placeholder="Full Address"
                 />
               </div>
@@ -170,13 +170,13 @@ const CompanyPage = () => {
                 <button
                   type="button"
                   onClick={() => setIsAdding(false)}
-                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-none transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-all shadow-sm flex items-center gap-2"
+                  className="bg-indigo-600 text-white px-6 py-2 rounded-none hover:bg-indigo-700 transition-all shadow-sm flex items-center gap-2"
                 >
                   <Check size={20} />
                   {editingId ? "Update Company" : "Save Company"}
@@ -186,7 +186,7 @@ const CompanyPage = () => {
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-none shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -195,7 +195,7 @@ const CompanyPage = () => {
                 placeholder="Search by name or GST..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
               />
             </div>
             <div className="text-sm text-slate-500">
@@ -224,7 +224,7 @@ const CompanyPage = () => {
                     <tr key={company.id} className="hover:bg-slate-50 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                          <div className="w-8 h-8 rounded-none bg-indigo-50 flex items-center justify-center text-indigo-600">
                             <Building2 size={16} />
                           </div>
                           <span className="font-medium text-slate-800">{company.name}</span>
@@ -246,14 +246,14 @@ const CompanyPage = () => {
                         <div className="flex justify-end gap-2 transition-opacity">
                           <button
                             onClick={() => handleEdit(company)}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-none transition-all"
                             title="Edit"
                           >
                             <Edit2 size={16} />
                           </button>
                           <button
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); console.log("DEBUG_DELETE_CLICKED", company.id); handleDelete(company.id); }}
-                            className="px-3 py-1 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-all"
+                            className="px-3 py-1 bg-red-600 text-white rounded-none text-xs font-bold hover:bg-red-700 transition-all"
                           >
                             DELETE
                           </button>

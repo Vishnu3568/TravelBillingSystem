@@ -184,13 +184,13 @@ export default function BillViewPage() {
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
         <div className="flex gap-4">
-          <button onClick={handlePrint} className="flex items-center gap-1 px-4 py-2 bg-white border border-slate-300 rounded hover:bg-slate-50">
+          <button onClick={handlePrint} className="flex items-center gap-1 px-4 py-2 bg-white border border-slate-300 rounded-none hover:bg-slate-50">
             <Printer className="w-4 h-4" /> Print
           </button>
-          <button onClick={handleDownloadPdf} className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+          <button onClick={handleDownloadPdf} className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white rounded-none hover:bg-indigo-700">
             <FileDown className="w-4 h-4" /> {downloading ? "..." : "PDF"}
           </button>
-          <button onClick={() => navigate(`/edit-bill/${bill.id}`)} className="flex items-center gap-1 px-4 py-2 bg-white border border-slate-300 rounded hover:bg-slate-50">
+          <button onClick={() => navigate(`/edit-bill/${bill.id}`)} className="flex items-center gap-1 px-4 py-2 bg-white border border-slate-300 rounded-none hover:bg-slate-50">
             <Pencil className="w-4 h-4" /> Edit
           </button>
         </div>

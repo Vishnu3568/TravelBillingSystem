@@ -115,11 +115,11 @@ export default function BillHistoryPage() {
                 <FileText className="w-5 h-5 text-indigo-600" />
                 <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Financial Records</span>
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Bill History</h1>
+            <h1 className="text-2xl font-bold text-black tracking-tight">Bill History</h1>
             <p className="text-sm text-slate-500">Search and manage all generated invoices across the system.</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-8">
+        <div className="bg-white rounded-none shadow-sm border border-slate-200 p-4 mb-8">
           <form onSubmit={handleSearch} className="flex flex-wrap items-end gap-4">
             <div className="flex-1 min-w-[200px] space-y-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Bill Number</label>
@@ -128,7 +128,7 @@ export default function BillHistoryPage() {
                 <input
                   type="text"
                   placeholder="e.g. BILL-2024..."
-                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
                   value={filters.billNumber}
                   onChange={(e) => setFilters({ ...filters, billNumber: e.target.value })}
                 />
@@ -142,7 +142,7 @@ export default function BillHistoryPage() {
                 <input
                   type="text"
                   placeholder="Company name..."
-                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
                   value={filters.companyName}
                   onChange={(e) => setFilters({ ...filters, companyName: e.target.value })}
                 />
@@ -153,7 +153,7 @@ export default function BillHistoryPage() {
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">From Date</label>
               <input
                 type="date"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
                 value={filters.fromDate}
                 onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
               />
@@ -163,7 +163,7 @@ export default function BillHistoryPage() {
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">To Date</label>
               <input
                 type="date"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
                 value={filters.toDate}
                 onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
               />
@@ -172,14 +172,14 @@ export default function BillHistoryPage() {
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="bg-slate-950 hover:bg-slate-800 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg shadow-slate-200 flex items-center gap-2 text-sm active:scale-95"
+                className="bg-black hover:bg-slate-800 text-white font-bold py-2 px-6 rounded-none transition-all shadow-lg shadow-slate-200 flex items-center gap-2 text-sm active:scale-95"
               >
                 Search
               </button>
               <button
                 type="button"
                 onClick={handleReset}
-                className="p-2 text-slate-400 bg-white hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-all border border-slate-200 active:scale-95"
+                className="p-2 text-slate-400 bg-white hover:text-slate-600 hover:bg-slate-50 rounded-none transition-all border border-slate-200 active:scale-95"
                 title="Reset Filters"
               >
                 <RotateCcw className="w-5 h-5" />
@@ -188,7 +188,7 @@ export default function BillHistoryPage() {
           </form>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-none shadow-sm border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -206,7 +206,7 @@ export default function BillHistoryPage() {
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="animate-pulse">
                       <td colSpan="7" className="px-6 py-4">
-                        <div className="h-4 bg-slate-100 rounded w-full"></div>
+                        <div className="h-4 bg-slate-100 rounded-none w-full"></div>
                       </td>
                     </tr>
                   ))
@@ -214,7 +214,7 @@ export default function BillHistoryPage() {
                   bills.map((bill) => (
                     <tr key={bill.id} className="hover:bg-slate-50 transition-colors group">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="font-mono text-sm font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
+                        <span className="font-mono text-sm font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-none">
                           {bill.billNumber}
                         </span>
                       </td>
@@ -228,7 +228,7 @@ export default function BillHistoryPage() {
                         {bill.vehicleName || "-"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-bold text-slate-900">
+                        <span className="text-sm font-bold text-black">
                           ₹{bill.grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                         </span>
                       </td>
@@ -236,7 +236,7 @@ export default function BillHistoryPage() {
                         <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Created By</span>
                             <div className="flex items-center gap-2">
-                                <div className="w-5 h-5 rounded-md bg-slate-950 flex items-center justify-center text-[9px] font-bold text-white uppercase">
+                                <div className="w-5 h-5 rounded-none bg-black flex items-center justify-center text-[9px] font-bold text-white uppercase">
                                     {bill.createdBy?.substring(0, 2)}
                                 </div>
                                 <span className="text-xs font-medium text-slate-600">{bill.createdBy}</span>
@@ -247,21 +247,21 @@ export default function BillHistoryPage() {
                         <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => handleViewBill(bill.id)}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-none transition-all"
                             title="View Details"
                           >
                             <Eye className="w-5 h-5" />
                           </button>
                           <button
                             onClick={() => handleDownloadPdf(bill.id, bill.billNumber)}
-                            className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                            className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-none transition-all"
                             title="Download PDF"
                           >
                             <FileDown className="w-5 h-5" />
                           </button>
                           <button
                             onClick={() => navigate(`/edit-bill/${bill.id}`)}
-                            className="p-1.5 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-all"
+                            className="p-1.5 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-none transition-all"
                             title="Edit Bill"
                           >
                             <Pencil className="w-5 h-5" />
@@ -274,7 +274,7 @@ export default function BillHistoryPage() {
                   <tr>
                     <td colSpan="7" className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center justify-center text-slate-400">
-                        <div className="bg-slate-100 p-4 rounded-full mb-4">
+                        <div className="bg-slate-100 p-4 rounded-none mb-4">
                           <Filter className="w-8 h-8" />
                         </div>
                         <p className="text-lg font-medium text-slate-600">No records found</p>
@@ -301,7 +301,7 @@ export default function BillHistoryPage() {
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 0}
-                  className="p-2 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="p-2 border border-slate-200 rounded-none bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
@@ -309,7 +309,7 @@ export default function BillHistoryPage() {
                   <button
                     key={i}
                     onClick={() => handlePageChange(i)}
-                    className={`w-10 h-10 rounded-lg border font-medium text-sm transition-all ${
+                    className={`w-10 h-10 rounded-none border font-medium text-sm transition-all ${
                       currentPage === i
                         ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
                         : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -321,7 +321,7 @@ export default function BillHistoryPage() {
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages - 1}
-                  className="p-2 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="p-2 border border-slate-200 rounded-none bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>

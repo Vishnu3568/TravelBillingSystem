@@ -31,7 +31,7 @@ const initialForm = {
   dynamicCharges: [], // This will hold both system and manual charges
 };
 
-const inputClass = "w-full border-none bg-transparent px-2 py-1 text-slate-900 focus:ring-0 outline-none";
+const inputClass = "w-full border-none bg-transparent px-2 py-1 text-black focus:ring-0 outline-none";
 const cellClass = "border border-slate-300 p-0 focus-within:bg-cyan-50 transition-colors";
 
 export default function EditBillPage() {
@@ -251,7 +251,7 @@ export default function EditBillPage() {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
         <div className="text-center">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-cyan-600 border-t-transparent mx-auto"></div>
+          <div className="h-12 w-12 animate-spin rounded-none border-4 border-cyan-600 border-t-transparent mx-auto"></div>
           <p className="mt-4 text-slate-600 font-medium">Loading bill details...</p>
         </div>
       </div>
@@ -263,7 +263,7 @@ export default function EditBillPage() {
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Edit Bill (Auto-Calculation Active)</h1>
+            <h1 className="text-xl font-bold text-black">Edit Bill (Auto-Calculation Active)</h1>
             <p className="text-sm text-slate-500">Bill Number: {form.billNumber}</p>
           </div>
           <div className="flex items-center gap-3">
@@ -274,7 +274,7 @@ export default function EditBillPage() {
                 onClick={undo}
                 disabled={history.past.length === 0}
                 title="Undo (Ctrl+Z)"
-                className="p-1.5 rounded hover:bg-slate-100 text-slate-600 disabled:opacity-30 transition-colors"
+                className="p-1.5 rounded-none hover:bg-slate-100 text-slate-600 disabled:opacity-30 transition-colors"
               >
                 <Undo2 className="w-4 h-4" />
               </button>
@@ -283,7 +283,7 @@ export default function EditBillPage() {
                 onClick={redo}
                 disabled={history.future.length === 0}
                 title="Redo (Ctrl+Y)"
-                className="p-1.5 rounded hover:bg-slate-100 text-slate-600 disabled:opacity-30 transition-colors"
+                className="p-1.5 rounded-none hover:bg-slate-100 text-slate-600 disabled:opacity-30 transition-colors"
               >
                 <Redo2 className="w-4 h-4" />
               </button>
@@ -291,7 +291,7 @@ export default function EditBillPage() {
                 type="button"
                 onClick={resetToOriginal}
                 title="Reset to Original"
-                className="p-1.5 rounded hover:bg-slate-100 text-slate-600 transition-colors"
+                className="p-1.5 rounded-none hover:bg-slate-100 text-slate-600 transition-colors"
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
@@ -299,14 +299,14 @@ export default function EditBillPage() {
 
             <button
               onClick={() => navigate(-1)}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-none border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
               disabled={isSaving}
-              className="rounded-lg bg-cyan-600 px-6 py-2 text-sm font-semibold text-white shadow-md hover:bg-cyan-700 disabled:opacity-50"
+              className="rounded-none bg-cyan-600 px-6 py-2 text-sm font-semibold text-white shadow-md hover:bg-cyan-700 disabled:opacity-50"
             >
               {isSaving ? "Saving..." : "Save Changes"}
             </button>
@@ -315,25 +315,25 @@ export default function EditBillPage() {
       </header>
 
       <main className="mx-auto mt-8 max-w-5xl px-6">
-        <form onSubmit={handleSubmit} className="space-y-8 rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+        <form onSubmit={handleSubmit} className="space-y-8 rounded-none border border-slate-200 bg-white p-8 shadow-sm">
           
           <section>
             <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">1. Basic Information</h2>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Bill Date</label>
-                <input type="date" name="date" value={form.date} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
+                <input type="date" name="date" value={form.date} onChange={handleChange} className="w-full rounded-none border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Customer</label>
-                <select name="company" value={form.company} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500">
+                <select name="company" value={form.company} onChange={handleChange} className="w-full rounded-none border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500">
                   <option value="">Select Company</option>
                   {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Duty Slip No</label>
-                <input type="text" name="dutySlipNumber" value={form.dutySlipNumber} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
+                <input type="text" name="dutySlipNumber" value={form.dutySlipNumber} onChange={handleChange} className="w-full rounded-none border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Pricing Mode</label>
@@ -342,27 +342,27 @@ export default function EditBillPage() {
             </div>
           </section>
 
-          <section className="rounded-lg bg-slate-50 p-6">
+          <section className="rounded-none bg-slate-50 p-6">
             <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">2. Trip Data (Triggers Auto-Calc)</h2>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700 text-cyan-700 font-bold">Total Kms *</label>
-                <input type="number" name="totalKms" value={form.totalKms} onChange={handleChange} className="w-full rounded-lg border-2 border-cyan-300 px-3 py-2 text-sm outline-none focus:border-cyan-600 bg-white" />
+                <input type="number" name="totalKms" value={form.totalKms} onChange={handleChange} className="w-full rounded-none border-2 border-cyan-300 px-3 py-2 text-sm outline-none focus:border-cyan-600 bg-white" />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700 text-cyan-700 font-bold">Total Hours *</label>
-                <input type="number" name="totalHours" value={form.totalHours} onChange={handleChange} className="w-full rounded-lg border-2 border-cyan-300 px-3 py-2 text-sm outline-none focus:border-cyan-600 bg-white" />
+                <input type="number" name="totalHours" value={form.totalHours} onChange={handleChange} className="w-full rounded-none border-2 border-cyan-300 px-3 py-2 text-sm outline-none focus:border-cyan-600 bg-white" />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Vehicle Type</label>
-                <select name="vehicleType" value={form.vehicleType} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 bg-white">
+                <select name="vehicleType" value={form.vehicleType} onChange={handleChange} className="w-full rounded-none border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 bg-white">
                   <option value="SEDAN">SEDAN (₹14/km)</option>
                   <option value="CRYSTA">CRYSTA (₹18/km)</option>
                 </select>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Vehicle No</label>
-                <select name="vehicle" value={form.vehicle} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 bg-white">
+                <select name="vehicle" value={form.vehicle} onChange={handleChange} className="w-full rounded-none border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500 bg-white">
                   <option value="">Select Vehicle</option>
                   {vehicles.map(v => <option key={v.id} value={v.registrationNumber}>{v.registrationNumber}</option>)}
                 </select>
@@ -375,7 +375,7 @@ export default function EditBillPage() {
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">3. Charges Table</h2>
               <button type="button" onClick={addManualRow} className="text-xs font-bold text-cyan-600 hover:text-cyan-700">+ Add Extra Charge</button>
             </div>
-            <div className="overflow-hidden rounded-lg border border-slate-300 shadow-sm">
+            <div className="overflow-hidden rounded-none border border-slate-300 shadow-sm">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-slate-100">
@@ -432,25 +432,25 @@ export default function EditBillPage() {
           <section className="flex flex-col items-end gap-2 border-t border-slate-100 pt-6">
             <div className="flex items-baseline gap-8">
               <span className="text-sm font-bold text-slate-500 uppercase">Grand Total:</span>
-              <span className="text-3xl font-black text-slate-900">₹ {grandTotal.toLocaleString("en-IN")}</span>
+              <span className="text-3xl font-black text-black">₹ {grandTotal.toLocaleString("en-IN")}</span>
             </div>
             <p className="text-sm font-medium italic text-slate-500 uppercase">Rupees {amountInWords}</p>
           </section>
 
-          <section className="rounded-lg border border-dashed border-slate-200 p-6">
+          <section className="rounded-none border border-dashed border-slate-200 p-6">
             <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">4. Office Details</h2>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Customer Person</label>
-                <input type="text" name="contactPerson" value={form.contactPerson} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
+                <input type="text" name="contactPerson" value={form.contactPerson} onChange={handleChange} className="w-full rounded-none border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Booked By</label>
-                <input type="text" name="bookedBy" value={form.bookedBy} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
+                <input type="text" name="bookedBy" value={form.bookedBy} onChange={handleChange} className="w-full rounded-none border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Manager Signature</label>
-                <input type="text" name="managerName" value={form.managerName} onChange={handleChange} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
+                <input type="text" name="managerName" value={form.managerName} onChange={handleChange} className="w-full rounded-none border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
               </div>
             </div>
           </section>

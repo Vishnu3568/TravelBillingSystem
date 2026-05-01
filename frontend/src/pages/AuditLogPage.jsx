@@ -85,9 +85,9 @@ const AuditLogPage = () => {
   if (role !== "OWNER") {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50 p-6">
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center max-w-md">
+        <div className="bg-white p-8 rounded-none shadow-sm border border-slate-200 text-center max-w-md">
           <AlertCircle className="mx-auto text-red-500 mb-4" size={48} />
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Access Denied</h2>
+          <h2 className="text-2xl font-bold text-black mb-2">Access Denied</h2>
           <p className="text-slate-500">Audit logs are reserved for OWNER accounts only.</p>
         </div>
       </div>
@@ -99,19 +99,19 @@ const AuditLogPage = () => {
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-black flex items-center gap-3">
               <ClipboardList className="text-indigo-600" size={32} />
               Audit Logs
             </h1>
             <p className="text-slate-500 mt-2">Track every administrative action across the system</p>
           </div>
-          <div className="bg-indigo-600/10 text-indigo-700 px-4 py-2 rounded-xl border border-indigo-100 flex items-center gap-2 font-semibold">
+          <div className="bg-indigo-600/10 text-indigo-700 px-4 py-2 rounded-none border border-indigo-100 flex items-center gap-2 font-semibold">
             <Activity size={18} />
             Total Events: {totalElements}
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
+        <div className="bg-white p-6 rounded-none shadow-sm border border-slate-200 mb-8">
           <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
             <div className="space-y-1.5">
               <label className="text-sm font-bold text-slate-700">Username</label>
@@ -120,7 +120,7 @@ const AuditLogPage = () => {
                 <input 
                   type="text"
                   placeholder="Filter by user..."
-                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
                   value={filters.username}
                   onChange={(e) => setFilters({...filters, username: e.target.value})}
                 />
@@ -129,7 +129,7 @@ const AuditLogPage = () => {
             <div className="space-y-1.5">
               <label className="text-sm font-bold text-slate-700">Action Type</label>
               <select 
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
                 value={filters.action}
                 onChange={(e) => setFilters({...filters, action: e.target.value})}
               >
@@ -151,7 +151,7 @@ const AuditLogPage = () => {
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                 <input 
                   type="date"
-                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
                   value={filters.startDate}
                   onChange={(e) => setFilters({...filters, startDate: e.target.value})}
                 />
@@ -163,7 +163,7 @@ const AuditLogPage = () => {
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                 <input 
                   type="date"
-                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
                   value={filters.endDate}
                   onChange={(e) => setFilters({...filters, endDate: e.target.value})}
                 />
@@ -172,7 +172,7 @@ const AuditLogPage = () => {
             <div className="flex gap-2">
               <button 
                 type="submit"
-                className="flex-1 bg-indigo-600 text-white font-bold py-2 rounded-xl hover:bg-indigo-700 transition flex items-center justify-center gap-2"
+                className="flex-1 bg-indigo-600 text-white font-bold py-2 rounded-none hover:bg-indigo-700 transition flex items-center justify-center gap-2"
               >
                 <Filter size={18} />
                 Filter
@@ -180,7 +180,7 @@ const AuditLogPage = () => {
               <button 
                 type="button"
                 onClick={clearFilters}
-                className="p-2 border border-slate-200 text-slate-500 hover:bg-slate-50 rounded-xl transition"
+                className="p-2 border border-slate-200 text-slate-500 hover:bg-slate-50 rounded-none transition"
               >
                 Reset
               </button>
@@ -188,7 +188,7 @@ const AuditLogPage = () => {
           </form>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-none shadow-sm border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-slate-50 text-slate-500 uppercase text-xs font-bold tracking-wider border-b border-slate-100">
@@ -220,28 +220,28 @@ const AuditLogPage = () => {
                     <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                         <div className="flex flex-col">
-                          <span className="font-medium text-slate-900">{new Date(log.createdAt).toLocaleDateString()}</span>
+                          <span className="font-medium text-black">{new Date(log.createdAt).toLocaleDateString()}</span>
                           <span className="flex items-center gap-1"><Clock size={12}/>{new Date(log.createdAt).toLocaleTimeString()}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold">
+                          <div className="w-8 h-8 rounded-none bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold">
                             {log.username.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900 text-sm">{log.username}</p>
+                            <p className="font-bold text-black text-sm">{log.username}</p>
                             <p className="text-xs text-indigo-600 font-semibold">{log.role}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${getActionColor(log.action)}`}>
+                        <span className={`px-2.5 py-1 rounded-none text-[10px] font-bold border ${getActionColor(log.action)}`}>
                           {log.action}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                        <span className="text-sm font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-none">
                           {log.module}
                         </span>
                       </td>
@@ -263,23 +263,23 @@ const AuditLogPage = () => {
 
           <div className="p-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between">
             <p className="text-sm text-slate-500">
-              Showing <span className="font-bold text-slate-900">{logs.length}</span> of <span className="font-bold text-slate-900">{totalElements}</span> logs
+              Showing <span className="font-bold text-black">{logs.length}</span> of <span className="font-bold text-black">{totalElements}</span> logs
             </p>
             <div className="flex gap-2">
               <button 
                 disabled={page === 0 || loading}
                 onClick={() => setPage(p => p - 1)}
-                className="p-2 border border-slate-200 rounded-lg hover:bg-white transition disabled:opacity-30 disabled:cursor-not-allowed"
+                className="p-2 border border-slate-200 rounded-none hover:bg-white transition disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <ArrowLeft size={18} />
               </button>
-              <div className="flex items-center px-4 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-lg">
+              <div className="flex items-center px-4 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-none">
                 Page {page + 1} of {totalPages || 1}
               </div>
               <button 
                 disabled={page >= totalPages - 1 || loading}
                 onClick={() => setPage(p => p + 1)}
-                className="p-2 border border-slate-200 rounded-lg hover:bg-white transition disabled:opacity-30 disabled:cursor-not-allowed"
+                className="p-2 border border-slate-200 rounded-none hover:bg-white transition disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <ArrowRight size={18} />
               </button>
