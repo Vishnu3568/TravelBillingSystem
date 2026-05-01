@@ -59,7 +59,7 @@ const router = createBrowserRouter([
           {
             path: "create-bill",
             element: (
-              <ProtectedRoute allowedRoles={["OWNER"]}>
+              <ProtectedRoute allowedRoles={["OWNER", "MANAGER", "EMPLOYEE"]}>
                 <CreateBillPage />
               </ProtectedRoute>
             ),

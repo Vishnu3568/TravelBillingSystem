@@ -1,18 +1,24 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Building2, Truck, Users, BarChart2, Database, ClipboardList, Settings, UploadCloud } from 'lucide-react';
+import { 
+  Home, Building2, Truck, Users, BarChart2, 
+  Database, ClipboardList, Settings, UploadCloud,
+  PlusCircle, History 
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx'; // Adjust import path to your auth context
 
 const routes = [
   { to: '/', icon: Home, label: 'Dashboard' },
-  { to: '/companies', icon: Building2, label: 'Companies' },
-  { to: '/vehicles', icon: Truck, label: 'Vehicles' },
+  { to: '/create-bill', icon: PlusCircle, label: 'Create Bill', roles: ['OWNER', 'MANAGER', 'EMPLOYEE'] },
+  { to: '/bill-history', icon: History, label: 'Bill History' },
+  { to: '/companies', icon: Building2, label: 'Companies', roles: ['OWNER', 'MANAGER'] },
+  { to: '/vehicles', icon: Truck, label: 'Vehicles', roles: ['OWNER', 'MANAGER'] },
   { to: '/users', icon: Users, label: 'Users', roles: ['OWNER'] },
-  { to: '/reports', icon: BarChart2, label: 'Reports' },
+  { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['OWNER', 'MANAGER'] },
   { to: '/import-bills', icon: UploadCloud, label: 'Bulk Import', roles: ['OWNER'] },
-  { to: '/backup', icon: Database, label: 'Backup' },
+  { to: '/backup', icon: Database, label: 'Backup', roles: ['OWNER'] },
   { to: '/audit-logs', icon: ClipboardList, label: 'Audit Logs', roles: ['OWNER'] },
-  { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/settings', icon: Settings, label: 'Settings', roles: ['OWNER'] },
 ];
 
 export default function Sidebar() {
