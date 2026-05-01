@@ -16,6 +16,7 @@ import BackupPage from "./pages/BackupPage.jsx";
 import AuditLogPage from "./pages/AuditLogPage.jsx";
 import EditBillPage from "./pages/EditBillPage.jsx";
 import ImportBillsPage from "./pages/ImportBillsPage.jsx";
+import SettingsPage from "./pages/SettingsPage.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import { Toaster } from "sonner";
 import "./styles/index.css";
@@ -149,6 +150,14 @@ const router = createBrowserRouter([
             element: (
               <ProtectedRoute allowedRoles={["EMPLOYEE"]}>
                 <DashboardPage role="EMPLOYEE" />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "settings",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER", "MANAGER", "EMPLOYEE"]}>
+                <SettingsPage />
               </ProtectedRoute>
             ),
           },

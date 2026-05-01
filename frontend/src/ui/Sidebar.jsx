@@ -16,7 +16,7 @@ const routes = [
   { to: '/users', icon: Users, label: 'Users', roles: ['OWNER'] },
   { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['OWNER', 'MANAGER'] },
   { to: '/backup', icon: Database, label: 'Backup', roles: ['OWNER'] },
-  { to: '/settings', icon: Settings, label: 'Settings', roles: ['OWNER'] },
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export default function Sidebar() {
