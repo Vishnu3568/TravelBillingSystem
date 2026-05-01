@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/TravelBillingSystem/',
+  base: process.env.NODE_ENV === 'production' ? '/TravelBillingSystem/' : '/',
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,

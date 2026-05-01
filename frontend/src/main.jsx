@@ -41,6 +41,7 @@ const router = createBrowserRouter([
       {
         element: <MainLayout />,
         children: [
+          // ... all the routes ...
           {
             path: "owner-dashboard",
             element: (
@@ -166,7 +167,9 @@ const router = createBrowserRouter([
       },
     ],
   },
-]);
+], {
+  basename: import.meta.env.BASE_URL
+});
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
