@@ -166,13 +166,12 @@ function RecentBillsTable({ recentBills }) {
                   <td className="px-5 py-4 text-slate-700">{formatMoney(bill.pendingAmount)}</td>
                   <td className="px-5 py-4">
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        bill.status === "Paid"
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${bill.status === "Paid"
                           ? "bg-emerald-50 text-emerald-700"
                           : bill.status === "Pending"
                             ? "bg-amber-50 text-amber-700"
                             : "bg-red-50 text-red-700"
-                      }`}
+                        }`}
                     >
                       {bill.status}
                     </span>
@@ -220,12 +219,13 @@ function ActivityPanel({ recentUsersActivity }) {
 
 function QuickActions({ role }) {
   const navigate = useNavigate();
-  
+
   const actions = ["Create Bill", "Bill History", "Manage Companies", "Manage Vehicles", "Reports"];
   if (role === "OWNER") {
     actions.push("User Management");
     actions.push("Backup & Restore");
     actions.push("Audit Logs");
+    actions.push("Import Word Bills");
   }
 
   const handleQuickAction = (action) => {
@@ -245,6 +245,8 @@ function QuickActions({ role }) {
       navigate("/backup");
     } else if (action === "Audit Logs") {
       navigate("/audit-logs");
+    } else if (action === "Import Word Bills") {
+      navigate("/import-word");
     }
   };
 

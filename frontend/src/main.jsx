@@ -15,6 +15,7 @@ import UserManagementPage from "./pages/UserManagementPage.jsx";
 import BackupPage from "./pages/BackupPage.jsx";
 import AuditLogPage from "./pages/AuditLogPage.jsx";
 import EditBillPage from "./pages/EditBillPage.jsx";
+import ImportBillsPage from "./pages/ImportBillsPage.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import { Toaster } from "sonner";
 import "./styles/index.css";
@@ -124,6 +125,14 @@ const router = createBrowserRouter([
             element: (
               <ProtectedRoute allowedRoles={["OWNER"]}>
                 <AuditLogPage />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "import-bills",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER"]}>
+                <ImportBillsPage />
               </ProtectedRoute>
             ),
           },
