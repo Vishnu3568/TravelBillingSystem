@@ -24,7 +24,7 @@ const routes = [
 export default function Sidebar() {
   const { role } = useAuth(); // role string like 'OWNER', 'MANAGER', 'EMPLOYEE'
   return (
-    <nav className="hidden md:flex flex-col w-64 bg-slate-950 text-slate-100 h-screen sticky top-0 p-6 shadow-2xl z-20">
+    <nav className="hidden md:flex flex-col w-64 shrink-0 bg-slate-950 text-slate-100 h-screen sticky top-0 p-6 shadow-2xl z-20">
       <div className="mb-10">
         <div className="flex items-center gap-2 mb-1">
           <div className="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center">
