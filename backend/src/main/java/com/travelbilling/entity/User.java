@@ -20,6 +20,7 @@ public class User {
     private String email;
     private String fullName;
     private String role;
+    @Builder.Default
     private boolean active = true;
 
     private LocalDateTime createdAt;
