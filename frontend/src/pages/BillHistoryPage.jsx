@@ -108,71 +108,62 @@ export default function BillHistoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-              <FileText className="w-8 h-8 text-indigo-600" />
-              Bill History
-            </h1>
-            <p className="text-slate-500 mt-1">Manage and track all generated bills</p>
-          </div>
+    <div className="bg-slate-50 min-h-full">
+      <div className="mx-auto">
+        <div className="mb-8">
+            <div className="flex items-center gap-2 mb-1">
+                <FileText className="w-5 h-5 text-indigo-600" />
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Financial Records</span>
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Bill History</h1>
+            <p className="text-sm text-slate-500">Search and manage all generated invoices across the system.</p>
         </div>
 
-        {/* Filters Card */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-          <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-slate-400" />
-                Bill Number
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. BILL-2024..."
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
-                value={filters.billNumber}
-                onChange={(e) => setFilters({ ...filters, billNumber: e.target.value })}
-              />
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-8">
+          <form onSubmit={handleSearch} className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[200px] space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Bill Number</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="e.g. BILL-2024..."
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
+                  value={filters.billNumber}
+                  onChange={(e) => setFilters({ ...filters, billNumber: e.target.value })}
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                <Building2 className="w-4 h-4 text-slate-400" />
-                Company
-              </label>
-              <input
-                type="text"
-                placeholder="Enter company name"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
-                value={filters.companyName}
-                onChange={(e) => setFilters({ ...filters, companyName: e.target.value })}
-              />
+            <div className="flex-1 min-w-[200px] space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Company</label>
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Company name..."
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
+                  value={filters.companyName}
+                  onChange={(e) => setFilters({ ...filters, companyName: e.target.value })}
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-slate-400" />
-                From Date
-              </label>
+            <div className="w-[160px] space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">From Date</label>
               <input
                 type="date"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
                 value={filters.fromDate}
                 onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-slate-400" />
-                To Date
-              </label>
+            <div className="w-[160px] space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">To Date</label>
               <input
                 type="date"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
                 value={filters.toDate}
                 onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
               />
@@ -181,15 +172,14 @@ export default function BillHistoryPage() {
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                className="bg-slate-950 hover:bg-slate-800 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg shadow-slate-200 flex items-center gap-2 text-sm active:scale-95"
               >
-                <Search className="w-4 h-4" />
                 Search
               </button>
               <button
                 type="button"
                 onClick={handleReset}
-                className="p-2 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
+                className="p-2 text-slate-400 bg-white hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-all border border-slate-200 active:scale-95"
                 title="Reset Filters"
               >
                 <RotateCcw className="w-5 h-5" />
@@ -198,19 +188,17 @@ export default function BillHistoryPage() {
           </form>
         </div>
 
-        {/* Table Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Bill Number</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Company</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Vehicle</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Grand Total</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Created By</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">Actions</th>
+                <tr className="bg-slate-50/50 border-b border-slate-200">
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Bill Number</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Company</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vehicle</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Amount</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -245,11 +233,14 @@ export default function BillHistoryPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500 uppercase">
-                            {bill.createdBy?.substring(0, 2)}
-                          </div>
-                          <span className="text-sm text-slate-600">{bill.createdBy}</span>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Created By</span>
+                            <div className="flex items-center gap-2">
+                                <div className="w-5 h-5 rounded-md bg-slate-950 flex items-center justify-center text-[9px] font-bold text-white uppercase">
+                                    {bill.createdBy?.substring(0, 2)}
+                                </div>
+                                <span className="text-xs font-medium text-slate-600">{bill.createdBy}</span>
+                            </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">

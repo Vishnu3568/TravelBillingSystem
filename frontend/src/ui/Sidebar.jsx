@@ -24,9 +24,17 @@ const routes = [
 export default function Sidebar() {
   const { role } = useAuth(); // role string like 'OWNER', 'MANAGER', 'EMPLOYEE'
   return (
-    <nav className="hidden md:flex flex-col w-64 bg-slate-900 text-slate-100 h-screen p-4">
-      <div className="text-lg font-semibold mb-6 leading-tight">Sri Tulja Bhavani Travels</div>
-      <ul className="flex-1 space-y-1">
+    <nav className="hidden md:flex flex-col w-64 bg-slate-950 text-slate-100 h-screen sticky top-0 p-6 shadow-2xl z-20">
+      <div className="mb-10">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center">
+            <span className="font-bold text-slate-950 text-lg">T</span>
+          </div>
+          <span className="text-xl font-bold tracking-tight">Sri Tulja Bhavani</span>
+        </div>
+        <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-500/80 font-bold ml-10">Travels & Logistics</p>
+      </div>
+      <ul className="flex-1 space-y-2">
         {routes
           .filter(r => !r.roles || r.roles.includes(role))
           .map(route => (

@@ -2,6 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import api from "../services/api.js";
+import { 
+  PlusCircle, History, Building2, Truck, 
+  BarChart3, Settings, ShieldCheck, FileText,
+  TrendingUp, Users, DollarSign, Calendar,
+  CreditCard, LayoutDashboard, LogOut, Bell
+} from "lucide-react";
 
 const dashboardCopy = {
   OWNER: {
@@ -21,12 +27,12 @@ const dashboardCopy = {
 // const quickActions = ["Create Bill", "Bill History", "Manage Companies", "Manage Vehicles", "Reports"];
 
 const toneClasses = {
-  cyan: "bg-cyan-50 text-cyan-700 ring-cyan-100",
-  emerald: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-  indigo: "bg-indigo-50 text-indigo-700 ring-indigo-100",
-  amber: "bg-amber-50 text-amber-700 ring-amber-100",
-  slate: "bg-slate-100 text-slate-700 ring-slate-200",
-  violet: "bg-violet-50 text-violet-700 ring-violet-100",
+  cyan: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
+  emerald: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  indigo: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
+  amber: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  slate: "bg-slate-500/10 text-slate-600 border-slate-500/20",
+  violet: "bg-violet-500/10 text-violet-600 border-violet-500/20",
 };
 
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
@@ -51,56 +57,31 @@ function formatDateTime(value) {
   }).format(new Date(value));
 }
 
-function AppHeader({ copy, logout, showOwnerNav = false }) {
-  return (
-    <header className="border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-widest text-cyan-700">
-            Travel Billing System
-          </p>
-          <h1 className="text-2xl font-semibold text-slate-950">{copy.title}</h1>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {showOwnerNav ? (
-            <>
-              <Link
-                className="rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-                to="/create-bill"
-              >
-                Create Bill
-              </Link>
-              <Link
-                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                to="/owner-dashboard"
-              >
-                Dashboard
-              </Link>
-            </>
-          ) : null}
-          <button
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            type="button"
-            onClick={logout}
-          >
-            Sign out
-          </button>
-        </div>
-      </div>
-    </header>
-  );
-}
+// AppHeader removed to favor global header in MainLayout
 
 function MetricCard({ metric }) {
+  const Icon = metric.icon || DollarSign;
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <p className="text-sm font-medium text-slate-500">{metric.label}</p>
-        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${toneClasses[metric.tone]}`}>
+    <article className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1">
+      <div className="flex items-center justify-between mb-4">
+        <div className={`p-2.5 rounded-xl border ${toneClasses[metric.tone]}`}>
+          <Icon size={20} />
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border ${toneClasses[metric.tone]}`}>
           {metric.note}
         </span>
       </div>
-      <p className="mt-4 text-3xl font-semibold text-slate-950">{metric.value}</p>
+      <div>
+        <p className="text-sm font-medium text-slate-500 mb-1">{metric.label}</p>
+        <div className="flex items-baseline gap-2">
+           <p className="text-2xl font-bold text-slate-900">{metric.value}</p>
+           {metric.trend && (
+             <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
+               <TrendingUp size={10} /> {metric.trend}%
+             </span>
+           )}
+        </div>
+      </div>
     </article>
   );
 }
@@ -123,7 +104,7 @@ function RevenueChart({ revenueTrend }) {
           <div className="flex flex-1 flex-col items-center gap-3" key={item.month}>
             <div className="flex h-52 w-full items-end rounded-md bg-slate-100">
               <div
-                className="w-full rounded-md bg-gradient-to-t from-cyan-700 to-cyan-400"
+                className="w-full rounded-md bg-gradient-to-t from-cyan-700 to-cyan-400 transition-all duration-300 group-hover:from-cyan-600 group-hover:to-cyan-300"
                 style={{ height: `${Math.max((item.revenue / maxValue) * 100, item.revenue > 0 ? 8 : 0)}%` }}
                 title={formatMoney(item.revenue)}
               />
@@ -220,48 +201,35 @@ function ActivityPanel({ recentUsersActivity }) {
 function QuickActions({ role }) {
   const navigate = useNavigate();
 
-  const actions = ["Create Bill", "Bill History", "Manage Companies", "Manage Vehicles", "Reports"];
+  const actionConfigs = [
+    { label: "Create Bill", icon: PlusCircle, path: "/create-bill", desc: "New invoice", color: "bg-cyan-500" },
+    { label: "History", icon: History, path: "/bill-history", desc: "View all bills", color: "bg-indigo-500" },
+    { label: "Companies", icon: Building2, path: "/companies", desc: "Client master", color: "bg-violet-500" },
+    { label: "Vehicles", icon: Truck, path: "/vehicles", desc: "Fleet master", color: "bg-amber-500" },
+    { label: "Reports", icon: BarChart3, path: "/reports", desc: "Revenue analytics", color: "bg-emerald-500" },
+  ];
+
   if (role === "OWNER") {
-    actions.push("User Management");
-    actions.push("Backup & Restore");
-    actions.push("Audit Logs");
-    actions.push("Import Word Bills");
+    actionConfigs.push({ label: "Users", icon: Users, path: "/users", desc: "Team management", color: "bg-slate-700" });
+    actionConfigs.push({ label: "Bulk Import", icon: FileText, path: "/import-bills", desc: "Word doc upload", color: "bg-blue-600" });
+    actionConfigs.push({ label: "Audit Logs", icon: ShieldCheck, path: "/audit-logs", desc: "System security", color: "bg-rose-600" });
   }
 
-  const handleQuickAction = (action) => {
-    if (action === "Create Bill") {
-      navigate("/create-bill");
-    } else if (action === "Bill History") {
-      navigate("/bill-history");
-    } else if (action === "Manage Companies") {
-      navigate("/companies");
-    } else if (action === "Manage Vehicles") {
-      navigate("/vehicles");
-    } else if (action === "Reports") {
-      navigate("/reports");
-    } else if (action === "User Management") {
-      navigate("/users");
-    } else if (action === "Backup & Restore") {
-      navigate("/backup");
-    } else if (action === "Audit Logs") {
-      navigate("/audit-logs");
-    } else if (action === "Import Word Bills") {
-      navigate("/import-word");
-    }
-  };
-
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-semibold text-slate-950">Quick Actions</h2>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-        {actions.map((action) => (
+    <section>
+      <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Quick Actions</h2>
+      <div className="grid grid-cols-2 gap-4">
+        {actionConfigs.map((action) => (
           <button
-            className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-800"
-            key={action}
-            type="button"
-            onClick={() => handleQuickAction(action)}
+            key={action.label}
+            onClick={() => navigate(action.path)}
+            className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 text-left transition-all hover:border-transparent hover:shadow-xl"
           >
-            {action}
+            <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl text-white transition-transform group-hover:scale-110 ${action.color}`}>
+              <action.icon size={20} />
+            </div>
+            <h3 className="font-bold text-slate-900 group-hover:text-cyan-600 transition-colors">{action.label}</h3>
+            <p className="text-[11px] text-slate-500">{action.desc}</p>
           </button>
         ))}
       </div>
@@ -348,12 +316,12 @@ function OwnerDashboard({ username, logout }) {
   const metrics = useMemo(() => {
     const stats = dashboard?.stats ?? {};
     return [
-      { label: "Today Bills Count", value: formatNumber(stats.todayBillsCount), note: "Today", tone: "cyan" },
-      { label: "Today Revenue", value: formatMoney(stats.todayRevenue), note: "Bills", tone: "emerald" },
-      { label: "Monthly Revenue", value: formatMoney(stats.monthlyRevenue), note: "This month", tone: "indigo" },
-      { label: "Pending Payments", value: formatMoney(stats.pendingPayments), note: "Outstanding", tone: "amber" },
-      { label: "Total Companies", value: formatNumber(stats.totalCompanies), note: "Active records", tone: "slate" },
-      { label: "Total Vehicles", value: formatNumber(stats.totalVehicles), note: "Fleet", tone: "violet" },
+      { label: "Today Bills", value: formatNumber(stats.todayBillsCount), note: "Today", tone: "cyan", icon: FileText, trend: 12 },
+      { label: "Today Revenue", value: formatMoney(stats.todayRevenue), note: "Revenue", tone: "emerald", icon: CreditCard },
+      { label: "Monthly Revenue", value: formatMoney(stats.monthlyRevenue), note: "Month", tone: "indigo", icon: DollarSign, trend: 8 },
+      { label: "Pending Payments", value: formatMoney(stats.pendingPayments), note: "Overdue", tone: "amber", icon: CreditCard },
+      { label: "Total Companies", value: formatNumber(stats.totalCompanies), note: "Clients", tone: "slate", icon: Building2 },
+      { label: "Total Vehicles", value: formatNumber(stats.totalVehicles), note: "Fleet", tone: "violet", icon: Truck },
     ];
   }, [dashboard]);
 
@@ -362,22 +330,32 @@ function OwnerDashboard({ username, logout }) {
   const recentUsersActivity = dashboard?.recentUsersActivity ?? [];
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-950">
-      <AppHeader copy={dashboardCopy.OWNER} logout={logout} showOwnerNav />
-
-      <section className="mx-auto max-w-7xl px-5 py-8">
-        <div className="mb-8 flex flex-col justify-between gap-4 rounded-lg bg-slate-950 p-6 text-white shadow-panel md:flex-row md:items-end">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-widest text-cyan-200">Executive workspace</p>
-            <h2 className="mt-3 text-3xl font-semibold">Good to see you, {username}</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-              Monitor revenue, billing velocity, pending collections, and operational capacity from one command center.
-            </p>
+    <div className="text-slate-950">
+      <section className="mx-auto max-w-7xl py-4">
+        <div className="relative mb-10 overflow-hidden rounded-3xl bg-slate-950 p-8 text-white shadow-2xl">
+          <div className="relative z-10 flex flex-col justify-between gap-6 md:flex-row md:items-center">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 text-[10px] font-bold uppercase tracking-wider">Executive Workspace</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></span>
+              </div>
+              <h2 className="text-3xl font-bold tracking-tight">Welcome back, {username}</h2>
+              <p className="mt-3 max-w-xl text-slate-400 text-sm leading-relaxed">
+                Your command center is ready. You have <span className="text-white font-bold">{dashboard?.stats?.todayBillsCount || 0} bills</span> pending review for today.
+              </p>
+            </div>
+            
+            <div className="flex gap-4">
+              <Link to="/create-bill" className="flex items-center gap-2 rounded-xl bg-cyan-500 px-6 py-3 text-sm font-bold text-slate-950 transition-all hover:bg-cyan-400 hover:scale-105 active:scale-95 shadow-lg shadow-cyan-500/20">
+                <PlusCircle size={18} />
+                Create New Bill
+              </Link>
+            </div>
           </div>
-          <div className="rounded-md bg-white/10 px-4 py-3">
-            <p className="text-xs uppercase tracking-widest text-slate-300">Data source</p>
-            <p className="mt-1 text-lg font-semibold">Live database</p>
-          </div>
+          
+          {/* Subtle background decoration */}
+          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl"></div>
+          <div className="absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl"></div>
         </div>
 
         {isSessionExpired ? <SessionExpiredState onSignIn={handleSignInAgain} /> : null}
@@ -412,7 +390,7 @@ function OwnerDashboard({ username, logout }) {
           </>
         )}
       </section>
-    </main>
+    </div>
   );
 }
 
@@ -420,17 +398,13 @@ function SimpleDashboard({ role, username, logout }) {
   const copy = dashboardCopy[role];
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-950">
-      <AppHeader copy={copy} logout={logout} />
-
-      <section className="mx-auto max-w-6xl px-5 py-10">
+    <div className="text-slate-950 px-6 py-8">
         <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm text-slate-500">Signed in as</p>
           <p className="mt-1 text-lg font-semibold">{username}</p>
           <p className="mt-6 text-2xl font-semibold">{copy.subtitle}</p>
         </div>
-      </section>
-    </main>
+    </div>
   );
 }
 
