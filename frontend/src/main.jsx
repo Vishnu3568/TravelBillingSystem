@@ -49,6 +49,14 @@ const router = createBrowserRouter([
             ),
           },
           {
+            path: "import-bills",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER"]}>
+                <ImportBillsPage />
+              </ProtectedRoute>
+            ),
+          },
+          {
             path: "create-bill",
             element: (
               <ProtectedRoute allowedRoles={["OWNER"]}>
@@ -125,14 +133,6 @@ const router = createBrowserRouter([
             element: (
               <ProtectedRoute allowedRoles={["OWNER"]}>
                 <AuditLogPage />
-              </ProtectedRoute>
-            ),
-          },
-          {
-            path: "import-bills",
-            element: (
-              <ProtectedRoute allowedRoles={["OWNER"]}>
-                <ImportBillsPage />
               </ProtectedRoute>
             ),
           },

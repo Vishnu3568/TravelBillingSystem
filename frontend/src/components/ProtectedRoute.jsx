@@ -9,7 +9,7 @@ export default function ProtectedRoute({ allowedRoles, children }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (!allowedRoles.includes(role)) {
+  if (role && !allowedRoles.includes(role)) {
     return <Navigate to={dashboardPathForRole(role)} replace />;
   }
 
