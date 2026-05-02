@@ -7,17 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx'; // Adjust import path to your auth context
 
-const routes = [
-  { to: '/', icon: Home, label: 'Home' },
-  { to: '/bill-history', icon: FileText, label: 'Bills' },
-  { to: '/companies', icon: Building2, label: 'Companies', roles: ['OWNER', 'MANAGER'] },
-  { to: '/vehicles', icon: Car, label: 'Vehicles', roles: ['OWNER', 'MANAGER'] },
-  { to: '/users', icon: Users, label: 'Users', roles: ['OWNER'] },
-  { to: '/import-bills', icon: UploadCloud, label: 'Bulk Upload', roles: ['OWNER'] },
-  { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['OWNER', 'MANAGER'] },
-  { to: '/backup', icon: Database, label: 'Backup', roles: ['OWNER'] },
-  { to: '/settings', icon: Settings, label: 'Settings' },
-];
+import { routes } from '../constants/navigation.js';
 
 export default function Sidebar() {
   const { role } = useAuth(); // role string like 'OWNER', 'MANAGER', 'EMPLOYEE'

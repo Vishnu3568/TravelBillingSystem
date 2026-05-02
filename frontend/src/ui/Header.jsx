@@ -1,12 +1,14 @@
-import React from 'react';
-import { LogOut, ArrowLeft } from 'lucide-react';
+import React, { useState } from 'react';
+import { LogOut, ArrowLeft, Menu, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { routes } from '../constants/navigation.js';
 
 export default function Header() {
-  const { username, logout } = useAuth();
+  const { username, logout, role } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -28,6 +30,41 @@ export default function Header() {
             <ArrowLeft size={16} strokeWidth={3} className="group-hover:-translate-x-1 transition-transform" />
             Back
           </button>
+        )}
+      </div>
+
+      <div className="md:hidden absolute left-1/2 -translate-x-1/2 flex justify-center">
+        <button 
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="p-2 text-black hover:text-cyan-600 transition-colors"
+        >
+          {isMenuOpen ? <X size={28} strokeWidth={3} /> : <Menu size={28} strokeWidth={3} />}
+        </button>
+
+        {/* Mobile Menu Dropdown */}
+        {isMenuOpen && (
+          <div className="absolute top-[120%] left-1/2 -translate-x-1/2 w-64 bg-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,229,255,1)] p-2 animate-in zoom-in-95 duration-200">
+            <ul className="space-y-1">
+              {routes
+                .filter(r => !r.roles || r.roles.includes(role))
+                .map(route => (
+                  <li key={route.to}>
+                    <Link
+                      to={route.to}
+                      onClick={() => setIsMenuOpen(false)}
+                      className={`flex items-center gap-3 px-4 py-3 font-bold uppercase tracking-widest text-[10px] transition-all ${
+                        location.pathname === route.to 
+                          ? 'bg-cyan-500 text-black' 
+                          : 'text-white hover:bg-slate-900 hover:text-cyan-500'
+                      }`}
+                    >
+                      <route.icon size={14} strokeWidth={3} />
+                      {route.label}
+                    </Link>
+                  </li>
+                ))}
+            </ul>
+          </div>
         )}
       </div>
 

@@ -31,8 +31,9 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 text-black">
+    <main className="min-h-screen bg-slate-50 text-black">
       <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
+        {/* Left Side (Desktop Only) */}
         <section className="hidden bg-black text-white lg:flex">
           <div className="flex w-full flex-col justify-between px-14 py-12">
             <div>
@@ -41,7 +42,7 @@ export default function LoginPage() {
                   STB
                 </div>
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-widest text-cyan-200">
+                  <p className="text-sm font-semibold uppercase tracking-widest text-white">
                     Sri Tulja Bhavani Travels
                   </p>
                   <p className="text-sm text-slate-400">Rent a car Billing System</p>
@@ -51,7 +52,7 @@ export default function LoginPage() {
                 <h1 className="text-5xl font-semibold leading-tight">
                   Billing, vehicles, payments, and travel operations in one secure workspace.
                 </h1>
-                <p className="mt-6 text-lg leading-8 text-slate-300">
+                <p className="mt-6 text-lg leading-8 text-cyan-400 font-medium">
                   Sign in with your assigned role to access the dashboard built for your daily workflow.
                 </p>
               </div>
@@ -74,78 +75,106 @@ export default function LoginPage() {
           </div>
         </section>
 
-        <section className="flex items-center justify-center px-5 py-10 sm:px-8">
-          <div className="w-full max-w-md">
-            <div className="mb-8 lg:hidden">
+        {/* Right Side / Mobile Flow */}
+        <section className="flex flex-col items-center justify-center p-0 lg:px-8">
+          <div className="w-full">
+            {/* Mobile Header (Top) */}
+            <div className="lg:hidden bg-white px-6 py-8 border-b border-slate-200">
               <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-none bg-black font-bold text-white">
+                <div className="grid h-10 w-10 place-items-center rounded-none bg-cyan-500 font-black text-black">
                   STB
                 </div>
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-widest text-slate-500">
+                  <p className="text-sm font-bold uppercase tracking-widest text-black leading-none">
                     Sri Tulja Bhavani Travels
                   </p>
-                  <p className="text-sm text-slate-500">Rent a car Billing System</p>
+                  <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Rent a car Billing System</p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-none border border-slate-200 bg-white p-6 shadow-panel sm:p-8">
-              <div>
-                <p className="text-sm font-medium text-cyan-700">Welcome back</p>
-                <h2 className="mt-2 text-3xl font-semibold text-black">Sign in</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Enter your account credentials to continue.
-                </p>
-              </div>
-
-              <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+            <div className="max-w-md mx-auto w-full px-6 py-12">
+              <div className="rounded-none border-2 border-black bg-white p-6 shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] sm:p-8">
                 <div>
-                  <label className="text-sm font-medium text-slate-700" htmlFor="username">
-                    Username
-                  </label>
-                  <input
-                    className="mt-2 w-full rounded-none border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-cyan-600 focus:ring-4 focus:ring-cyan-100"
-                    id="username"
-                    name="username"
-                    type="text"
-                    autoComplete="username"
-                    value={form.username}
-                    onChange={handleChange}
-                    required
-                  />
+                  <p className="text-sm font-bold text-cyan-600 uppercase tracking-widest">Welcome back</p>
+                  <h2 className="mt-2 text-3xl font-black text-black uppercase tracking-tight">Sign in</h2>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium text-slate-700" htmlFor="password">
-                    Password
-                  </label>
-                  <input
-                    className="mt-2 w-full rounded-none border border-slate-300 bg-white px-4 py-3 text-base outline-none transition focus:border-cyan-600 focus:ring-4 focus:ring-cyan-100"
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    value={form.password}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                {error ? (
-                  <div className="rounded-none border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                    {error}
+                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest" htmlFor="username">
+                      Username
+                    </label>
+                    <input
+                      className="mt-2 w-full rounded-none border-2 border-slate-200 bg-white px-4 py-3 text-base outline-none transition focus:border-black focus:ring-0"
+                      id="username"
+                      name="username"
+                      type="text"
+                      autoComplete="username"
+                      value={form.username}
+                      onChange={handleChange}
+                      required
+                    />
                   </div>
-                ) : null}
 
-                <button
-                  className="flex w-full items-center justify-center rounded-none bg-cyan-500 px-4 py-4 text-base font-bold text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-black hover:text-white transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:bg-slate-300 uppercase tracking-widest"
-                  type="submit"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? "Signing in..." : "Sign in"}
-                </button>
-              </form>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest" htmlFor="password">
+                      Password
+                    </label>
+                    <input
+                      className="mt-2 w-full rounded-none border-2 border-slate-200 bg-white px-4 py-3 text-base outline-none transition focus:border-black focus:ring-0"
+                      id="password"
+                      name="password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={form.password}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+
+                  {error ? (
+                    <div className="rounded-none border-2 border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                      {error}
+                    </div>
+                  ) : null}
+
+                  <button
+                    className="flex w-full items-center justify-center rounded-none bg-cyan-500 px-4 py-4 text-sm font-bold text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-black hover:text-white transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:bg-slate-300 uppercase tracking-widest"
+                    type="submit"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Signing in..." : "Sign in"}
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            {/* Mobile Hero & Roles (Bottom) */}
+            <div className="lg:hidden bg-black text-white px-6 py-12">
+              <div className="max-w-md mx-auto">
+                <h2 className="text-3xl font-bold leading-tight">
+                  Billing, vehicles, payments, and travel operations in one secure workspace.
+                </h2>
+                <p className="mt-4 text-sm leading-relaxed text-cyan-400 font-medium">
+                  Sign in with your assigned role to access the dashboard built for your daily workflow.
+                </p>
+
+                <div className="mt-12 space-y-6">
+                  <div className="border-l-2 border-cyan-500 pl-4">
+                    <p className="font-bold text-white uppercase tracking-widest text-xs">Owner</p>
+                    <p className="mt-1 text-slate-400 text-sm">Full business visibility</p>
+                  </div>
+                  <div className="border-l-2 border-cyan-500 pl-4">
+                    <p className="font-bold text-white uppercase tracking-widest text-xs">Manager</p>
+                    <p className="mt-1 text-slate-400 text-sm">Operational control</p>
+                  </div>
+                  <div className="border-l-2 border-cyan-500 pl-4">
+                    <p className="font-bold text-white uppercase tracking-widest text-xs">Employee</p>
+                    <p className="mt-1 text-slate-400 text-sm">Focused daily tasks</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
