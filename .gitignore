@@ -21,8 +21,11 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Logs
+# Logs and Backups
 *.log
+backups/
+backend_log*.txt
+vite.*.log
 
 # Env
 .env

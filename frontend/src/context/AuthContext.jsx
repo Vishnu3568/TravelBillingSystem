@@ -17,21 +17,6 @@ export function AuthProvider({ children }) {
   }));
 
   const login = async ({ username, password }) => {
-    // Mock Auth for Static Deployment
-    if (username === "owner2" && password === "admin123") {
-      const token = "mock-jwt-token";
-      const responseUsername = "owner2";
-      const role = "OWNER";
-
-      localStorage.setItem(storageKeys.token, token);
-      localStorage.setItem(storageKeys.username, responseUsername);
-      localStorage.setItem(storageKeys.role, role);
-
-      const nextAuth = { token, username: responseUsername, role };
-      setAuth(nextAuth);
-      return nextAuth;
-    }
-
     // Fallback to real API
     const response = await api.post("/auth/login", { username, password });
     const { token, username: responseUsername, role } = response.data;

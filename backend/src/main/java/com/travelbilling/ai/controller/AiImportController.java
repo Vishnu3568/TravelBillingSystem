@@ -30,14 +30,27 @@ public class AiImportController {
             try {
                 log.info("AI Parsing file: {}", file.getOriginalFilename());
                 String rawText = docxExtractionService.extractRawText(file);
-                List<AiBillResponse> response = geminiService.parseBillText(rawText);
-                if (response != null) {
-                    results.addAll(response);
+                
+                // Split text into chunks to avoid Gemini token limits and timeouts
+                List<String> chunks = docxExtractionService.splitIntoChunks(rawText, 8000);
+                log.info("Split document into {} chunks", chunks.size());
+
+                for (int i = 0; i < chunks.size(); i++) {
+                    log.info("Processing chunk {}/{}...", i + 1, chunks.size());
+                    List<AiBillResponse> response = geminiService.parseBillText(chunks.get(i));
+                    if (response != null) {
+                        results.addAll(response);
+                    }
+                    
+                    // Increase delay to 2 seconds to avoid aggressive rate limiting (429 errors)
+                    if (chunks.size() > 1) {
+                        Thread.sleep(2000); 
+                    }
                 }
             } catch (Exception e) {
-                log.error("Failed to extract text from file: {}", file.getOriginalFilename(), e);
+                log.error("Failed to process file: {}", file.getOriginalFilename(), e);
                 results.add(AiBillResponse.builder()
-                        .warnings(List.of("Extraction Error: " + e.getMessage()))
+                        .warnings(List.of("Processing Error: " + e.getMessage()))
                         .build());
             }
         }

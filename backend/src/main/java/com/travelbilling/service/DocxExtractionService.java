@@ -5,6 +5,8 @@ import org.apache.poi.hwpf.extractor.WordExtractor;
 import org.apache.poi.xwpf.usermodel.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import java.util.ArrayList;
+import java.util.List;
 
 import java.io.InputStream;
 
@@ -45,5 +47,30 @@ public class DocxExtractionService {
                 }
             }
         }
+    }
+
+    public List<String> splitIntoChunks(String text, int chunkSize) {
+        List<String> chunks = new ArrayList<>();
+        if (text == null || text.isBlank()) return chunks;
+
+        int currentPos = 0;
+        while (currentPos < text.length()) {
+            int end = Math.min(currentPos + chunkSize, text.length());
+            
+            // Try to find a good breaking point (like a newline) near the end of the chunk
+            if (end < text.length()) {
+                int lastNewline = text.lastIndexOf("\n", end);
+                if (lastNewline > currentPos) {
+                    end = lastNewline;
+                }
+            }
+            
+            chunks.add(text.substring(currentPos, end).trim());
+            currentPos = end;
+            
+            // Prevent infinite loop if something goes wrong
+            if (chunks.size() > 100) break; 
+        }
+        return chunks;
     }
 }

@@ -63,6 +63,7 @@ export default function ImportBillsPage() {
         try {
             const response = await api.post("/import/ai-parse", formData, {
                 headers: { "Content-Type": "multipart/form-data" },
+                timeout: 600000 // 10 minutes
             });
             setParsedBills(response.data);
             setIsReviewing(true);
@@ -78,7 +79,7 @@ export default function ImportBillsPage() {
 
     const handleSaveAll = async () => {
         try {
-            await api.post("/bills/bulk", parsedBills);
+            await api.post("/bills/bulk-ai", parsedBills);
             toast.success("All bills saved to database successfully!");
             setParsedBills([]);
             setIsReviewing(false);
@@ -134,8 +135,8 @@ export default function ImportBillsPage() {
                         <table className="w-full text-left">
                             <thead className="bg-slate-900 text-white">
                                 <tr>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest">Bill #</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest">Date</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest">Duty Slip #</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest">Bill Date</th>
                                     <th className="p-4 text-xs font-black uppercase tracking-widest">Company</th>
                                     <th className="p-4 text-xs font-black uppercase tracking-widest">Vehicle</th>
                                     <th className="p-4 text-xs font-black uppercase tracking-widest text-right">Amount</th>
@@ -149,8 +150,8 @@ export default function ImportBillsPage() {
                                         key={index} 
                                         className={`hover:bg-slate-50 transition-colors ${bill.warnings?.length > 0 ? 'bg-amber-50/50' : ''}`}
                                     >
-                                        <td className="p-4 font-bold text-slate-900">{bill.billNumber || '---'}</td>
-                                        <td className="p-4 text-slate-600 font-medium">{bill.date || '---'}</td>
+                                        <td className="p-4 font-bold text-slate-900">{bill.dutySlipNo || '---'}</td>
+                                        <td className="p-4 text-slate-600 font-medium">{bill.billDate || '---'}</td>
                                         <td className="p-4 text-slate-600 font-medium">{bill.companyName || '---'}</td>
                                         <td className="p-4 text-slate-500 text-sm">
                                             <span className="font-bold text-slate-700">{bill.vehicleNumber}</span>
@@ -199,19 +200,19 @@ export default function ImportBillsPage() {
                             </div>
                             <div className="p-8 grid grid-cols-2 gap-8">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Bill Number</label>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Duty Slip Number</label>
                                     <input 
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold"
-                                        value={editForm.billNumber || ''} 
-                                        onChange={e => setEditForm({...editForm, billNumber: e.target.value})} 
+                                        value={editForm.dutySlipNo || ''} 
+                                        onChange={e => setEditForm({...editForm, dutySlipNo: e.target.value})} 
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Date</label>
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Bill Date (YYYY-MM-DD)</label>
                                     <input 
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold"
-                                        value={editForm.date || ''} 
-                                        onChange={e => setEditForm({...editForm, date: e.target.value})} 
+                                        value={editForm.billDate || ''} 
+                                        onChange={e => setEditForm({...editForm, billDate: e.target.value})} 
                                     />
                                 </div>
                                 <div className="space-y-2 col-span-2">

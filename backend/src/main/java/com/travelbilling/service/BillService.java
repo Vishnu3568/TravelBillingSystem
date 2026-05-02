@@ -3,6 +3,7 @@ package com.travelbilling.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.travelbilling.ai.dto.AiBillResponse;
 import com.travelbilling.dto.BillRequest;
 import com.travelbilling.dto.BillResponse;
 import com.travelbilling.dto.ChargeDTO;
@@ -79,6 +80,63 @@ public class BillService {
         List<BillResponse> responses = new ArrayList<>();
         for (BillRequest request : requests) {
             responses.add(createBill(request, createdBy));
+        }
+        return responses;
+    }
+
+    @Transactional
+    public List<BillResponse> saveAiParsedBills(List<AiBillResponse> aiResponses, String createdBy) {
+        List<BillResponse> responses = new ArrayList<>();
+        for (AiBillResponse ai : aiResponses) {
+            try {
+                BillRequest req = new BillRequest();
+                // Map AI fields to BillRequest
+                req.setCompanyName(ai.getCompanyName());
+                req.setVehicleName(ai.getVehicleNumber());
+                req.setVehicleType(ai.getVehicleType());
+                req.setTotalKms(ai.getTotalKms() != null ? ai.getTotalKms() : 0.0);
+                req.setTotalHours(ai.getTotalHours() != null ? ai.getTotalHours() : 0.0);
+                req.setBaseAmount(ai.getTotalAmount() != null ? ai.getTotalAmount() : 0.0);
+                
+                if (ai.getDutySlipNo() == null || ai.getDutySlipNo().trim().isEmpty() || "---".equals(ai.getDutySlipNo())) {
+                    req.setDutySlipNo("AI-" + (System.currentTimeMillis() % 10000));
+                } else {
+                    req.setDutySlipNo(ai.getDutySlipNo());
+                }
+                
+                req.setTripType("Outstation"); // Default
+                req.setPricingType("BASE");    // Default
+                
+                // Parse Date
+                if (ai.getBillDate() != null) {
+                    try {
+                        req.setBillDate(LocalDate.parse(ai.getBillDate()));
+                    } catch (Exception e) {
+                        req.setBillDate(LocalDate.now()); // Fallback to today
+                    }
+                } else {
+                    req.setBillDate(LocalDate.now());
+                }
+
+                // Map Dynamic Charges to Hardcoded fields
+                if (ai.getDynamicCharges() != null) {
+                    List<ChargeDTO> dynamic = new ArrayList<>();
+                    for (AiBillResponse.Charge c : ai.getDynamicCharges()) {
+                        dynamic.add(new ChargeDTO(c.getName(), null, c.getAmount()));
+                        
+                        String name = c.getName().toLowerCase();
+                        if (name.contains("toll")) req.setToll(c.getAmount());
+                        else if (name.contains("parking")) req.setParking(c.getAmount());
+                        else if (name.contains("driver") || name.contains("bata")) req.setDriverBata(c.getAmount());
+                        else if (name.contains("night")) req.setNightCharges(c.getAmount());
+                    }
+                    req.setDynamicCharges(dynamic);
+                }
+
+                responses.add(createBill(req, createdBy));
+            } catch (Exception e) {
+                log.error("Failed to save individual AI bill: {}", ai.getDutySlipNo(), e);
+            }
         }
         return responses;
     }
@@ -176,16 +234,15 @@ public class BillService {
     }
 
     private double calculateGrandTotal(BillRequest request) {
-        double total = 0;
+        double total = safeAmount(request.getBaseAmount());
         
         if (request.getDynamicCharges() != null) {
-            total = request.getDynamicCharges().stream()
+            total += request.getDynamicCharges().stream()
                     .mapToDouble(c -> safeAmount(c.getAmount()))
                     .sum();
         } else {
             // Fallback for requests without dynamic charges
-            total = safeAmount(request.getBaseAmount())
-                    + safeAmount(request.getDriverBata())
+            total += safeAmount(request.getDriverBata())
                     + safeAmount(request.getParking())
                     + safeAmount(request.getToll())
                     + safeAmount(request.getNightCharges())
@@ -210,8 +267,8 @@ public class BillService {
                 String name = charge.getName().trim().toLowerCase();
                 Double amount = safeAmount(charge.getAmount());
                 
-                if (name.contains("base amount")) bill.setBaseAmount(amount);
-                else if (name.contains("driver bata")) bill.setDriverBata(amount);
+                if (name.contains("base")) bill.setBaseAmount(amount);
+                else if (name.contains("bata") || name.contains("driver")) bill.setDriverBata(amount);
                 else if (name.contains("parking")) bill.setParking(amount);
                 else if (name.contains("toll")) bill.setToll(amount);
                 else if (name.contains("night")) bill.setNightCharges(amount);

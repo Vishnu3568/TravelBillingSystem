@@ -11,6 +11,7 @@ const routes = [
   { to: '/', icon: Home, label: 'Dashboard' },
   { to: '/create-bill', icon: PlusCircle, label: 'Create Bill', roles: ['OWNER', 'MANAGER', 'EMPLOYEE'] },
   { to: '/bill-history', icon: History, label: 'Bill History' },
+  { to: '/import-bills', icon: UploadCloud, label: 'Import Bills', roles: ['OWNER', 'MANAGER'] },
   { to: '/companies', icon: Building2, label: 'Companies', roles: ['OWNER', 'MANAGER'] },
   { to: '/vehicles', icon: Truck, label: 'Vehicles', roles: ['OWNER', 'MANAGER'] },
   { to: '/users', icon: Users, label: 'Users', roles: ['OWNER'] },

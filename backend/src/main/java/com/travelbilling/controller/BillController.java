@@ -1,5 +1,6 @@
 package com.travelbilling.controller;
 
+import com.travelbilling.ai.dto.AiBillResponse;
 import com.travelbilling.dto.BillRequest;
 import com.travelbilling.dto.BillResponse;
 import com.travelbilling.service.BillService;
@@ -51,6 +52,14 @@ public class BillController {
             Principal principal) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(billService.saveBills(requests, principal.getName()));
+    }
+
+    @PostMapping("/bulk-ai")
+    public ResponseEntity<List<BillResponse>> createBillsAi(
+            @RequestBody List<AiBillResponse> requests,
+            Principal principal) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(billService.saveAiParsedBills(requests, principal.getName()));
     }
 
     @GetMapping

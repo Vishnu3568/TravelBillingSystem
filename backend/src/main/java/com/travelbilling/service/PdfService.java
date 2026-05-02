@@ -88,7 +88,8 @@ public class PdfService {
                     .setMarginBottom(15);
             
             metaTable.addCell(new Cell().add(new Paragraph("Bill No. " + bill.getBillNumber())).setBorder(Border.NO_BORDER).setFontSize(10));
-            metaTable.addCell(new Cell().add(new Paragraph("Date: " + bill.getBillDate().format(DATE_FORMATTER))).setBorder(Border.NO_BORDER).setTextAlignment(TextAlignment.RIGHT).setFontSize(10));
+            String formattedBillDate = bill.getBillDate() != null ? bill.getBillDate().format(DATE_FORMATTER) : "N/A";
+            metaTable.addCell(new Cell().add(new Paragraph("Date: " + formattedBillDate)).setBorder(Border.NO_BORDER).setTextAlignment(TextAlignment.RIGHT).setFontSize(10));
             
             metaTable.addCell(new Cell().add(new Paragraph("\nTo.")).setBorder(Border.NO_BORDER).setFontSize(10).setPaddingBottom(0));
             metaTable.addCell(new Cell().setBorder(Border.NO_BORDER));
@@ -116,7 +117,8 @@ public class PdfService {
 
             // --- BASE ROW ---
             mainTable.addCell(createCell(bill.getDutySlipNo(), TextAlignment.CENTER));
-            mainTable.addCell(createCell(bill.getTripDate().format(TRIP_DATE_FORMATTER), TextAlignment.CENTER));
+            String formattedTripDate = bill.getTripDate() != null ? bill.getTripDate().format(TRIP_DATE_FORMATTER) : "";
+            mainTable.addCell(createCell(formattedTripDate, TextAlignment.CENTER));
             mainTable.addCell(createCell(bill.getVehicleName(), TextAlignment.LEFT));
             mainTable.addCell(createCell(String.valueOf((int)kms), TextAlignment.RIGHT));
             mainTable.addCell(createCell(String.valueOf((int)hrs), TextAlignment.RIGHT));
@@ -188,7 +190,7 @@ public class PdfService {
                     .setMarginTop(20);
 
             Cell customerCell = new Cell().setBorder(Border.NO_BORDER);
-            customerCell.add(new Paragraph("For " + bill.getContactPerson()).setUnderline().setFontSize(9));
+            customerCell.add(new Paragraph("For " + (bill.getContactPerson() != null ? bill.getContactPerson() : "")).setUnderline().setFontSize(9));
             customerCell.add(new Paragraph("\nBooked by " + bill.getCompanyName()).setFontSize(9));
             footerTable.addCell(customerCell);
 

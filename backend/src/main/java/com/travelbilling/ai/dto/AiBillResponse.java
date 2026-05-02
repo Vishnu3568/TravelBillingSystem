@@ -11,14 +11,14 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AiBillResponse {
-    private String billNumber;
-    private String date;
+    private String dutySlipNo; // Was billNumber
+    private String billDate;   // Was date
     private String companyName;
     private String vehicleNumber;
     private String vehicleType;
-    private Double totalKm;
+    private Double totalKms;   // Was totalKm
     private Double totalHours;
-    private List<Charge> charges;
+    private List<Charge> dynamicCharges; // Was charges
     private Double totalAmount;
     private List<String> warnings;
 
