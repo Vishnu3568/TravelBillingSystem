@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import { toast } from "react-hot-toast";
+import { toast } from 'sonner';
 
 export default function ImportBillsPage() {
     const { role } = useAuth();
