@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-    UploadCloud, FileText, X, CheckCircle, 
+import {
+    UploadCloud, FileText, X, CheckCircle,
     AlertCircle, Loader2, Info, ChevronRight,
     AlertTriangle, History, Package
 } from "lucide-react";
@@ -23,7 +23,10 @@ export default function ImportBillsPage() {
                     <AlertTriangle className="mx-auto mb-4 text-amber-500" size={64} />
                     <h2 className="mb-2 text-2xl font-bold text-black">Access Restricted</h2>
                     <p className="text-slate-500 mb-6">Bulk bill import is an administrative feature reserved for owners.</p>
-                    <button onClick={() => navigate("/")} className="px-6 py-2 bg-black text-white rounded-none font-bold transition hover:bg-slate-800">
+                    <button
+                        onClick={() => navigate("/")}
+                        className="px-8 py-3 bg-cyan-500 text-black border-2 border-black rounded-none font-bold uppercase tracking-widest text-xs shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-black hover:text-white transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+                    >
                         Go Home
                     </button>
                 </div>
@@ -65,9 +68,9 @@ export default function ImportBillsPage() {
             setFiles([]);
         } catch (error) {
             console.error("Upload failed", error);
-            setResults({ 
-                success: false, 
-                message: error.response?.data?.message || "Critical failure during import." 
+            setResults({
+                success: false,
+                message: error.response?.data?.message || "Critical failure during import."
             });
         } finally {
             setIsUploading(false);
@@ -75,40 +78,25 @@ export default function ImportBillsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 p-8">
-            <div className="mx-auto max-w-5xl">
-                {/* Header */}
-                <div className="mb-8 flex items-end justify-between">
-                    <div>
-                        <nav className="flex items-center gap-2 text-sm text-slate-500 mb-2">
-                            <span>Admin</span>
-                            <ChevronRight size={14} />
-                            <span>System</span>
-                        </nav>
-                        <h1 className="flex items-center gap-3 text-4xl font-extrabold text-black tracking-tight">
-                            <Package className="text-indigo-600" size={40} />
-                            Bulk Bill Import
-                        </h1>
-                        <p className="mt-2 text-slate-500 max-w-xl">
-                            Upload multiple .docx travel bills. The system will automatically extract data, 
-                            create missing companies/vehicles, and link them to your bill history.
-                        </p>
-                    </div>
-                    <button 
-                        onClick={() => navigate("/bills")} 
-                        className="flex items-center gap-2 rounded-none border border-slate-200 bg-white px-5 py-2.5 font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
-                    >
-                        <History size={18} />
-                        View Bill History
-                    </button>
+        <div className="p-6 bg-slate-50 min-h-screen text-black">
+            <div className="max-w-7xl mx-auto">
+                <div className="mb-10">
+                    <h1 className="text-4xl font-bold tracking-tight flex items-center gap-3">
+                        <Package className="text-cyan-600" size={36} />
+                        Bulk Bill Import
+                    </h1>
+                    <p className="mt-2 text-slate-500">
+                        Upload multiple .docx travel bills. The system will automatically extract data,
+                        create missing companies/vehicles, and link them to your bill history.
+                    </p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Left Column: Upload */}
-                    <div className="lg:col-span-2 space-y-8">
+                    <div className="lg:col-span-2 flex flex-col">
                         {/* Drop Zone */}
-                        <div 
-                            className="relative group rounded-none border-2 border-dashed border-slate-300 bg-white p-12 text-center transition-all hover:border-indigo-400 hover:bg-indigo-50/30 shadow-sm"
+                        <div
+                            className="relative group flex-1 flex flex-col items-center justify-center rounded-none border-2 border-dashed border-slate-300 bg-white p-12 text-center transition-all hover:border-cyan-400 hover:bg-cyan-50/30 shadow-sm min-h-[270px]"
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={(e) => {
                                 e.preventDefault();
@@ -121,19 +109,19 @@ export default function ImportBillsPage() {
                                 setFiles(prev => [...prev, ...newFiles]);
                             }}
                         >
-                            <input 
-                                type="file" 
-                                multiple 
-                                accept=".docx" 
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
-                                onChange={handleFileSelect} 
+                            <input
+                                type="file"
+                                multiple
+                                accept=".docx"
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                onChange={handleFileSelect}
                             />
-                            <div className="bg-indigo-100 text-indigo-600 w-16 h-16 rounded-none flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                            <div className="bg-cyan-100 text-cyan-600 w-16 h-16 rounded-none flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
                                 <UploadCloud size={32} />
                             </div>
                             <h3 className="mb-2 text-xl font-bold text-black">Drop your bills here</h3>
                             <p className="mb-6 text-slate-500">Only .docx files are accepted for bulk processing</p>
-                            <span className="inline-block px-4 py-2 bg-indigo-600 text-white rounded-none font-bold text-sm shadow-md">
+                            <span className="inline-block px-8 py-3 bg-cyan-500 text-black border-2 border-black rounded-none font-bold text-xs uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-black hover:text-white transition-all">
                                 Browse Files
                             </span>
                         </div>
@@ -150,10 +138,10 @@ export default function ImportBillsPage() {
                                             </span>
                                         </h3>
                                     </div>
-                                    <button 
-                                        onClick={handleUpload} 
-                                        disabled={isUploading} 
-                                        className="flex items-center gap-2 rounded-none bg-emerald-600 px-6 py-2.5 font-bold text-white shadow-lg shadow-emerald-200 transition hover:bg-emerald-700 hover:shadow-emerald-300 disabled:opacity-50 disabled:shadow-none"
+                                    <button
+                                        onClick={handleUpload}
+                                        disabled={isUploading}
+                                        className="flex items-center gap-2 rounded-none bg-black px-6 py-2.5 font-bold text-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-cyan-500 hover:text-black transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-50"
                                     >
                                         {isUploading ? <Loader2 className="animate-spin" size={20} /> : <UploadCloud size={20} />}
                                         {isUploading ? "Processing..." : "Upload & Process"}
@@ -163,7 +151,7 @@ export default function ImportBillsPage() {
                                     {files.map((f) => (
                                         <li key={f.id} className="group flex items-center justify-between p-5 transition hover:bg-slate-50/50">
                                             <div className="flex items-center gap-4">
-                                                <div className="p-3 bg-indigo-50 text-indigo-500 rounded-none">
+                                                <div className="p-3 bg-cyan-50 text-cyan-500 rounded-none">
                                                     <FileText size={24} />
                                                 </div>
                                                 <div>
@@ -171,9 +159,9 @@ export default function ImportBillsPage() {
                                                     <p className="text-sm text-slate-400">{(f.file.size / 1024).toFixed(1)} KB • Queued</p>
                                                 </div>
                                             </div>
-                                            <button 
-                                                onClick={() => removeFile(f.id)} 
-                                                className="rounded-none p-2 text-slate-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 hover:text-red-500" 
+                                            <button
+                                                onClick={() => removeFile(f.id)}
+                                                className="rounded-none p-2 text-slate-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 hover:text-red-500"
                                                 disabled={isUploading}
                                             >
                                                 <X size={20} />
@@ -193,7 +181,7 @@ export default function ImportBillsPage() {
                                 <h3 className="mb-6 text-xl font-bold text-black flex items-center gap-2">
                                     Import Summary
                                 </h3>
-                                
+
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between p-4 bg-emerald-50 rounded-none border border-emerald-100 text-emerald-800">
                                         <div className="flex items-center gap-3">
@@ -202,7 +190,7 @@ export default function ImportBillsPage() {
                                         </div>
                                         <span className="text-xl font-black">{results.successCount || 0}</span>
                                     </div>
-                                    
+
                                     <div className="flex items-center justify-between p-4 bg-amber-50 rounded-none border border-amber-100 text-amber-800">
                                         <div className="flex items-center gap-3">
                                             <Info size={20} />
@@ -232,27 +220,27 @@ export default function ImportBillsPage() {
                         )}
 
                         {/* Instructions */}
-                        <div className="rounded-none bg-black p-8 text-white shadow-2xl">
-                            <h3 className="mb-4 text-xl font-bold flex items-center gap-2">
-                                <Info className="text-indigo-400" size={24} />
+                        <div className="rounded-none bg-black p-8 text-white shadow-2xl border-l-4 border-cyan-500">
+                            <h3 className="mb-6 text-xl font-bold flex items-center gap-2 uppercase tracking-widest">
+                                <Info className="text-cyan-400" size={24} />
                                 Guidelines
                             </h3>
-                            <ul className="space-y-4 text-slate-300 text-sm">
-                                <li className="flex gap-3">
-                                    <div className="w-1.5 h-1.5 rounded-none bg-indigo-500 mt-1.5 shrink-0" />
-                                    Ensure all files are in <strong>.docx</strong> format.
+                            <ul className="space-y-5">
+                                <li className="relative pl-6 text-sm text-slate-300 leading-relaxed">
+                                    <div className="absolute left-0 top-2 w-2 h-2 bg-cyan-500" />
+                                    Ensure all files are in <span className="text-cyan-400 font-bold">.docx</span> format.
                                 </li>
-                                <li className="flex gap-3">
-                                    <div className="w-1.5 h-1.5 rounded-none bg-indigo-500 mt-1.5 shrink-0" />
-                                    Data is extracted from the <strong>first table</strong> in the document.
+                                <li className="relative pl-6 text-sm text-slate-300 leading-relaxed">
+                                    <div className="absolute left-0 top-2 w-2 h-2 bg-cyan-500" />
+                                    Data is extracted from the <span className="text-cyan-400 font-bold">first table</span> in the document.
                                 </li>
-                                <li className="flex gap-3">
-                                    <div className="w-1.5 h-1.5 rounded-none bg-indigo-500 mt-1.5 shrink-0" />
-                                    System automatically creates new <strong>Companies</strong> and <strong>Vehicles</strong> if not found.
+                                <li className="relative pl-6 text-sm text-slate-300 leading-relaxed">
+                                    <div className="absolute left-0 top-2 w-2 h-2 bg-cyan-500" />
+                                    System automatically creates new <span className="text-cyan-400 font-bold">Companies</span> and <span className="text-cyan-400 font-bold">Vehicles</span> if they don't exist.
                                 </li>
-                                <li className="flex gap-3">
-                                    <div className="w-1.5 h-1.5 rounded-none bg-indigo-500 mt-1.5 shrink-0" />
-                                    Duplicates are skipped based on <strong>Duty Slip Number</strong>.
+                                <li className="relative pl-6 text-sm text-slate-300 leading-relaxed">
+                                    <div className="absolute left-0 top-2 w-2 h-2 bg-cyan-500" />
+                                    Duplicates are skipped automatically based on the <span className="text-cyan-400 font-bold">Duty Slip Number</span>.
                                 </li>
                             </ul>
                         </div>

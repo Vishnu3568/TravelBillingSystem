@@ -6,7 +6,8 @@ import {
   PlusCircle, History, Building2, Truck, 
   BarChart3, Settings, ShieldCheck, FileText,
   TrendingUp, Users, DollarSign, Calendar,
-  CreditCard, LayoutDashboard, LogOut, Bell, Car
+  CreditCard, LayoutDashboard, LogOut, Bell, Car,
+  UploadCloud
 } from "lucide-react";
 
 const dashboardCopy = {

@@ -139,7 +139,7 @@ export default function LoginPage() {
                 ) : null}
 
                 <button
-                  className="flex w-full items-center justify-center rounded-none bg-black px-4 py-3 text-base font-semibold text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-300 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  className="flex w-full items-center justify-center rounded-none bg-cyan-500 px-4 py-4 text-base font-bold text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-black hover:text-white transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:bg-slate-300 uppercase tracking-widest"
                   type="submit"
                   disabled={isSubmitting}
                 >
