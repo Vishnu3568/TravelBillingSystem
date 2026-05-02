@@ -6,7 +6,7 @@ import {
   PlusCircle, History, Building2, Truck, 
   BarChart3, Settings, ShieldCheck, FileText,
   TrendingUp, Users, DollarSign, Calendar,
-  CreditCard, LayoutDashboard, LogOut, Bell
+  CreditCard, LayoutDashboard, LogOut, Bell, Car
 } from "lucide-react";
 
 const dashboardCopy = {
@@ -152,9 +152,9 @@ function QuickActions({ role }) {
 
   const actionConfigs = [
     { label: "Create Bill", icon: PlusCircle, path: "/create-bill", desc: "New invoice", color: "bg-black" },
-    { label: "History", icon: History, path: "/bill-history", desc: "View all bills", color: "bg-black" },
+    { label: "History", icon: FileText, path: "/bill-history", desc: "View all bills", color: "bg-black" },
     { label: "Companies", icon: Building2, path: "/companies", desc: "Client master", color: "bg-black" },
-    { label: "Vehicles", icon: Truck, path: "/vehicles", desc: "Fleet master", color: "bg-black" },
+    { label: "Vehicles", icon: Car, path: "/vehicles", desc: "Fleet master", color: "bg-black" },
     { label: "Reports", icon: BarChart3, path: "/reports", desc: "Revenue analytics", color: "bg-black" },
     { label: "Users", icon: Users, path: "/users", desc: "Team management", color: "bg-black" },
   ];
@@ -280,21 +280,24 @@ function OwnerDashboard({ username, logout }) {
   return (
     <div className="text-black">
       <section className="mx-auto max-w-7xl py-4">
-        <div className="relative mb-10 overflow-hidden rounded-none bg-black p-8 text-white shadow-2xl">
+        <div className="relative mb-14 overflow-hidden rounded-none bg-white p-8 text-black shadow-[20px_20px_0px_0px_rgba(0,0,0,1)] border-[3px] border-black mr-[20px]">
           <div className="relative z-10 flex flex-col justify-between gap-6 md:flex-row md:items-center">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <span className="px-2 py-0.5 rounded-none bg-cyan-500/20 text-cyan-400 text-[10px] font-bold uppercase tracking-wider">Executive Workspace</span>
+                <span className="px-2 py-0.5 rounded-none bg-black text-white text-[10px] font-bold uppercase tracking-wider">Workspace</span>
                 <span className="w-1.5 h-1.5 rounded-none bg-cyan-500 animate-pulse"></span>
               </div>
               <h2 className="text-3xl font-bold tracking-tight">Welcome back, {username}</h2>
-              <p className="mt-3 max-w-xl text-slate-400 text-sm leading-relaxed">
-                Your command center is ready. You have <span className="text-white font-bold">{dashboard?.stats?.todayBillsCount || 0} bills</span> pending review for today.
+              <p className="mt-3 max-w-xl text-slate-500 text-sm leading-relaxed font-medium">
+                Your command center is ready. You have <span className="text-black font-black">{dashboard?.stats?.todayBillsCount || 0} bills</span> pending review for today.
               </p>
             </div>
             
             <div className="flex gap-4">
-              <Link to="/create-bill" className="flex items-center gap-2 rounded-none bg-cyan-500 px-6 py-3 text-sm font-bold text-black transition-all hover:bg-cyan-400 hover:scale-105 active:scale-95 shadow-lg shadow-cyan-500/20">
+              <Link 
+                to="/create-bill" 
+                className="flex items-center gap-2 rounded-none bg-cyan-500 px-6 py-3 text-sm font-bold text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-black hover:text-white transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+              >
                 <PlusCircle size={18} />
                 Create New Bill
               </Link>

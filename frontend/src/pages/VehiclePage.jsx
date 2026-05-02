@@ -9,7 +9,8 @@ import {
   Check, 
   Loader2,
   Tag,
-  Settings
+  Settings,
+  Info
 } from "lucide-react";
 import api from "../services/api";
 
@@ -91,11 +92,11 @@ const VehiclePage = () => {
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-              <Car className="text-indigo-600" />
+            <h1 className="text-4xl font-bold text-black flex items-center gap-3">
+              <Car className="text-cyan-600" size={36} />
               Vehicle Master
             </h1>
-            <p className="text-slate-500">Manage your fleet and vehicle details</p>
+            <p className="text-slate-500 mt-2">Manage your fleet and vehicle details</p>
           </div>
           <button
             onClick={() => {
@@ -103,7 +104,7 @@ const VehiclePage = () => {
               setEditingId(null);
               setFormData({ registrationNumber: "", type: "", model: "" });
             }}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-none flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-md"
+            className="bg-cyan-500 text-black px-4 py-2 rounded-none font-bold uppercase tracking-widest text-xs flex items-center gap-2 hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none mr-1"
           >
             <Plus size={20} />
             Add Vehicle
@@ -128,7 +129,7 @@ const VehiclePage = () => {
                   required
                   value={formData.registrationNumber}
                   onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500 outline-none uppercase"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-cyan-500 outline-none uppercase"
                   placeholder="MH 12 AB 1234"
                 />
               </div>
@@ -138,7 +139,7 @@ const VehiclePage = () => {
                   required
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-cyan-500 outline-none"
                 >
                   <option value="">Select Type</option>
                   <option value="Sedan">Sedan</option>
@@ -156,7 +157,7 @@ const VehiclePage = () => {
                   required
                   value={formData.model}
                   onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-cyan-500 outline-none"
                   placeholder="e.g. Swift Dzire"
                 />
               </div>
@@ -170,7 +171,7 @@ const VehiclePage = () => {
                 </button>
                 <button
                   type="submit"
-                  className="bg-indigo-600 text-white px-6 py-2 rounded-none hover:bg-indigo-700 transition-all shadow-sm flex items-center gap-2"
+                  className="bg-black text-white px-6 py-2 rounded-none hover:bg-cyan-500 hover:text-black transition-all shadow-sm font-bold uppercase tracking-widest text-xs flex items-center gap-2"
                 >
                   <Check size={20} />
                   {editingId ? "Update Vehicle" : "Save Vehicle"}
@@ -189,7 +190,7 @@ const VehiclePage = () => {
                 placeholder="Search by reg number or type..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-none focus:ring-2 focus:ring-cyan-500 outline-none bg-white"
               />
             </div>
             <div className="text-sm text-slate-500">
@@ -200,7 +201,7 @@ const VehiclePage = () => {
           <div className="overflow-x-auto">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-12">
-                <Loader2 className="animate-spin text-indigo-600 mb-4" size={40} />
+                <Loader2 className="animate-spin text-cyan-500 mb-4" size={40} />
                 <p className="text-slate-500">Loading vehicles...</p>
               </div>
             ) : filteredVehicles.length > 0 ? (
@@ -218,39 +219,38 @@ const VehiclePage = () => {
                     <tr key={vehicle.id} className="hover:bg-slate-50 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-none bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-[10px]">
+                          <div className="w-8 h-8 rounded-none bg-cyan-50 flex items-center justify-center text-cyan-600 font-bold text-[10px]">
                             {vehicle.registrationNumber.substring(0, 2)}
                           </div>
                           <span className="font-bold text-slate-800 tracking-wider uppercase">{vehicle.registrationNumber}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-none text-xs font-medium bg-blue-50 text-blue-700">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-none text-xs font-medium bg-cyan-50 text-cyan-700">
                           <Tag size={12} />
                           {vehicle.type}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-slate-600">
                         <div className="flex items-center gap-2">
-                          <Settings size={14} className="text-slate-400" />
+                          <Info size={14} className="text-slate-400" />
                           {vehicle.model}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2 transition-opacity">
+                        <div className="flex justify-end gap-4 items-center">
                           <button
                             onClick={() => handleEdit(vehicle)}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-none transition-all"
+                            className="p-1.5 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-none transition-all"
                             title="Edit"
                           >
                             <Edit2 size={16} />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDelete(vehicle.id); }}
-                            className="p-2 text-red-600 hover:bg-red-100 rounded-none"
-                            title="Delete"
+                            className="text-red-600 hover:text-red-700 transition-colors font-bold text-xs"
                           >
-                            <Trash2 size={18} />
+                            DELETE
                           </button>
                         </div>
                       </td>

@@ -130,15 +130,15 @@ const UserManagementPage = () => {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-black flex items-center gap-3">
-              <Users className="text-indigo-600" size={32} />
+            <h1 className="text-4xl font-bold text-black flex items-center gap-3">
+              <Users className="text-cyan-600" size={36} />
               User Management
             </h1>
             <p className="text-slate-500 mt-2">Manage team access, roles, and system security</p>
           </div>
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="bg-indigo-600 text-white px-5 py-2.5 rounded-none font-semibold flex items-center gap-2 hover:bg-indigo-700 transition shadow-sm"
+            className="bg-cyan-500 text-black px-5 py-2.5 rounded-none font-bold uppercase tracking-widest text-xs flex items-center gap-2 hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none mr-1"
           >
             <UserPlus size={20} />
             Create New User
@@ -152,7 +152,7 @@ const UserManagementPage = () => {
               <input 
                 type="text"
                 placeholder="Search by username, name or email..."
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-cyan-500 transition"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -177,7 +177,7 @@ const UserManagementPage = () => {
                 {loading ? (
                   <tr>
                     <td colSpan="5" className="px-6 py-12 text-center">
-                      <Loader2 className="animate-spin mx-auto text-indigo-600 mb-2" size={32} />
+                      <Loader2 className="animate-spin mx-auto text-cyan-600 mb-2" size={32} />
                       <p className="text-slate-500">Loading user database...</p>
                     </td>
                   </tr>
@@ -192,7 +192,7 @@ const UserManagementPage = () => {
                     <tr key={user.id} className="hover:bg-slate-50 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-none bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+                          <div className="w-10 h-10 rounded-none bg-cyan-50 text-cyan-600 flex items-center justify-center font-bold">
                             {(user.fullName || user.username).charAt(0).toUpperCase()}
                           </div>
                           <div>
@@ -232,20 +232,20 @@ const UserManagementPage = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2 transition-opacity">
+                        <div className="flex items-center justify-end gap-4 transition-opacity">
                           <button 
                             onClick={() => { setSelectedUser(user); setIsResetModalOpen(true); }}
-                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-none transition"
+                            className="p-2 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-none transition"
                             title="Reset Password"
                           >
                             <Key size={18} />
                           </button>
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleDeleteUser(user.id); }}
-                            className="p-2 text-red-600 hover:bg-red-100 rounded-none transition"
+                            className="text-red-600 hover:text-red-700 transition-colors font-bold text-xs"
                             title="Disable User"
                           >
-                            <Trash2 size={18} />
+                            DELETE
                           </button>
                         </div>
                       </td>
@@ -264,7 +264,7 @@ const UserManagementPage = () => {
           <div className="bg-white rounded-none shadow-xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-xl font-bold text-black flex items-center gap-2">
-                <UserPlus className="text-indigo-600" size={24} />
+                <UserPlus className="text-cyan-600" size={24} />
                 Create New User
               </h3>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition">&times;</button>
@@ -275,7 +275,7 @@ const UserManagementPage = () => {
                 <input 
                   required
                   type="text"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-cyan-500 transition"
                   placeholder="John Doe"
                   value={formData.fullName}
                   onChange={(e) => setFormData({...formData, fullName: e.target.value})}
@@ -287,7 +287,7 @@ const UserManagementPage = () => {
                   <input 
                     required
                     type="text"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-cyan-500 transition"
                     placeholder="johndoe"
                     value={formData.username}
                     onChange={(e) => setFormData({...formData, username: e.target.value})}
@@ -296,7 +296,7 @@ const UserManagementPage = () => {
                 <div className="space-y-1.5">
                   <label className="text-sm font-bold text-slate-700">Role</label>
                   <select 
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-cyan-500 transition"
                     value={formData.role}
                     onChange={(e) => setFormData({...formData, role: e.target.value})}
                   >
@@ -311,7 +311,7 @@ const UserManagementPage = () => {
                 <input 
                   required
                   type="email"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-cyan-500 transition"
                   placeholder="john@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
@@ -322,7 +322,7 @@ const UserManagementPage = () => {
                 <input 
                   required
                   type="password"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-cyan-500 transition"
                   placeholder="Minimum 6 characters"
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
@@ -338,7 +338,7 @@ const UserManagementPage = () => {
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 px-4 py-2.5 bg-indigo-600 text-white font-bold rounded-none hover:bg-indigo-700 transition shadow-sm"
+                  className="flex-1 px-4 py-2.5 bg-black text-white font-bold rounded-none hover:bg-cyan-500 hover:text-black transition shadow-sm font-bold uppercase tracking-widest text-xs"
                 >
                   Create User
                 </button>
@@ -354,7 +354,7 @@ const UserManagementPage = () => {
           <div className="bg-white rounded-none shadow-xl border border-slate-200 w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="p-6 border-b border-slate-100">
               <h3 className="text-xl font-bold text-black flex items-center gap-2">
-                <Key className="text-indigo-600" size={24} />
+                <Key className="text-cyan-600" size={24} />
                 Reset Password
               </h3>
               <p className="text-sm text-slate-500 mt-1">For user: {selectedUser?.fullName || selectedUser?.username}</p>
@@ -365,7 +365,7 @@ const UserManagementPage = () => {
                 <input 
                   required
                   type="password"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-none outline-none focus:ring-2 focus:ring-cyan-500 transition"
                   placeholder="Enter new strong password"
                   value={resetData.newPassword}
                   onChange={(e) => setResetData({ newPassword: e.target.value })}
@@ -381,7 +381,7 @@ const UserManagementPage = () => {
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 px-4 py-2.5 bg-indigo-600 text-white font-bold rounded-none hover:bg-indigo-700 transition shadow-sm"
+                  className="flex-1 px-4 py-2.5 bg-black text-white font-bold rounded-none hover:bg-cyan-500 hover:text-black transition shadow-sm font-bold uppercase tracking-widest text-xs"
                 >
                   Reset Now
                 </button>
