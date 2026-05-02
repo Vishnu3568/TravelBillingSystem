@@ -75,6 +75,15 @@ public class BillService {
     }
 
     @Transactional
+    public List<BillResponse> saveBills(List<BillRequest> requests, String createdBy) {
+        List<BillResponse> responses = new ArrayList<>();
+        for (BillRequest request : requests) {
+            responses.add(createBill(request, createdBy));
+        }
+        return responses;
+    }
+
+    @Transactional
     public BillResponse updateBill(Long id, BillRequest request) {
         Bill bill = billRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Bill not found"));
