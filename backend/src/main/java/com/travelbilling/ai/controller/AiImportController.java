@@ -30,11 +30,9 @@ public class AiImportController {
             try {
                 log.info("AI Parsing file: {}", file.getOriginalFilename());
                 String rawText = docxExtractionService.extractRawText(file);
-                AiBillResponse response = geminiService.parseBillText(rawText);
+                List<AiBillResponse> response = geminiService.parseBillText(rawText);
                 if (response != null) {
-                    // Set file name as a reference if needed or in warnings
-                    if (response.getWarnings() == null) response.setWarnings(new ArrayList<>());
-                    results.add(response);
+                    results.addAll(response);
                 }
             } catch (Exception e) {
                 log.error("Failed to extract text from file: {}", file.getOriginalFilename(), e);

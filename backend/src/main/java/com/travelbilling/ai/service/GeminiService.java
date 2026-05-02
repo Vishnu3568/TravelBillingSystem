@@ -29,37 +29,42 @@ public class GeminiService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper;
 
-    public AiBillResponse parseBillText(String rawText) {
+    public List<AiBillResponse> parseBillText(String rawText) {
         if ("REPLACE_WITH_YOUR_GEMINI_API_KEY".equals(apiKey)) {
-             return AiBillResponse.builder()
-                    .warnings(List.of("Gemini API key not configured. Please set google.ai.api-key in application.properties."))
-                    .build();
+             return List.of(AiBillResponse.builder()
+                    .warnings(List.of("Gemini API key not configured."))
+                    .build());
         }
 
+        // Using v1beta as confirmed by the successful model list test
         String url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey;
 
-        String prompt = "You are a professional travel bill parsing assistant. Extract data from the following travel bill text and return it in a STRICT JSON format.\n\n" +
+        String prompt = "You are a professional travel bill parsing assistant. Extract ALL travel bills found in the following text.\n" +
+                "The text may contain multiple bills. For EACH bill detected, extract the details.\n\n" +
                 "Rules:\n" +
+                "- Return a STRICT JSON ARRAY of objects.\n" +
                 "- Do NOT hallucinate values.\n" +
                 "- If data is missing, return null.\n" +
-                "- Extract all charge rows (Driver Bata, Toll, Parking, Base Amount, etc.).\n" +
+                "- Extract all charge rows (Driver Bata, Toll, Parking, etc.).\n" +
                 "- Maintain numeric accuracy.\n" +
                 "- Add warnings for uncertain or missing fields.\n\n" +
-                "Desired JSON Format:\n" +
-                "{\n" +
-                "  \"billNumber\": \"\",\n" +
-                "  \"date\": \"\",\n" +
-                "  \"companyName\": \"\",\n" +
-                "  \"vehicleNumber\": \"\",\n" +
-                "  \"vehicleType\": \"\",\n" +
-                "  \"totalKm\": 0,\n" +
-                "  \"totalHours\": 0,\n" +
-                "  \"charges\": [\n" +
-                "    { \"name\": \"\", \"amount\": 0 }\n" +
-                "  ],\n" +
-                "  \"totalAmount\": 0,\n" +
-                "  \"warnings\": []\n" +
-                "}\n\n" +
+                "Desired JSON Format (Array of Objects):\n" +
+                "[\n" +
+                "  {\n" +
+                "    \"billNumber\": \"\",\n" +
+                "    \"date\": \"\",\n" +
+                "    \"companyName\": \"\",\n" +
+                "    \"vehicleNumber\": \"\",\n" +
+                "    \"vehicleType\": \"\",\n" +
+                "    \"totalKm\": 0,\n" +
+                "    \"totalHours\": 0,\n" +
+                "    \"charges\": [\n" +
+                "      { \"name\": \"\", \"amount\": 0 }\n" +
+                "    ],\n" +
+                "    \"totalAmount\": 0,\n" +
+                "    \"warnings\": []\n" +
+                "  }\n" +
+                "]\n\n" +
                 "Text to parse:\n" +
                 rawText;
 
@@ -76,7 +81,7 @@ public class GeminiService {
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
             
-            log.info("Sending request to Gemini API...");
+            log.info("Sending request to Gemini API (v1)...");
             Map<String, Object> response = restTemplate.postForObject(url, entity, Map.class);
 
             if (response != null && response.containsKey("candidates")) {
@@ -91,16 +96,16 @@ public class GeminiService {
                 // Clean up JSON if AI adds Markdown blocks
                 jsonResponse = jsonResponse.replaceAll("```json", "").replaceAll("```", "").trim();
 
-                return objectMapper.readValue(jsonResponse, AiBillResponse.class);
+                return objectMapper.readValue(jsonResponse, objectMapper.getTypeFactory().constructCollectionType(List.class, AiBillResponse.class));
             }
         } catch (Exception e) {
             log.error("Gemini AI parsing failed", e);
-            return AiBillResponse.builder()
+            return List.of(AiBillResponse.builder()
                     .warnings(List.of("AI Parsing Error: " + e.getMessage()))
-                    .build();
+                    .build());
         }
-        return AiBillResponse.builder()
+        return List.of(AiBillResponse.builder()
                 .warnings(List.of("Empty response from AI"))
-                .build();
+                .build());
     }
 }
