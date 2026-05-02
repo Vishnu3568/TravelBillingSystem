@@ -40,8 +40,8 @@ export default function Header() {
       <div className="flex items-center justify-between bg-white/80 backdrop-blur-md border-b border-slate-200 px-5 py-3 md:px-8">
         <div className="flex items-center gap-4">
           {isDashboard ? (
-            /* Brand Logo for Home Page (Same line) */
-            <div className="flex items-center gap-3">
+            /* Brand Logo for Home Page (Shown on mobile, hidden when sidebar appears) */
+            <div className="flex items-center gap-3 md:hidden">
               <div className="w-8 h-8 bg-cyan-500 flex items-center justify-center text-black font-black text-sm rounded-none shrink-0">
                 T
               </div>
