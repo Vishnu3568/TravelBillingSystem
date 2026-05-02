@@ -6,7 +6,7 @@ import { AuthProvider } from "./context/AuthContext.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import CreateBillPage from "./pages/CreateBillPage.jsx";
-import BillHistoryPage from "./pages/BillHistoryPage.jsx";
+import BillsPage from "./pages/BillsPage.jsx";
 import BillViewPage from "./pages/BillViewPage.jsx";
 import CompanyPage from "./pages/CompanyPage.jsx";
 import VehiclePage from "./pages/VehiclePage.jsx";
@@ -70,7 +70,7 @@ const router = createBrowserRouter([
             path: "bill-history",
             element: (
               <ProtectedRoute allowedRoles={["OWNER", "MANAGER", "EMPLOYEE"]}>
-                <BillHistoryPage />
+                <BillsPage />
               </ProtectedRoute>
             ),
           },

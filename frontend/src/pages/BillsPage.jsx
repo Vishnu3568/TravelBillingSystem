@@ -1,29 +1,30 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { 
-  Search, 
-  RotateCcw, 
-  ChevronLeft, 
-  ChevronRight, 
-  Eye, 
+import {
+  Search,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
   FileDown,
-  Calendar, 
-  Building2, 
+  Calendar,
+  Building2,
   FileText,
   Filter,
-  Pencil
+  Pencil,
+  Plus
 } from "lucide-react";
 import api from "../services/api";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
-export default function BillHistoryPage() {
+export default function BillsPage() {
   const navigate = useNavigate();
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize] = useState(10);
-  
+
   const [filters, setFilters] = useState({
     billNumber: "",
     companyName: "",
@@ -36,7 +37,7 @@ export default function BillHistoryPage() {
     try {
       const { billNumber, companyName, fromDate, toDate } = currentFilters;
       const isSearching = billNumber || companyName || fromDate || toDate;
-      
+
       const endpoint = isSearching ? "/bills/search" : "/bills";
       const params = {
         page,
@@ -93,7 +94,7 @@ export default function BillHistoryPage() {
       const response = await api.get(`/bills/${id}/pdf`, {
         responseType: "blob",
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -108,15 +109,30 @@ export default function BillHistoryPage() {
   };
 
   return (
-    <div className="bg-slate-50 min-h-full">
-      <div className="mx-auto">
-        <div className="mb-8">
-            <div className="flex items-center gap-2 mb-1">
-                <FileText className="w-5 h-5 text-indigo-600" />
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Financial Records</span>
-            </div>
-            <h1 className="text-2xl font-bold text-black tracking-tight">Bill History</h1>
-            <p className="text-sm text-slate-500">Search and manage all generated invoices across the system.</p>
+    <div className="p-6 bg-slate-50 min-h-screen text-black">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-10">
+          <h1 className="text-4xl font-bold tracking-tight flex items-center gap-3">
+            <FileText className="text-cyan-600" size={36} />
+            Your Bills
+          </h1>
+          <p className="mt-2 text-slate-500">Search and manage all generated invoices across the system.</p>
+        </div>
+
+        <div className="bg-white border-[3px] border-black p-8 md:p-10 mb-16 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div>
+            <h2 className="text-3xl font-black tracking-tight mb-3">Generate New Bill</h2>
+            <p className="text-slate-500 text-sm max-w-xl font-medium leading-relaxed">
+              Create a professional bill for your customers in seconds. Our system automatically handles tax calculations, vehicle tracking, and history logging.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/create-bill")}
+            className="flex items-center gap-2 rounded-none bg-cyan-500 px-8 py-4 text-sm font-bold text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-black hover:text-white transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none whitespace-nowrap"
+          >
+            <Plus size={20} strokeWidth={3} />
+            Create New Bill
+          </button>
         </div>
 
         <div className="bg-white rounded-none shadow-sm border border-slate-200 p-4 mb-8">
@@ -128,7 +144,7 @@ export default function BillHistoryPage() {
                 <input
                   type="text"
                   placeholder="e.g. BILL-2024..."
-                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-cyan-500 transition-all outline-none text-sm"
                   value={filters.billNumber}
                   onChange={(e) => setFilters({ ...filters, billNumber: e.target.value })}
                 />
@@ -142,7 +158,7 @@ export default function BillHistoryPage() {
                 <input
                   type="text"
                   placeholder="Company name..."
-                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-cyan-500 transition-all outline-none text-sm"
                   value={filters.companyName}
                   onChange={(e) => setFilters({ ...filters, companyName: e.target.value })}
                 />
@@ -153,7 +169,7 @@ export default function BillHistoryPage() {
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">From Date</label>
               <input
                 type="date"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-cyan-500 transition-all outline-none text-sm"
                 value={filters.fromDate}
                 onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
               />
@@ -163,7 +179,7 @@ export default function BillHistoryPage() {
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">To Date</label>
               <input
                 type="date"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-none focus:ring-2 focus:ring-cyan-500 transition-all outline-none text-sm"
                 value={filters.toDate}
                 onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
               />
@@ -172,7 +188,7 @@ export default function BillHistoryPage() {
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="bg-black hover:bg-slate-800 text-white font-bold py-2 px-6 rounded-none transition-all shadow-lg shadow-slate-200 flex items-center gap-2 text-sm active:scale-95"
+                className="bg-black text-white px-6 py-2 font-bold uppercase tracking-widest text-xs hover:bg-cyan-500 hover:text-black transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
               >
                 Search
               </button>
@@ -214,7 +230,7 @@ export default function BillHistoryPage() {
                   bills.map((bill) => (
                     <tr key={bill.id} className="hover:bg-slate-50 transition-colors group">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="font-mono text-sm font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-none">
+                        <span className="font-mono text-sm font-semibold text-cyan-600 bg-cyan-50 px-2 py-1 rounded-none">
                           {bill.billNumber}
                         </span>
                       </td>
@@ -234,20 +250,20 @@ export default function BillHistoryPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Created By</span>
-                            <div className="flex items-center gap-2">
-                                <div className="w-5 h-5 rounded-none bg-black flex items-center justify-center text-[9px] font-bold text-white uppercase">
-                                    {bill.createdBy?.substring(0, 2)}
-                                </div>
-                                <span className="text-xs font-medium text-slate-600">{bill.createdBy}</span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Created By</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 rounded-none bg-black flex items-center justify-center text-[9px] font-bold text-white uppercase">
+                              {bill.createdBy?.substring(0, 2)}
                             </div>
+                            <span className="text-xs font-medium text-slate-600">{bill.createdBy}</span>
+                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => handleViewBill(bill.id)}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-none transition-all"
+                            className="p-1.5 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-none transition-all"
                             title="View Details"
                           >
                             <Eye className="w-5 h-5" />
@@ -309,11 +325,10 @@ export default function BillHistoryPage() {
                   <button
                     key={i}
                     onClick={() => handlePageChange(i)}
-                    className={`w-10 h-10 rounded-none border font-medium text-sm transition-all ${
-                      currentPage === i
-                        ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
-                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
+                    className={`w-10 h-10 rounded-none border font-medium text-sm transition-all ${currentPage === i
+                      ? "bg-cyan-600 border-cyan-600 text-white shadow-sm"
+                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
                   >
                     {i + 1}
                   </button>

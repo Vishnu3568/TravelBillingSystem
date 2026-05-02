@@ -62,7 +62,7 @@ const ReportsPage = () => {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
-        <Loader2 className="animate-spin text-indigo-600 mb-4" size={48} />
+        <Loader2 className="animate-spin text-cyan-600 mb-4" size={48} />
         <p className="text-slate-600 font-medium text-lg">Generating analytical reports...</p>
       </div>
     );
@@ -71,7 +71,7 @@ const ReportsPage = () => {
   const cards = [
     { label: "Today Bills", value: summary?.todayBillsCount, icon: FileText, color: "bg-blue-50 text-blue-600" },
     { label: "Today Revenue", value: formatCurrency(summary?.todayRevenue), icon: DollarSign, color: "bg-emerald-50 text-emerald-600" },
-    { label: "Monthly Bills", value: summary?.monthlyBillsCount, icon: Calendar, color: "bg-indigo-50 text-indigo-600" },
+    { label: "Monthly Bills", value: summary?.monthlyBillsCount, icon: Calendar, color: "bg-cyan-50 text-cyan-600" },
     { label: "Monthly Revenue", value: formatCurrency(summary?.monthlyRevenue), icon: TrendingUp, color: "bg-violet-50 text-violet-600" },
     { label: "Total Bills", value: summary?.totalBills, icon: FileText, color: "bg-slate-100 text-slate-600" },
     { label: "Total Companies", value: summary?.totalCompanies, icon: Users, color: "bg-amber-50 text-amber-600" },
@@ -82,8 +82,8 @@ const ReportsPage = () => {
     <div className="p-6 bg-slate-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-black flex items-center gap-3">
-            <BarChart3 className="text-indigo-600" size={32} />
+          <h1 className="text-4xl font-bold text-black flex items-center gap-3">
+            <BarChart3 className="text-cyan-600" size={36} />
             Reports & Analytics
           </h1>
           <p className="text-slate-500 mt-2">In-depth analysis of your travel billing operations</p>
@@ -106,7 +106,7 @@ const ReportsPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
           <div className="bg-white p-6 rounded-none shadow-sm border border-slate-200">
             <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-              <Users className="text-indigo-600" size={24} />
+              <Users className="text-cyan-600" size={24} />
               Top 5 Companies by Revenue
             </h2>
             <div className="h-80 w-full">
@@ -139,7 +139,7 @@ const ReportsPage = () => {
 
           <div className="bg-white p-6 rounded-none shadow-sm border border-slate-200">
             <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-              <Car className="text-indigo-600" size={24} />
+              <Car className="text-cyan-600" size={24} />
               Top 5 Vehicles by Revenue
             </h2>
             <div className="h-80 w-full">

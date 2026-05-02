@@ -17,7 +17,26 @@ export function AuthProvider({ children }) {
   }));
 
   const login = async ({ username, password }) => {
-    // Fallback to real API
+    // Use Mock Auth ONLY in Production (for GitHub Pages demo)
+    // In local development, always use the real backend
+    const isProduction = import.meta.env.PROD;
+    
+    if (isProduction && username === "owner2" && password === "admin123") {
+      const token = "mock-jwt-token";
+      const responseUsername = "owner2";
+      const role = "OWNER";
+
+      localStorage.setItem(storageKeys.token, token);
+      localStorage.setItem(storageKeys.username, responseUsername);
+      localStorage.setItem(storageKeys.role, role);
+
+      const nextAuth = { token, username: responseUsername, role };
+      setAuth(nextAuth);
+      return nextAuth;
+    }
+
+    // Real API call for local development or other production users
+
     const response = await api.post("/auth/login", { username, password });
     const { token, username: responseUsername, role } = response.data;
 
