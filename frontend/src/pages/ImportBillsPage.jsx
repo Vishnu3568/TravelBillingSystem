@@ -3,17 +3,21 @@ import { useNavigate } from "react-router-dom";
 import {
     UploadCloud, FileText, X, CheckCircle,
     AlertCircle, Loader2, Info, ChevronRight,
-    AlertTriangle, History, Package
+    AlertTriangle, History, Package, Save, Edit2, Trash2
 } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { toast } from 'sonner';
 
 export default function ImportBillsPage() {
     const { role } = useAuth();
     const navigate = useNavigate();
     const [files, setFiles] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
-    const [results, setResults] = useState(null);
+    const [parsedBills, setParsedBills] = useState([]);
+    const [isReviewing, setIsReviewing] = useState(false);
+    const [editingIndex, setEditingIndex] = useState(null);
+    const [editForm, setEditForm] = useState(null);
     const fileInputRef = useRef(null);
 
     if (role !== "OWNER") {
@@ -36,7 +40,7 @@ export default function ImportBillsPage() {
 
     const handleFileSelect = (e) => {
         const selected = Array.from(e.target.files).filter(
-            (file) => file.name.endsWith(".docx")
+            (file) => file.name.endsWith(".docx") || file.name.endsWith(".doc")
         );
         const newFiles = selected.map(file => ({
             file,
@@ -53,7 +57,6 @@ export default function ImportBillsPage() {
     const handleUpload = async () => {
         if (files.length === 0) return;
         setIsUploading(true);
-        setResults(null);
 
         const formData = new FormData();
         files.forEach((f) => {
@@ -61,21 +64,195 @@ export default function ImportBillsPage() {
         });
 
         try {
-            const response = await api.post("/import/bills", formData, {
+            const response = await api.post("/import/ai-parse", formData, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
-            setResults(response.data);
+            setParsedBills(response.data);
+            setIsReviewing(true);
             setFiles([]);
+            toast.success(`AI successfully parsed ${response.data.length} bills!`);
         } catch (error) {
             console.error("Upload failed", error);
-            setResults({
-                success: false,
-                message: error.response?.data?.message || "Critical failure during import."
-            });
+            toast.error(error.response?.data?.message || "AI parsing failed.");
         } finally {
             setIsUploading(false);
         }
     };
+
+    const handleSaveAll = async () => {
+        try {
+            await api.post("/bills/bulk", parsedBills);
+            toast.success("All bills saved to database successfully!");
+            setParsedBills([]);
+            setIsReviewing(false);
+        } catch (error) {
+            toast.error("Failed to save bills to database");
+        }
+    };
+
+    const startEdit = (index) => {
+        setEditingIndex(index);
+        setEditForm({ ...parsedBills[index] });
+    };
+
+    const saveEdit = () => {
+        const updated = [...parsedBills];
+        updated[editingIndex] = editForm;
+        setParsedBills(updated);
+        setEditingIndex(null);
+        toast.success("Bill updated locally");
+    };
+
+    const deleteBill = (index) => {
+        setParsedBills(prev => prev.filter((_, i) => i !== index));
+    };
+
+    if (isReviewing) {
+        return (
+            <div className="min-h-screen bg-slate-50 p-8">
+                <div className="mx-auto max-w-7xl">
+                    <div className="mb-8 flex items-center justify-between bg-white p-8 border border-slate-200 shadow-sm">
+                        <div>
+                            <h1 className="text-3xl font-black text-black tracking-tight">Review AI Extraction</h1>
+                            <p className="text-slate-500 mt-1">Verify {parsedBills.length} bills before committing to the database</p>
+                        </div>
+                        <div className="flex gap-4">
+                            <button 
+                                onClick={() => setIsReviewing(false)}
+                                className="px-6 py-3 border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleSaveAll}
+                                className="px-8 py-3 bg-black text-white font-bold shadow-xl hover:bg-slate-800 transition-all flex items-center gap-2"
+                            >
+                                <Save size={18} />
+                                Save {parsedBills.length} Bills
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white border border-slate-200 shadow-xl overflow-hidden">
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-900 text-white">
+                                <tr>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest">Bill #</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest">Date</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest">Company</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest">Vehicle</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-right">Amount</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest">Issues</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {parsedBills.map((bill, index) => (
+                                    <tr 
+                                        key={index} 
+                                        className={`hover:bg-slate-50 transition-colors ${bill.warnings?.length > 0 ? 'bg-amber-50/50' : ''}`}
+                                    >
+                                        <td className="p-4 font-bold text-slate-900">{bill.billNumber || '---'}</td>
+                                        <td className="p-4 text-slate-600 font-medium">{bill.date || '---'}</td>
+                                        <td className="p-4 text-slate-600 font-medium">{bill.companyName || '---'}</td>
+                                        <td className="p-4 text-slate-500 text-sm">
+                                            <span className="font-bold text-slate-700">{bill.vehicleNumber}</span>
+                                            <br />
+                                            {bill.vehicleType}
+                                        </td>
+                                        <td className="p-4 text-right font-black text-slate-900">₹{bill.totalAmount?.toLocaleString()}</td>
+                                        <td className="p-4">
+                                            {bill.warnings?.map((w, i) => (
+                                                <div key={i} className="flex items-center gap-1.5 text-amber-700 text-[10px] bg-amber-100 px-2 py-1 mb-1 font-bold last:mb-0">
+                                                    <AlertTriangle size={12} />
+                                                    {w}
+                                                </div>
+                                            ))}
+                                        </td>
+                                        <td className="p-4 text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <button 
+                                                    onClick={() => startEdit(index)}
+                                                    className="p-2 text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all"
+                                                >
+                                                    <Edit2 size={16} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => deleteBill(index)}
+                                                    className="p-2 text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Edit Modal */}
+                {editingIndex !== null && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-white shadow-2xl w-full max-w-2xl animate-in zoom-in-95 duration-200">
+                            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                                <h3 className="text-xl font-black text-black uppercase tracking-tight">Manual Data Correction</h3>
+                                <button onClick={() => setEditingIndex(null)} className="text-slate-400 hover:text-black transition-colors"><X size={24} /></button>
+                            </div>
+                            <div className="p-8 grid grid-cols-2 gap-8">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Bill Number</label>
+                                    <input 
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold"
+                                        value={editForm.billNumber || ''} 
+                                        onChange={e => setEditForm({...editForm, billNumber: e.target.value})} 
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Date</label>
+                                    <input 
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold"
+                                        value={editForm.date || ''} 
+                                        onChange={e => setEditForm({...editForm, date: e.target.value})} 
+                                    />
+                                </div>
+                                <div className="space-y-2 col-span-2">
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Company Name</label>
+                                    <input 
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold"
+                                        value={editForm.companyName || ''} 
+                                        onChange={e => setEditForm({...editForm, companyName: e.target.value})} 
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Vehicle Number</label>
+                                    <input 
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold"
+                                        value={editForm.vehicleNumber || ''} 
+                                        onChange={e => setEditForm({...editForm, vehicleNumber: e.target.value})} 
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Total Amount</label>
+                                    <input 
+                                        type="number"
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-black text-xl"
+                                        value={editForm.totalAmount || 0} 
+                                        onChange={e => setEditForm({...editForm, totalAmount: parseFloat(e.target.value)})} 
+                                    />
+                                </div>
+                            </div>
+                            <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-4">
+                                <button onClick={() => setEditingIndex(null)} className="px-6 py-3 border border-slate-200 font-bold hover:bg-white transition-all">Cancel</button>
+                                <button onClick={saveEdit} className="px-10 py-3 bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all">Apply Fix</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 bg-slate-50 min-h-screen text-black">
@@ -100,7 +277,7 @@ export default function ImportBillsPage() {
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={(e) => {
                                 e.preventDefault();
-                                const dropped = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith(".docx"));
+                                const dropped = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith(".docx") || f.name.endsWith(".doc"));
                                 const newFiles = dropped.map(file => ({
                                     file,
                                     id: Math.random().toString(36).substr(2, 9),
@@ -143,20 +320,22 @@ export default function ImportBillsPage() {
                                         disabled={isUploading}
                                         className="flex items-center gap-2 rounded-none bg-black px-6 py-2.5 font-bold text-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-cyan-500 hover:text-black transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-50"
                                     >
-                                        {isUploading ? <Loader2 className="animate-spin" size={20} /> : <UploadCloud size={20} />}
-                                        {isUploading ? "Processing..." : "Upload & Process"}
+                                        {isUploading ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
+                                        {isUploading ? "AI ANALYZING..." : "START AI PARSING"}
                                     </button>
                                 </div>
-                                <ul className="max-h-[500px] divide-y divide-slate-100 overflow-y-auto">
+                                <ul className="divide-y-2 divide-slate-100">
                                     {files.map((f) => (
-                                        <li key={f.id} className="group flex items-center justify-between p-5 transition hover:bg-slate-50/50">
+                                        <li key={f.id} className="group flex items-center justify-between p-6 hover:bg-slate-50 transition-colors">
                                             <div className="flex items-center gap-4">
                                                 <div className="p-3 bg-cyan-50 text-cyan-500 rounded-none">
                                                     <FileText size={24} />
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-slate-700">{f.file.name}</p>
-                                                    <p className="text-sm text-slate-400">{(f.file.size / 1024).toFixed(1)} KB • Queued</p>
+                                                    <p className="font-black text-slate-800">{f.file.name}</p>
+                                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                                                        {(f.file.size / 1024).toFixed(1)} KB • READY
+                                                    </p>
                                                 </div>
                                             </div>
                                             <button
@@ -164,7 +343,7 @@ export default function ImportBillsPage() {
                                                 className="rounded-none p-2 text-slate-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 hover:text-red-500"
                                                 disabled={isUploading}
                                             >
-                                                <X size={20} />
+                                                <X size={24} />
                                             </button>
                                         </li>
                                     ))}
@@ -173,7 +352,7 @@ export default function ImportBillsPage() {
                         )}
                     </div>
 
-                    {/* Right Column: Information & Results */}
+                    {/* Right Column: Instructions */}
                     <div className="space-y-8">
                         {/* Results Summary */}
                         {results && (
@@ -243,6 +422,13 @@ export default function ImportBillsPage() {
                                     Duplicates are skipped automatically based on the <span className="text-cyan-400 font-bold">Duty Slip Number</span>.
                                 </li>
                             </ul>
+                        </div>
+
+                        <div className="bg-indigo-600 p-8 text-white">
+                            <h4 className="font-black text-xl mb-2 uppercase tracking-widest">Support</h4>
+                            <p className="text-indigo-100 text-sm font-medium">
+                                Having trouble? Ensure your Word files have clear tables or structured paragraphs. AI works best with standard agency layouts.
+                            </p>
                         </div>
                     </div>
                 </div>

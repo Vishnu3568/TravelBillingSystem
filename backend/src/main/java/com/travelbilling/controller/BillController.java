@@ -45,6 +45,14 @@ public class BillController {
                 .body(billService.createBill(request, principal.getName()));
     }
 
+    @PostMapping("/bulk")
+    public ResponseEntity<List<BillResponse>> createBills(
+            @Valid @RequestBody List<BillRequest> requests,
+            Principal principal) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(billService.saveBills(requests, principal.getName()));
+    }
+
     @GetMapping
     public Page<BillResponse> getBills(
             @RequestParam(defaultValue = "0") int page,

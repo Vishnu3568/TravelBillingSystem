@@ -9,9 +9,12 @@ import {
   Check,
   Loader2,
   MapPin,
-  FileText
+  FileText,
+  UploadCloud
 } from "lucide-react";
 import api from "../services/api";
+import { toast } from "sonner";
+
 
 const CompanyPage = () => {
   const [companies, setCompanies] = useState([]);
@@ -21,6 +24,9 @@ const CompanyPage = () => {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ name: "", address: "", gstNumber: "", hasGst: false });
   const [error, setError] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = React.useRef(null);
+
 
   useEffect(() => {
     fetchCompanies();
@@ -81,10 +87,56 @@ const CompanyPage = () => {
     }
   };
 
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const invalidFiles = files.filter(f => !f.name.endsWith(".docx") && !f.name.endsWith(".doc"));
+    if (invalidFiles.length > 0) {
+      toast.error("Please upload only Word documents (.doc or .docx)");
+      return;
+    }
+
+    setIsImporting(true);
+    const formData = new FormData();
+    files.forEach(file => {
+      formData.append("files", file);
+    });
+
+    try {
+      const response = await api.post("/import/companies", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      
+      const { successCount, failureCount, errors } = response.data;
+      
+      if (successCount > 0) {
+        toast.success(`Successfully imported ${successCount} companies`);
+        fetchCompanies();
+      }
+      
+      if (failureCount > 0) {
+        toast.error(`Failed to import ${failureCount} entries`);
+        console.error("Import errors:", errors);
+      }
+    } catch (err) {
+      console.error("Import failed:", err);
+      toast.error("Failed to import companies from file");
+    } finally {
+      setIsImporting(false);
+      e.target.value = ""; // Reset input
+    }
+  };
+
   const filteredCompanies = companies.filter(c =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (c.gstNumber && c.gstNumber.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
 
   return (
     <div className="p-6 bg-slate-50 min-h-screen">

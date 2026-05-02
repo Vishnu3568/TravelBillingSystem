@@ -26,4 +26,10 @@ public class BulkImportController {
         
         return ResponseEntity.ok(summary);
     }
+
+    @PostMapping("/companies")
+    public ResponseEntity<?> importCompanies(@RequestParam("files") MultipartFile[] files) {
+        Map<String, Object> summary = bulkImportService.importCompanies(files);
+        return ResponseEntity.ok(summary);
+    }
 }
