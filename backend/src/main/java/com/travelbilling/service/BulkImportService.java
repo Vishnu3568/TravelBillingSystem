@@ -35,6 +35,104 @@ public class BulkImportService {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
     @Transactional
+    public Map<String, Object> importCompanies(MultipartFile[] files) {
+        int successCount = 0;
+        int failureCount = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (MultipartFile file : files) {
+            try {
+                if (file.isEmpty()) continue;
+                
+                List<Company> companies = parseCompaniesDocx(file);
+                for (Company company : companies) {
+                    try {
+                        if (company.getName() == null || company.getName().isBlank()) continue;
+                        
+                        Optional<Company> existing = companyRepository.findByName(company.getName().trim());
+                        if (existing.isPresent()) {
+                            Company e = existing.get();
+                            // Only update if new data is provided
+                            if (company.getAddress() != null && !company.getAddress().isBlank()) {
+                                e.setAddress(company.getAddress());
+                            }
+                            if (company.getGstNumber() != null && !company.getGstNumber().isBlank()) {
+                                e.setGstNumber(company.getGstNumber());
+                            }
+                            companyRepository.save(e);
+                        } else {
+                            companyRepository.save(company);
+                        }
+                        successCount++;
+                    } catch (Exception e) {
+                        failureCount++;
+                        errors.add(file.getOriginalFilename() + ": Row error - " + e.getMessage());
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Company import failed for file: " + file.getOriginalFilename(), e);
+                failureCount++;
+                errors.add(file.getOriginalFilename() + ": File error - " + e.getMessage());
+            }
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("successCount", successCount);
+        result.put("failureCount", failureCount);
+        result.put("errors", errors);
+        return result;
+    }
+
+    private List<Company> parseCompaniesDocx(MultipartFile file) throws Exception {
+        List<Company> companies = new ArrayList<>();
+        try (InputStream is = file.getInputStream(); XWPFDocument doc = new XWPFDocument(is)) {
+            // First try to parse tables
+            for (XWPFTable table : doc.getTables()) {
+                boolean headerFound = false;
+                int nameIdx = -1, addrIdx = -1, gstIdx = -1;
+
+                for (XWPFTableRow row : table.getRows()) {
+                    List<XWPFTableCell> cells = row.getTableCells();
+                    if (!headerFound) {
+                        // Look for header row
+                        for (int i = 0; i < cells.size(); i++) {
+                            String cellText = cells.get(i).getText().toLowerCase().trim();
+                            if (cellText.contains("name")) nameIdx = i;
+                            else if (cellText.contains("address")) addrIdx = i;
+                            else if (cellText.contains("gst")) gstIdx = i;
+                        }
+                        if (nameIdx != -1) headerFound = true;
+                        continue;
+                    }
+
+                    // Process data row
+                    String name = nameIdx != -1 && nameIdx < cells.size() ? cells.get(nameIdx).getText().trim() : "";
+                    String addr = addrIdx != -1 && addrIdx < cells.size() ? cells.get(addrIdx).getText().trim() : "";
+                    String gst = gstIdx != -1 && gstIdx < cells.size() ? cells.get(gstIdx).getText().trim() : "";
+
+                    if (!name.isEmpty()) {
+                        companies.add(Company.builder().name(name).address(addr).gstNumber(gst).build());
+                    }
+                }
+            }
+
+            // If no companies found in tables, try paragraphs (one company per line/block)
+            if (companies.isEmpty()) {
+                for (XWPFParagraph p : doc.getParagraphs()) {
+                    String text = p.getText().trim();
+                    if (text.isEmpty()) continue;
+                    
+                    // Simple logic: if line contains name and address (very basic, can be refined)
+                    // For now, let's assume each paragraph is a company name if no tables were found
+                    companies.add(Company.builder().name(text).address("").gstNumber("").build());
+                }
+            }
+        }
+        return companies;
+    }
+
+    @Transactional
+
     public Map<String, Object> importBills(MultipartFile[] files, String createdBy) {
         int successCount = 0;
         int duplicateCount = 0;

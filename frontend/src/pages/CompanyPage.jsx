@@ -9,9 +9,12 @@ import {
   Check,
   Loader2,
   MapPin,
-  FileText
+  FileText,
+  UploadCloud
 } from "lucide-react";
 import api from "../services/api";
+import { toast } from "sonner";
+
 
 const CompanyPage = () => {
   const [companies, setCompanies] = useState([]);
@@ -21,6 +24,9 @@ const CompanyPage = () => {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ name: "", address: "", gstNumber: "", hasGst: false });
   const [error, setError] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = React.useRef(null);
+
 
   useEffect(() => {
     fetchCompanies();
@@ -81,10 +87,56 @@ const CompanyPage = () => {
     }
   };
 
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const invalidFiles = files.filter(f => !f.name.endsWith(".docx") && !f.name.endsWith(".doc"));
+    if (invalidFiles.length > 0) {
+      toast.error("Please upload only Word documents (.doc or .docx)");
+      return;
+    }
+
+    setIsImporting(true);
+    const formData = new FormData();
+    files.forEach(file => {
+      formData.append("files", file);
+    });
+
+    try {
+      const response = await api.post("/import/companies", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      
+      const { successCount, failureCount, errors } = response.data;
+      
+      if (successCount > 0) {
+        toast.success(`Successfully imported ${successCount} companies`);
+        fetchCompanies();
+      }
+      
+      if (failureCount > 0) {
+        toast.error(`Failed to import ${failureCount} entries`);
+        console.error("Import errors:", errors);
+      }
+    } catch (err) {
+      console.error("Import failed:", err);
+      toast.error("Failed to import companies from file");
+    } finally {
+      setIsImporting(false);
+      e.target.value = ""; // Reset input
+    }
+  };
+
   const filteredCompanies = companies.filter(c =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (c.gstNumber && c.gstNumber.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
 
   return (
     <div className="p-6 bg-slate-50 min-h-screen">
@@ -97,17 +149,35 @@ const CompanyPage = () => {
             </h1>
             <p className="text-slate-500">Manage your customer companies and their details</p>
           </div>
-          <button
-            onClick={() => {
-              setIsAdding(true);
-              setEditingId(null);
-              setFormData({ name: "", address: "", gstNumber: "" });
-            }}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-none flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-md"
-          >
-            <Plus size={20} />
-            Add Company
-          </button>
+          <div className="flex gap-3">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".doc,.docx"
+              multiple
+              className="hidden"
+            />
+            <button
+              onClick={handleImportClick}
+              disabled={isImporting}
+              className="bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-none flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50 font-medium"
+            >
+              {isImporting ? <Loader2 size={20} className="animate-spin" /> : <UploadCloud size={20} className="text-indigo-600" />}
+              {isImporting ? "Importing..." : "Import from Word"}
+            </button>
+            <button
+              onClick={() => {
+                setIsAdding(true);
+                setEditingId(null);
+                setFormData({ name: "", address: "", gstNumber: "" });
+              }}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-none flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-md font-medium"
+            >
+              <Plus size={20} />
+              Add Company
+            </button>
+          </div>
         </div>
 
         {isAdding && (
