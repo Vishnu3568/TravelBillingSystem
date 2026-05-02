@@ -130,8 +130,8 @@ const BackupPage = () => {
     <div className="p-6 bg-slate-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-black flex items-center gap-3">
-            <Database className="text-indigo-600" size={32} />
+          <h1 className="text-4xl font-bold text-black flex items-center gap-3">
+            <Database className="text-cyan-600" size={36} />
             Backup & Restore
           </h1>
           <p className="text-slate-500 mt-2">Maintain system integrity with database snapshots</p>
@@ -148,8 +148,8 @@ const BackupPage = () => {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          <div className="bg-white p-8 rounded-none shadow-sm border border-slate-200 flex flex-col items-center text-center group hover:border-indigo-200 transition-colors">
-            <div className="p-4 rounded-none bg-indigo-50 text-indigo-600 mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+          <div className="bg-white p-8 rounded-none shadow-sm border border-slate-200 flex flex-col items-center text-center group hover:border-cyan-200 transition-colors">
+            <div className="p-4 rounded-none bg-cyan-50 text-cyan-600 mb-4 group-hover:bg-cyan-500 group-hover:text-black transition-colors">
               <HardDrive size={40} />
             </div>
             <h2 className="text-xl font-bold text-black mb-2">Create Instant Backup</h2>
@@ -159,15 +159,15 @@ const BackupPage = () => {
             <button 
               disabled={actionLoading}
               onClick={handleCreateBackup}
-              className="w-full bg-indigo-600 text-white px-6 py-3 rounded-none font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-cyan-500 text-black px-6 py-3 rounded-none font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {actionLoading ? <Loader2 className="animate-spin" size={20} /> : <RefreshCw size={20} />}
               Start Backup Process
             </button>
           </div>
 
-          <div className="bg-white p-8 rounded-none shadow-sm border border-slate-200 flex flex-col items-center text-center group hover:border-amber-200 transition-colors">
-            <div className="p-4 rounded-none bg-amber-50 text-amber-600 mb-4 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+          <div className="bg-white p-8 rounded-none shadow-sm border border-slate-200 flex flex-col items-center text-center group hover:border-red-200 transition-colors">
+            <div className="p-4 rounded-none bg-red-50 text-red-600 mb-4 group-hover:bg-red-600 group-hover:text-white transition-colors">
               <Upload size={40} />
             </div>
             <h2 className="text-xl font-bold text-black mb-2">Restore from File</h2>
@@ -184,7 +184,7 @@ const BackupPage = () => {
             <button 
               disabled={actionLoading}
               onClick={() => fileInputRef.current.click()}
-              className="w-full bg-amber-600 text-white px-6 py-3 rounded-none font-bold flex items-center justify-center gap-2 hover:bg-amber-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-red-600 text-white px-6 py-3 rounded-none font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {actionLoading ? <Loader2 className="animate-spin" size={20} /> : <Database size={20} />}
               Upload & Restore
@@ -248,7 +248,7 @@ const BackupPage = () => {
                         <div className="flex items-center justify-end gap-2">
                           <button 
                             onClick={() => handleDownload(item.fileName)}
-                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-none transition"
+                            className="p-2 text-cyan-600 hover:bg-cyan-50 rounded-none transition"
                             title="Download SQL"
                           >
                             <Download size={18} />
