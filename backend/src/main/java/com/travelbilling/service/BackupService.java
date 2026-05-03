@@ -6,7 +6,6 @@ import java.io.*;
 import java.nio.file.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -69,7 +68,6 @@ public class BackupService {
     }
 
     public void restoreBackup(MultipartFile file) throws IOException, InterruptedException {
-        String dbName = extractDbName(dbUrl);
         Path tempFile = Files.createTempFile("restore_", ".sql");
         file.transferTo(tempFile);
 

@@ -4,7 +4,6 @@ import com.travelbilling.entity.AuditLog;
 import com.travelbilling.repository.AuditLogRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

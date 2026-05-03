@@ -5,8 +5,6 @@ import com.travelbilling.dto.BillRequest;
 import com.travelbilling.dto.BillResponse;
 import com.travelbilling.service.BillService;
 import com.travelbilling.service.PdfService;
-import com.travelbilling.entity.User;
-import com.travelbilling.service.AuthService;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import java.time.LocalDate;

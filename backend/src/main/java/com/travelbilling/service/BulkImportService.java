@@ -2,7 +2,6 @@ package com.travelbilling.service;
 
 import com.travelbilling.dto.BillRequest;
 import com.travelbilling.dto.ChargeDTO;
-import com.travelbilling.entity.Bill;
 import com.travelbilling.entity.Company;
 import com.travelbilling.entity.Vehicle;
 import com.travelbilling.ai.service.GeminiService;

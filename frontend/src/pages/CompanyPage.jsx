@@ -75,7 +75,6 @@ const CompanyPage = () => {
   };
 
   const handleDelete = async (id) => {
-    console.log("handleDelete called for id:", id);
     if (window.confirm("Are you sure you want to delete this company?")) {
       try {
         await api.delete(`/companies/${id}`);
@@ -304,10 +303,11 @@ const CompanyPage = () => {
                             <Edit2 size={16} />
                           </button>
                           <button
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); console.log("DEBUG_DELETE_CLICKED", company.id); handleDelete(company.id); }}
-                            className="px-3 py-1 text-red-600 hover:text-red-700 transition-colors font-bold text-xs"
+                            onClick={() => handleDelete(company.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-none transition-all"
+                            title="Delete"
                           >
-                            DELETE
+                            <Trash2 size={16} />
                           </button>
                         </div>
                       </td>

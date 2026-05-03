@@ -8,7 +8,11 @@ import com.travelbilling.dto.BillRequest;
 import com.travelbilling.dto.BillResponse;
 import com.travelbilling.dto.ChargeDTO;
 import com.travelbilling.entity.Bill;
+import com.travelbilling.entity.Company;
+import com.travelbilling.entity.Vehicle;
 import com.travelbilling.repository.BillRepository;
+import com.travelbilling.repository.CompanyRepository;
+import com.travelbilling.repository.VehicleRepository;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -35,6 +39,8 @@ public class BillService {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final BillRepository billRepository;
+    private final CompanyRepository companyRepository;
+    private final VehicleRepository vehicleRepository;
     private final AuditLogService auditLogService;
     private final ObjectMapper objectMapper;
 
@@ -42,6 +48,33 @@ public class BillService {
     public BillResponse createBill(BillRequest request, String createdBy) {
         double grandTotal = calculateGrandTotal(request);
         LocalDateTime billDateTime = request.getBillDate().atStartOfDay();
+
+        // Data Integrity: Find or create company
+        Company company = null;
+        if (request.getCompanyName() != null && !request.getCompanyName().isBlank()) {
+            company = companyRepository.findByName(request.getCompanyName().trim())
+                    .orElseGet(() -> {
+                        Company newComp = Company.builder()
+                                .name(request.getCompanyName().trim())
+                                .address("Imported via AI")
+                                .build();
+                        return companyRepository.save(newComp);
+                    });
+        }
+
+        // Data Integrity: Find or create vehicle
+        Vehicle vehicle = null;
+        if (request.getVehicleName() != null && !request.getVehicleName().isBlank()) {
+            String regNo = request.getVehicleName().trim();
+            vehicle = vehicleRepository.findByRegistrationNumber(regNo)
+                    .orElseGet(() -> {
+                        Vehicle newVeh = Vehicle.builder()
+                                .registrationNumber(regNo)
+                                .type(request.getVehicleType() != null ? request.getVehicleType() : "Car")
+                                .build();
+                        return vehicleRepository.save(newVeh);
+                    });
+        }
 
         Bill bill = Bill.builder()
                 .billNumber(generateBillNumber())
@@ -63,6 +96,8 @@ public class BillService {
                 .dynamicCharges(serializeCharges(request.getDynamicCharges()))
                 .grandTotal(grandTotal)
                 .createdBy(createdBy)
+                .company(company)
+                .vehicle(vehicle)
                 .contactPerson(request.getContactPerson())
                 .bookedBy(request.getBookedBy())
                 .managerName(request.getManagerName())
