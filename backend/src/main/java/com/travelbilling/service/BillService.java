@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelbilling.ai.dto.AiBillResponse;
+import com.travelbilling.ai.dto.AiSearchFilter;
 import com.travelbilling.dto.BillRequest;
 import com.travelbilling.dto.BillResponse;
 import com.travelbilling.dto.ChargeDTO;
@@ -27,6 +28,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import com.travelbilling.ai.service.GeminiService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.criteria.Predicate;
@@ -43,6 +45,7 @@ public class BillService {
     private final VehicleRepository vehicleRepository;
     private final AuditLogService auditLogService;
     private final ObjectMapper objectMapper;
+    private final GeminiService geminiService;
 
     @Transactional
     public BillResponse createBill(BillRequest request, String createdBy) {
@@ -259,6 +262,78 @@ public class BillService {
         };
         
         return billRepository.findAll(spec, pageable).map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<BillResponse> searchBillsNL(String queryText, int page, int size) {
+        AiSearchFilter filter = geminiService.parseSearchQuery(queryText);
+        if (filter == null) {
+            return searchBills(null, null, null, null, page, size);
+        }
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("billDate").descending());
+        
+        Specification<Bill> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            
+            if (filter.getCompanyName() != null && !filter.getCompanyName().isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("companyName")), "%" + filter.getCompanyName().toLowerCase().trim() + "%"));
+            }
+
+            if (filter.getVehicleType() != null && !filter.getVehicleType().isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("vehicleType")), "%" + filter.getVehicleType().toLowerCase().trim() + "%"));
+            }
+            
+            if (filter.getMinAmount() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("grandTotal"), filter.getMinAmount()));
+            }
+            if (filter.getMaxAmount() != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("grandTotal"), filter.getMaxAmount()));
+            }
+
+            if (filter.getMinKm() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("totalKms"), filter.getMinKm()));
+            }
+            if (filter.getMaxKm() != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("totalKms"), filter.getMaxKm()));
+            }
+            
+            if (filter.getDateFrom() != null && !filter.getDateFrom().isBlank()) {
+                try {
+                    LocalDate from = LocalDate.parse(filter.getDateFrom());
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("billDate"), from.atStartOfDay()));
+                } catch (Exception e) {
+                    log.warn("Failed to parse dateFrom: {}", filter.getDateFrom());
+                }
+            }
+            
+            if (filter.getDateTo() != null && !filter.getDateTo().isBlank()) {
+                try {
+                    LocalDate to = LocalDate.parse(filter.getDateTo());
+                    predicates.add(cb.lessThanOrEqualTo(root.get("billDate"), to.atTime(23, 59, 59)));
+                } catch (Exception e) {
+                    log.warn("Failed to parse dateTo: {}", filter.getDateTo());
+                }
+            }
+
+            if (filter.getKeywords() != null && !filter.getKeywords().isEmpty()) {
+                for (String keyword : filter.getKeywords()) {
+                    predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("notes")), "%" + keyword.toLowerCase() + "%"),
+                        cb.like(cb.lower(root.get("billNumber")), "%" + keyword.toLowerCase() + "%")
+                    ));
+                }
+            }
+            
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        
+        return billRepository.findAll(spec, pageable).map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public AiSearchFilter explainSearchNL(String queryText) {
+        return geminiService.parseSearchQuery(queryText);
     }
 
     @Transactional(readOnly = true)

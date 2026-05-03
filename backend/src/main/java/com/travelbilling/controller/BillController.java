@@ -78,6 +78,19 @@ public class BillController {
         return billService.searchBills(billNumber, companyName, fromDate, toDate, page, size);
     }
 
+    @GetMapping("/search/nl")
+    public Page<BillResponse> searchBillsNL(
+            @RequestParam String query,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return billService.searchBillsNL(query, page, size);
+    }
+
+    @GetMapping("/search/nl/explain")
+    public com.travelbilling.ai.dto.AiSearchFilter explainSearchNL(@RequestParam String query) {
+        return billService.explainSearchNL(query);
+    }
+
     @GetMapping("/{id}")
     public BillResponse getBillById(@PathVariable Long id) {
         return billService.getBillById(id);

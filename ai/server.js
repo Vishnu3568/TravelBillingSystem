@@ -124,6 +124,70 @@ ${text}`;
     }
 });
 
+// AI Natural Language Search Endpoint
+app.post('/api/ai/nl-search', async (req, res) => {
+    try {
+        const { query, currentDate } = req.body;
+        if (!query) {
+            return res.status(400).json({ error: 'No query provided' });
+        }
+
+        const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "object",
+                    properties: {
+                        companyName: { type: "string" },
+                        vehicleType: { type: "string" },
+                        minAmount: { type: "number" },
+                        maxAmount: { type: "number" },
+                        minKm: { type: "number" },
+                        maxKm: { type: "number" },
+                        dateFrom: { type: "string" },
+                        dateTo: { type: "string" },
+                        status: { type: "string" },
+                        keywords: { type: "array", items: { type: "string" } },
+                        summary: { type: "string" }
+                    }
+                }
+            }
+        });
+
+        const prompt = `Convert the following natural language billing search query into a structured JSON filter.
+Today's Date: ${currentDate || new Date().toISOString().split('T')[0]}
+
+RULES:
+1. DATE RESOLUTION:
+   - "last week" -> range from 7 days ago until today.
+   - "this month" -> range from 1st of current month until today.
+   - "July" -> range from July 1st to July 31st of the current year (unless otherwise specified).
+   - All dates must be in YYYY-MM-DD format.
+2. NUMERIC FILTERS:
+   - "above 50000" -> set minAmount to 50000.
+   - "below 200 km" -> set maxKm to 200.
+3. SEARCH REFINEMENT:
+   - If a company name is mentioned, put it in companyName.
+   - If a vehicle type (Crysta, Bus, Sedan, etc.) is mentioned, put it in vehicleType.
+   - Use 'keywords' for any other search terms not fitting specific fields.
+4. SUMMARY:
+   - Provide a short, friendly summary of the interpreted search in the 'summary' field (e.g., "Searching for bills from Ashapura with amount > 50,000 in July").
+5. NULLS: If a field is not mentioned in the query, return null for that field.
+
+QUERY:
+"${query}"`;
+
+        console.log(`[AI] Parsing NL Search: "${query}"`);
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        res.json(JSON.parse(response.text()));
+    } catch (error) {
+        console.error('[AI] NL Search Error:', error);
+        res.status(500).json({ error: "Failed to parse search query" });
+    }
+});
+
 app.listen(port, () => {
     console.log(`\n============================================`);
     console.log(`🚀 AI Service running on http://localhost:${port}`);

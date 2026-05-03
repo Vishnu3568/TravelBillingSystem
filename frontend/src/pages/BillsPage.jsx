@@ -16,6 +16,7 @@ import {
 import api from "../services/api";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 
 export default function BillsPage() {
   const navigate = useNavigate();
@@ -24,6 +25,8 @@ export default function BillsPage() {
   const [totalPages, setTotalPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize] = useState(10);
+  const [nlQuery, setNlQuery] = useState("");
+  const [isNlSearching, setIsNlSearching] = useState(false);
 
   const [filters, setFilters] = useState({
     billNumber: "",
@@ -32,21 +35,27 @@ export default function BillsPage() {
     toDate: ""
   });
 
-  const fetchBills = useCallback(async (page = 0, currentFilters = filters) => {
+  const fetchBills = useCallback(async (page = 0, currentFilters = null, nlSearchQuery = null) => {
     setLoading(true);
     try {
-      const { billNumber, companyName, fromDate, toDate } = currentFilters;
-      const isSearching = billNumber || companyName || fromDate || toDate;
+      let endpoint = "/bills";
+      let params = { page, size: pageSize };
 
-      const endpoint = isSearching ? "/bills/search" : "/bills";
-      const params = {
-        page,
-        size: pageSize,
-        ...(billNumber && { billNumber }),
-        ...(companyName && { companyName }),
-        ...(fromDate && { fromDate }),
-        ...(toDate && { toDate })
-      };
+      if (nlSearchQuery) {
+        endpoint = "/bills/search/nl";
+        params.query = nlSearchQuery;
+      } else {
+        const activeFilters = currentFilters || filters;
+        const { billNumber, companyName, fromDate, toDate } = activeFilters;
+        const isSearching = billNumber || companyName || fromDate || toDate;
+        if (isSearching) {
+          endpoint = "/bills/search";
+          if (billNumber) params.billNumber = billNumber;
+          if (companyName) params.companyName = companyName;
+          if (fromDate) params.fromDate = fromDate;
+          if (toDate) params.toDate = toDate;
+        }
+      }
 
       const response = await api.get(endpoint, { params });
       setBills(response.data.content);
@@ -65,7 +74,64 @@ export default function BillsPage() {
 
   const handleSearch = (e) => {
     e.preventDefault();
+    setIsNlSearching(false);
+    setNlQuery("");
     fetchBills(0);
+  };
+
+  const handleNLSearch = async (e) => {
+    e.preventDefault();
+    if (!nlQuery.trim()) return;
+    
+    try {
+      setLoading(true);
+      // Get AI interpretation first
+      const explainRes = await api.get("/bills/search/nl/explain", {
+        params: { query: nlQuery }
+      });
+      
+      const interpretation = explainRes.data;
+      
+      const result = await Swal.fire({
+        title: "AI Search Interpretation",
+        html: `
+          <div class="text-left p-4 bg-slate-50 border-2 border-black font-bold">
+            <p class="text-cyan-600 mb-2">I understood your request as:</p>
+            <p class="text-black text-lg">"${interpretation.summary || nlQuery}"</p>
+          </div>
+        `,
+        icon: "info",
+        showCancelButton: true,
+        confirmButtonText: "Execute Search",
+        cancelButtonText: "Refine Query",
+        confirmButtonColor: "#0891b2", // cyan-600
+        cancelButtonColor: "#000000",
+        background: "#ffffff",
+        customClass: {
+          popup: 'rounded-none border-[3px] border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]',
+          title: 'text-2xl font-black uppercase tracking-tight',
+          confirmButton: 'rounded-none font-bold uppercase tracking-widest text-xs px-8 py-3',
+          cancelButton: 'rounded-none font-bold uppercase tracking-widest text-xs px-8 py-3'
+        }
+      });
+
+      if (result.isConfirmed) {
+        setIsNlSearching(true);
+        setFilters({ billNumber: "", companyName: "", fromDate: "", toDate: "" });
+        fetchBills(0, null, nlQuery);
+      } else {
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error("AI Explain Error:", error);
+      Swal.fire({
+        title: "AI Error",
+        text: "Could not understand query. Please refine your search.",
+        icon: "error",
+        confirmButtonColor: "#000"
+      });
+      setLoading(false);
+    }
   };
 
   const handleReset = () => {
@@ -76,12 +142,14 @@ export default function BillsPage() {
       toDate: ""
     };
     setFilters(resetFilters);
+    setNlQuery("");
+    setIsNlSearching(false);
     fetchBills(0, resetFilters);
   };
 
   const handlePageChange = (newPage) => {
     if (newPage >= 0 && newPage < totalPages) {
-      fetchBills(newPage);
+      fetchBills(newPage, filters, isNlSearching ? nlQuery : null);
     }
   };
 
@@ -111,12 +179,39 @@ export default function BillsPage() {
   return (
     <div className="p-6 bg-slate-50 min-h-screen text-black">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-10">
-          <h1 className="text-4xl font-bold tracking-tight flex items-center gap-3">
-            <FileText className="text-cyan-600" size={36} />
-            Your Bills
-          </h1>
-          <p className="mt-2 text-slate-500">Search and manage all generated invoices across the system.</p>
+        <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight flex items-center gap-3">
+              <FileText className="text-cyan-600" size={36} />
+              Your Bills
+            </h1>
+            <p className="mt-2 text-slate-500">Search and manage all generated invoices across the system.</p>
+          </div>
+          
+          {/* AI Search Bar */}
+          <div className="flex-1 max-w-xl">
+            <form onSubmit={handleNLSearch} className="relative group">
+              <div className="absolute inset-0 bg-cyan-500 blur-sm opacity-0 group-focus-within:opacity-20 transition-opacity"></div>
+              <div className="relative flex items-center">
+                <div className="absolute left-4 text-cyan-600 animate-pulse">
+                  <Search size={20} strokeWidth={3} />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search using AI (e.g. 'Ashapura bills above 50000 in July')"
+                  className="w-full pl-12 pr-28 py-4 bg-white border-2 border-black rounded-none font-bold text-sm focus:ring-0 focus:border-cyan-500 transition-all outline-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-none"
+                  value={nlQuery}
+                  onChange={(e) => setNlQuery(e.target.value)}
+                />
+                <button
+                  type="submit"
+                  className="absolute right-2 bg-black text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-cyan-500 hover:text-black transition-all"
+                >
+                  AI Search
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
 
         <div className="bg-white border-[3px] border-black p-8 md:p-10 mb-16 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] flex flex-col md:flex-row md:items-center justify-between gap-8">

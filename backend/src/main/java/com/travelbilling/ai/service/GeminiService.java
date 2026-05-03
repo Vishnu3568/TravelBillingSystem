@@ -1,6 +1,7 @@
 package com.travelbilling.ai.service;
 
 import com.travelbilling.ai.dto.AiBillResponse;
+import com.travelbilling.ai.dto.AiSearchFilter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.stereotype.Service;
@@ -55,6 +56,20 @@ public class GeminiService {
         } catch (Exception e) {
             log.error("Failed to connect to AI Service", e);
             return List.of();
+        }
+    }
+
+    public AiSearchFilter parseSearchQuery(String query) {
+        try {
+            Map<String, String> request = new HashMap<>();
+            request.put("query", query);
+            request.put("currentDate", java.time.LocalDate.now().toString());
+
+            log.info("Delegating NL search parsing to AI Service (Port 9001)...");
+            return restTemplate.postForObject(aiServiceUrl + "/nl-search", request, AiSearchFilter.class);
+        } catch (Exception e) {
+            log.error("Failed to parse search query via AI", e);
+            return null;
         }
     }
 }
