@@ -44,48 +44,66 @@ public class GeminiService {
                     .build());
         }
 
-        // Using v1beta as confirmed by the successful model list test
-        String url = "https://generativelanguage.googleapis.com/v1/models/" + model + ":generateContent?key=" + apiKey;
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey;
 
-        String prompt = "You are an expert bill auditor. Process this text with surgical precision.\n\n" +
-                "EXTRACTION STEPS:\n" +
-                "1. FIND CLIENT: Search for the exact word 'To,' or 'To'. The text IMMEDIATELY following 'To,' (usually on the next line) is the Client Company Name. NEVER use 'Sri Tulja Bhavani Travels'.\n" +
-                "2. DE-CONCATENATE DATA: If you see a string like 'CrystaA/C6673', split it: Type='Crysta A/C', Number='6673'.\n" +
-                "3. RESOLVE CHARGES: If numbers are bunched together (e.g., '2800x205x800Toll5600'), look for keywords like 'Toll', 'Parking', 'Bata'. Extract the specific amount for each keyword.\n" +
-                "4. NUMERIC CLEANING: Strip all non-numeric characters from 'totalKms' and 'totalHours'. If it says 'OutStation', treat it as a trip type, not a number of hours (set hours to 0).\n" +
-                "5. DUTY SLIP: Find the 'Duty Slip No' or 'DS No'. It is a required field.\n\n" +
-                "Return a STRICT JSON ARRAY. Format:\n" +
-                "[\n" +
-                "  {\n" +
-                "    \"dutySlipNo\": \"\",\n" +
-                "    \"billDate\": \"YYYY-MM-DD\",\n" +
-                "    \"companyName\": \"\",\n" +
-                "    \"vehicleNumber\": \"\",\n" +
-                "    \"vehicleType\": \"\",\n" +
-                "    \"totalKms\": 0,\n" +
-                "    \"totalHours\": 0,\n" +
-                "    \"dynamicCharges\": [{ \"name\": \"\", \"amount\": 0 }],\n" +
-                "    \"totalAmount\": 0,\n" +
-                "    \"warnings\": []\n" +
-                "  }\n" +
-                "]\n\n" +
+        String prompt = "You are an expert bill auditor for 'Sri Tulja Bhavani Travels'. Process this document text with surgical precision.\n\n" +
+                "EXTRACTION RULES:\n" +
+                "1. CLIENT IDENTIFICATION: Look for 'To,' or 'To'. The text immediately following this is the CLIENT COMPANY. Ignore 'Sri Tulja Bhavani Travels' as that is the provider.\n" +
+                "2. VEHICLE DATA: Split combined strings like 'Crysta6673'. Type='Crysta', Number='6673'.\n" +
+                "3. CHARGE RESOLUTION: Extract specific amounts for 'Toll', 'Parking', 'Bata', 'Permit'. If they are bunched (e.g. 'Toll500Bata200'), separate them.\n" +
+                "4. DATES: Convert all dates to YYYY-MM-DD format.\n" +
+                "5. TRIP METRICS: 'totalKms' and 'totalHours' must be numbers. If 'OutStation' is mentioned, set hours to 0.\n" +
+                "6. DUTY SLIP: Find 'Duty Slip No' or 'DS No'. This is mandatory.\n\n" +
                 "TEXT TO PROCESS:\n" +
                 rawText;
 
         try {
+            // Build the JSON schema for response enforcement
+            Map<String, Object> responseSchema = new HashMap<>();
+            responseSchema.put("type", "array");
+            Map<String, Object> items = new HashMap<>();
+            items.put("type", "object");
+            Map<String, Object> properties = new HashMap<>();
+            properties.put("dutySlipNo", Map.of("type", "string"));
+            properties.put("billDate", Map.of("type", "string"));
+            properties.put("companyName", Map.of("type", "string"));
+            properties.put("vehicleNumber", Map.of("type", "string"));
+            properties.put("vehicleType", Map.of("type", "string"));
+            properties.put("totalKms", Map.of("type", "number"));
+            properties.put("totalHours", Map.of("type", "number"));
+            
+            Map<String, Object> chargeItems = new HashMap<>();
+            chargeItems.put("type", "object");
+            chargeItems.put("properties", Map.of(
+                "name", Map.of("type", "string"),
+                "amount", Map.of("type", "number")
+            ));
+            properties.put("dynamicCharges", Map.of("type", "array", "items", chargeItems));
+            properties.put("totalAmount", Map.of("type", "number"));
+            properties.put("warnings", Map.of("type", "array", "items", Map.of("type", "string")));
+            
+            items.put("properties", properties);
+            items.put("required", List.of("dutySlipNo", "billDate", "companyName", "vehicleNumber", "totalAmount"));
+            responseSchema.put("items", items);
+
+            Map<String, Object> generationConfig = new HashMap<>();
+            generationConfig.put("response_mime_type", "application/json");
+            generationConfig.put("response_schema", responseSchema);
+
             Map<String, Object> requestBody = new HashMap<>();
             Map<String, Object> contents = new HashMap<>();
             Map<String, Object> parts = new HashMap<>();
             parts.put("text", prompt);
             contents.put("parts", List.of(parts));
             requestBody.put("contents", List.of(contents));
+            requestBody.put("generationConfig", generationConfig);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
             
-            log.info("Sending request to Gemini API (v1)...");
+            log.info("Sending request to Gemini API with Response Schema...");
             Map<String, Object> response = restTemplate.postForObject(url, entity, Map.class);
 
             if (response != null && response.containsKey("candidates")) {
@@ -96,8 +114,6 @@ public class GeminiService {
                 Map<String, Object> content = (Map<String, Object>) firstCandidate.get("content");
                 List<Map<String, Object>> resParts = (List<Map<String, Object>>) content.get("parts");
                 String jsonResponse = (String) resParts.get(0).get("text");
-
-                jsonResponse = cleanJsonResponse(jsonResponse);
 
                 return objectMapper.readValue(jsonResponse, objectMapper.getTypeFactory().constructCollectionType(List.class, AiBillResponse.class));
             }
@@ -113,32 +129,43 @@ public class GeminiService {
     }
 
     public List<Map<String, String>> extractCompanies(String rawText) {
-        String prompt = "Extract all unique companies from the following text.\n" +
-                "For each company, find their Name, Address, and GST Number (if available).\n\n" +
-                "Rules:\n" +
-                "- Return a STRICT JSON ARRAY of objects.\n" +
-                "- Fields: \"name\", \"address\", \"gstNumber\".\n" +
-                "- If data is missing, return empty string.\n\n" +
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey;
+        
+        String prompt = "Extract all unique client companies from the following text.\n" +
+                "For each company, find their Name, Address, and GST Number (if available).\n" +
+                "Rule: Ignore 'Sri Tulja Bhavani Travels'.\n\n" +
                 "Text:\n" +
                 rawText;
 
         try {
+            Map<String, Object> responseSchema = new HashMap<>();
+            responseSchema.put("type", "array");
+            Map<String, Object> items = new HashMap<>();
+            items.put("type", "object");
+            items.put("properties", Map.of(
+                "name", Map.of("type", "string"),
+                "address", Map.of("type", "string"),
+                "gstNumber", Map.of("type", "string")
+            ));
+            responseSchema.put("items", items);
+
+            Map<String, Object> generationConfig = new HashMap<>();
+            generationConfig.put("response_mime_type", "application/json");
+            generationConfig.put("response_schema", responseSchema);
+
             Map<String, Object> requestBody = new HashMap<>();
             Map<String, Object> contents = new HashMap<>();
             Map<String, Object> parts = new HashMap<>();
             parts.put("text", prompt);
             contents.put("parts", List.of(parts));
             requestBody.put("contents", List.of(contents));
+            requestBody.put("generationConfig", generationConfig);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-            Map<String, Object> response = restTemplate.postForObject(
-                "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey, 
-                entity, 
-                Map.class
-            );
+            Map<String, Object> response = restTemplate.postForObject(url, entity, Map.class);
 
             if (response != null && response.containsKey("candidates")) {
                 List<Map<String, Object>> candidates = (List<Map<String, Object>>) response.get("candidates");
@@ -146,7 +173,6 @@ public class GeminiService {
                 List<Map<String, Object>> resParts = (List<Map<String, Object>>) content.get("parts");
                 String jsonResponse = (String) resParts.get(0).get("text");
 
-                jsonResponse = cleanJsonResponse(jsonResponse);
                 return objectMapper.readValue(jsonResponse, objectMapper.getTypeFactory().constructCollectionType(List.class, Map.class));
             }
         } catch (Exception e) {
@@ -154,6 +180,7 @@ public class GeminiService {
         }
         return List.of();
     }
+
 
     private String cleanJsonResponse(String raw) {
         if (raw == null) return "[]";
