@@ -18,6 +18,7 @@ export default function ImportBillsPage() {
     const [isReviewing, setIsReviewing] = useState(false);
     const [editingIndex, setEditingIndex] = useState(null);
     const [editForm, setEditForm] = useState(null);
+    const [results, setResults] = useState(null);
     const fileInputRef = useRef(null);
 
     if (role !== "OWNER") {
@@ -57,27 +58,61 @@ export default function ImportBillsPage() {
     const handleUpload = async () => {
         if (files.length === 0) return;
         setIsUploading(true);
+        setResults(null);
+        setParsedBills([]);
 
-        const formData = new FormData();
-        files.forEach((f) => {
+        const allParsed = [];
+        const updatedFiles = [...files];
+
+        for (let i = 0; i < updatedFiles.length; i++) {
+            const f = updatedFiles[i];
+
+            // Update status to parsing
+            updatedFiles[i] = { ...f, status: 'parsing', progress: 10 };
+            setFiles([...updatedFiles]);
+
+            const formData = new FormData();
             formData.append("files", f.file);
-        });
 
-        try {
-            const response = await api.post("/import/ai-parse", formData, {
-                headers: { "Content-Type": "multipart/form-data" },
-                timeout: 600000 // 10 minutes
-            });
-            setParsedBills(response.data);
+            // Simulation of progress while waiting for the AI
+            const progressInterval = setInterval(() => {
+                setFiles(prev => {
+                    const next = [...prev];
+                    if (next[i] && next[i].progress < 90) {
+                        next[i].progress += 5;
+                    }
+                    return next;
+                });
+            }, 1500);
+
+            try {
+                const response = await api.post("/import/ai-parse", formData, {
+                    headers: { "Content-Type": "multipart/form-data" },
+                    timeout: 600000
+                });
+
+                clearInterval(progressInterval);
+                allParsed.push(...response.data);
+
+                updatedFiles[i] = { ...f, status: 'done', progress: 100 };
+                setFiles([...updatedFiles]);
+
+            } catch (error) {
+                clearInterval(progressInterval);
+                console.error(`Upload failed for ${f.file.name}`, error);
+                updatedFiles[i] = { ...f, status: 'error', progress: 0 };
+                setFiles([...updatedFiles]);
+                toast.error(`${f.file.name}: Parsing failed.`);
+            }
+        }
+
+        if (allParsed.length > 0) {
+            setParsedBills(allParsed);
             setIsReviewing(true);
             setFiles([]);
-            toast.success(`AI successfully parsed ${response.data.length} bills!`);
-        } catch (error) {
-            console.error("Upload failed", error);
-            toast.error(error.response?.data?.message || "AI parsing failed.");
-        } finally {
-            setIsUploading(false);
+            toast.success(`AI successfully parsed ${allParsed.length} bills!`);
         }
+        setIsUploading(false);
     };
 
     const handleSaveAll = async () => {
@@ -86,6 +121,12 @@ export default function ImportBillsPage() {
             toast.success("All bills saved to database successfully!");
             setParsedBills([]);
             setIsReviewing(false);
+            setResults({
+                successCount: parsedBills.length,
+                failureCount: 0,
+                duplicateCount: 0,
+                errors: []
+            });
         } catch (error) {
             toast.error("Failed to save bills to database");
         }
@@ -118,13 +159,13 @@ export default function ImportBillsPage() {
                             <p className="text-slate-500 mt-1">Verify {parsedBills.length} bills before committing to the database</p>
                         </div>
                         <div className="flex gap-4">
-                            <button 
+                            <button
                                 onClick={() => setIsReviewing(false)}
                                 className="px-6 py-3 border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all"
                             >
                                 Cancel
                             </button>
-                            <button 
+                            <button
                                 onClick={handleSaveAll}
                                 className="px-8 py-3 bg-black text-white font-bold shadow-xl hover:bg-slate-800 transition-all flex items-center gap-2"
                             >
@@ -149,8 +190,8 @@ export default function ImportBillsPage() {
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {parsedBills.map((bill, index) => (
-                                    <tr 
-                                        key={index} 
+                                    <tr
+                                        key={index}
                                         className={`hover:bg-slate-50 transition-colors ${bill.warnings?.length > 0 ? 'bg-amber-50/50' : ''}`}
                                     >
                                         <td className="p-4 font-bold text-slate-900">{bill.dutySlipNo || '---'}</td>
@@ -172,13 +213,13 @@ export default function ImportBillsPage() {
                                         </td>
                                         <td className="p-4 text-right">
                                             <div className="flex justify-end gap-2">
-                                                <button 
+                                                <button
                                                     onClick={() => startEdit(index)}
                                                     className="p-2 text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all"
                                                 >
                                                     <Edit2 size={16} />
                                                 </button>
-                                                <button 
+                                                <button
                                                     onClick={() => deleteBill(index)}
                                                     className="p-2 text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
                                                 >
@@ -204,43 +245,43 @@ export default function ImportBillsPage() {
                             <div className="p-8 grid grid-cols-2 gap-8">
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Duty Slip Number</label>
-                                    <input 
+                                    <input
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold"
-                                        value={editForm.dutySlipNo || ''} 
-                                        onChange={e => setEditForm({...editForm, dutySlipNo: e.target.value})} 
+                                        value={editForm.dutySlipNo || ''}
+                                        onChange={e => setEditForm({ ...editForm, dutySlipNo: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Bill Date (YYYY-MM-DD)</label>
-                                    <input 
+                                    <input
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold"
-                                        value={editForm.billDate || ''} 
-                                        onChange={e => setEditForm({...editForm, billDate: e.target.value})} 
+                                        value={editForm.billDate || ''}
+                                        onChange={e => setEditForm({ ...editForm, billDate: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2 col-span-2">
                                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Company Name</label>
-                                    <input 
+                                    <input
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold"
-                                        value={editForm.companyName || ''} 
-                                        onChange={e => setEditForm({...editForm, companyName: e.target.value})} 
+                                        value={editForm.companyName || ''}
+                                        onChange={e => setEditForm({ ...editForm, companyName: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Vehicle Number</label>
-                                    <input 
+                                    <input
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold"
-                                        value={editForm.vehicleNumber || ''} 
-                                        onChange={e => setEditForm({...editForm, vehicleNumber: e.target.value})} 
+                                        value={editForm.vehicleNumber || ''}
+                                        onChange={e => setEditForm({ ...editForm, vehicleNumber: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Total Amount</label>
-                                    <input 
+                                    <input
                                         type="number"
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-black text-xl"
-                                        value={editForm.totalAmount || 0} 
-                                        onChange={e => setEditForm({...editForm, totalAmount: parseFloat(e.target.value)})} 
+                                        value={editForm.totalAmount || 0}
+                                        onChange={e => setEditForm({ ...editForm, totalAmount: parseFloat(e.target.value) })}
                                     />
                                 </div>
                             </div>
@@ -334,9 +375,25 @@ export default function ImportBillsPage() {
                                                 </div>
                                                 <div>
                                                     <p className="font-black text-slate-800">{f.file.name}</p>
-                                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                                                        {(f.file.size / 1024).toFixed(1)} KB • READY
-                                                    </p>
+                                                    <div className="flex items-center gap-3">
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">
+                                                            {(f.file.size / 1024).toFixed(1)} KB • {f.status}
+                                                        </p>
+                                                        {f.status === 'parsing' && (
+                                                            <div className="w-32 h-1.5 bg-slate-100 rounded-none overflow-hidden border border-slate-200">
+                                                                <div
+                                                                    className="h-full bg-cyan-500 transition-all duration-500 ease-out"
+                                                                    style={{ width: `${f.progress}%` }}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        {f.status === 'done' && (
+                                                            <CheckCircle size={14} className="text-emerald-500" />
+                                                        )}
+                                                        {f.status === 'error' && (
+                                                            <AlertCircle size={14} className="text-red-500" />
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                             <button
