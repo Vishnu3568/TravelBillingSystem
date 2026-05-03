@@ -2,6 +2,7 @@ package com.travelbilling.ai.service;
 
 import com.travelbilling.ai.dto.AiBillResponse;
 import com.travelbilling.ai.dto.AiSearchFilter;
+import com.travelbilling.ai.dto.AiInsightResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.stereotype.Service;
@@ -70,6 +71,25 @@ public class GeminiService {
         } catch (Exception e) {
             log.error("Failed to parse search query via AI", e);
             return null;
+        }
+    }
+
+    public AiInsightResponse generateInsights(com.travelbilling.dto.DashboardStatsDTO stats) {
+        try {
+            Map<String, Object> request = new HashMap<>();
+            request.put("stats", stats);
+
+            log.info("Delegating insights generation to AI Service (Port 9001)...");
+            return restTemplate.postForObject(aiServiceUrl + "/generate-insights", request, AiInsightResponse.class);
+        } catch (Exception e) {
+            log.error("Failed to generate insights via AI", e);
+            return AiInsightResponse.builder()
+                    .insights(List.of(AiInsightResponse.Insight.builder()
+                            .type("WARNING")
+                            .message("AI Insights Service currently unavailable.")
+                            .confidence(0.0)
+                            .build()))
+                    .build();
         }
     }
 }

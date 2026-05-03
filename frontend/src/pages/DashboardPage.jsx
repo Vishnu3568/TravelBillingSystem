@@ -320,15 +320,17 @@ function OwnerDashboard({ username, logout }) {
           <LoadingState />
         ) : isSessionExpired ? null : (
           <>
-            <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_360px]">
+            <div className="mt-6">
               <RevenueChart revenueTrend={revenueTrend} />
+            </div>
+
+            <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_360px]">
+              <div className="grid gap-6">
+                <RecentBillsTable recentBills={recentBills} />
+              </div>
               <div className="grid gap-6">
                 <QuickActions role="OWNER" />
               </div>
-            </div>
-
-            <div className="mt-6">
-              <RecentBillsTable recentBills={recentBills} />
             </div>
           </>
         )}

@@ -188,6 +188,70 @@ QUERY:
     }
 });
 
+// AI Insights & Analytics Endpoint
+app.post('/api/ai/generate-insights', async (req, res) => {
+    try {
+        const { stats } = req.body;
+        if (!stats) {
+            return res.status(400).json({ error: 'No statistics provided' });
+        }
+
+        const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "object",
+                    properties: {
+                        insights: {
+                            type: "array",
+                            items: {
+                                type: "object",
+                                properties: {
+                                    type: { type: "string", enum: ["INFO", "WARNING", "TREND"] },
+                                    message: { type: "string" },
+                                    confidence: { type: "number" }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        const prompt = `You are a Senior Business Analyst for 'Sri Tulja Bhavani Travels'. Analyze the following aggregated billing data and provide meaningful, actionable insights.
+
+DATA:
+- Total Revenue: ₹${stats.totalRevenue}
+- Bill Count: ${stats.billCount}
+- Top Companies: ${JSON.stringify(stats.companyStats)}
+- Vehicle Utilization: ${JSON.stringify(stats.vehicleStats)}
+- Monthly Trends: ${JSON.stringify(stats.monthlyRevenue)}
+- Charge Breakdown: ${JSON.stringify(stats.chargeStats)}
+
+RULES:
+1. FOCUS: Revenue contributors, growth/decline, vehicle efficiency, and expense patterns.
+2. FORMAT: Short, clear, data-backed messages.
+3. LIMIT: Generate 5-8 insights maximum.
+4. TYPE:
+   - 'INFO' for general facts or top performers.
+   - 'WARNING' for anomalies, high costs, or declining trends.
+   - 'TREND' for growth patterns or predictions.
+5. NO HALLUCINATION: If the data is minimal or empty, provide limited but honest feedback.
+
+RESPONSE:
+Strict JSON only.`;
+
+        console.log(`[AI] Generating Business Insights...`);
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        res.json(JSON.parse(response.text()));
+    } catch (error) {
+        console.error('[AI] Insights Generation Error:', error);
+        res.status(500).json({ insights: [{ type: "WARNING", message: "Failed to generate business insights at this time.", confidence: 0 }] });
+    }
+});
+
 app.listen(port, () => {
     console.log(`\n============================================`);
     console.log(`🚀 AI Service running on http://localhost:${port}`);

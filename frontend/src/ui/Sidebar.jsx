@@ -8,7 +8,7 @@ import {
 import { useAuth } from '../context/AuthContext.jsx'; // Adjust import path to your auth context
 
 import { routes } from '../constants/navigation.js';
-
+import AiInsightsSidebar from './AiInsightsSidebar.jsx';
 
 export default function Sidebar() {
   const { role } = useAuth(); // role string like 'OWNER', 'MANAGER', 'EMPLOYEE'
@@ -42,6 +42,9 @@ export default function Sidebar() {
             </li>
           ))}
       </ul>
+      
+      {role === 'OWNER' && <AiInsightsSidebar />}
+
       <div className="mt-4 text-xs text-slate-400">
         Logged in as <span className="font-medium">{role}</span>
       </div>
