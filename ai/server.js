@@ -193,6 +193,24 @@ QUERY:
     }
 });
 
+// Helper for retries on 429
+async function generateWithRetry(model, prompt, maxRetries = 3) {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const result = await model.generateContent(prompt);
+            return result;
+        } catch (error) {
+            if (error.status === 429 && i < maxRetries - 1) {
+                const wait = Math.pow(2, i) * 2000;
+                console.log(`[AI] Quota hit, retrying in ${wait}ms...`);
+                await new Promise(r => setTimeout(r, wait));
+                continue;
+            }
+            throw error;
+        }
+    }
+}
+
 // AI Insights & Analytics Endpoint
 app.post('/api/ai/generate-insights', async (req, res) => {
     try {
@@ -229,31 +247,22 @@ app.post('/api/ai/generate-insights', async (req, res) => {
 DATA:
 - Total Revenue: ₹${stats.totalRevenue}
 - Bill Count: ${stats.billCount}
-- Top Companies: ${JSON.stringify(stats.companyStats)}
-- Vehicle Utilization: ${JSON.stringify(stats.vehicleStats)}
-- Monthly Trends: ${JSON.stringify(stats.monthlyRevenue)}
-- Charge Breakdown: ${JSON.stringify(stats.chargeStats)}
+- Top Companies: ${JSON.stringify(stats.companyStats?.slice(0, 5))}
+- Vehicle Utilization: ${JSON.stringify(stats.vehicleStats?.slice(0, 5))}
 
 RULES:
-1. FOCUS: Revenue contributors, growth/decline, vehicle efficiency, and expense patterns.
+1. FOCUS: Revenue contributors, growth/decline, and vehicle efficiency.
 2. FORMAT: Short, clear, data-backed messages.
-3. LIMIT: Generate 5-8 insights maximum.
-4. TYPE:
-   - 'INFO' for general facts or top performers.
-   - 'WARNING' for anomalies, high costs, or declining trends.
-   - 'TREND' for growth patterns or predictions.
-5. NO HALLUCINATION: If the data is minimal or empty, provide limited but honest feedback.
-
-RESPONSE:
-Strict JSON only.`;
+3. LIMIT: Generate 3-5 insights maximum.
+4. RESPONSE: Strict JSON only.`;
 
         console.log(`[AI] Generating Business Insights...`);
-        const result = await model.generateContent(prompt);
+        const result = await generateWithRetry(model, prompt);
         const response = await result.response;
         res.json(JSON.parse(response.text()));
     } catch (error) {
         console.error('[AI] Insights Generation Error:', error);
-        res.status(500).json({ insights: [{ type: "WARNING", message: "Failed to generate business insights at this time.", confidence: 0 }] });
+        res.status(500).json({ insights: [{ type: "WARNING", message: "Insights engine is warming up. Please refresh in a moment.", confidence: 0 }] });
     }
 });
 
@@ -266,7 +275,6 @@ app.post('/api/ai/chat-assistant', async (req, res) => {
             return res.status(400).json({ error: 'No query provided' });
         }
 
-        // Use a more direct initialization to potentially bypass SDK auto-versioning issues
         const model = genAI.getGenerativeModel({
             model: modelName,
             generationConfig: {
@@ -284,45 +292,25 @@ app.post('/api/ai/chat-assistant', async (req, res) => {
         });
 
         const contextInfo = contextType === 'BILL' 
-            ? `BILL CONTEXT:
-               - Bill Number: ${billData.billNumber}
-               - Company: ${billData.companyName}
-               - Amount: ₹${billData.totalAmount}
-               - Distance: ${billData.totalKm} km
-               - Time: ${billData.totalHours} hrs
-               - Charges: ${JSON.stringify(billData.charges)}`
-            : `GLOBAL CONTEXT:
-               - Total Revenue: ₹${aggregatedData.totalRevenue}
-               - Top Companies: ${JSON.stringify(aggregatedData.topCompanies)}
-               - Recent Bills: ${JSON.stringify(aggregatedData.recentBills)}`;
+            ? `BILL: ${billData.billNumber}, Company: ${billData.companyName}, Amount: ₹${billData.totalAmount}`
+            : `TOTAL REVENUE: ₹${aggregatedData.totalRevenue}, TOP COMPANIES: ${JSON.stringify(aggregatedData.topCompanies)}`;
 
         const prompt = `You are the 'Sri Tulja Bhavani Travels' Billing Assistant.
-Answer the user's question accurately based ONLY on the provided data.
-
+Answer accurately based ONLY on this data:
 ${contextInfo}
 
-RULES:
-1. Answer ONLY from provided data.
-2. DO NOT hallucinate.
-3. If data is insufficient, say: "Insufficient data to answer".
-4. Keep answers short and clear (max 3-4 lines).
-5. Use ₹ for currency.
-6. Provide specific data points used in the 'references' array.
-
 USER QUESTION: "${userQuery}"
-
 Strict JSON Response:`;
 
-        console.log(`[AI Assistant] Processing query: "${userQuery}" (${contextType})`);
-        const result = await model.generateContent(prompt);
+        console.log(`[AI Assistant] Processing query: "${userQuery}"`);
+        const result = await generateWithRetry(model, prompt);
         const response = await result.response;
         res.json(JSON.parse(response.text()));
     } catch (error) {
         console.error('[AI Assistant] Error:', error);
         res.status(500).json({ 
-            answer: `AI Engine Error: ${error.message}. Please check model availability and API key.`, 
-            confidence: 0,
-            references: [error.stack]
+            answer: "The intelligence engine is currently busy. I'll be back in a few seconds!", 
+            confidence: 0
         });
     }
 });
