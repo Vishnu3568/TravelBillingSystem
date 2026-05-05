@@ -9,7 +9,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const port = process.env.PORT || 9001;
 const apiKey = process.env.GEMINI_API_KEY;
-const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+const modelName = process.env.GEMINI_MODEL || 'models/gemini-2.0-flash-lite';
 
 if (!apiKey) {
     console.error('CRITICAL: GEMINI_API_KEY is not set in environment variables.');
@@ -315,7 +315,7 @@ Strict JSON Response:`;
     }
 });
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
     console.log(`\n============================================`);
     console.log(`🚀 AI Service running on http://localhost:${port}`);
     console.log(`🎯 Model: ${modelName}`);
