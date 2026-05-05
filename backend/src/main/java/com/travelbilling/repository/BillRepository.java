@@ -33,6 +33,8 @@ public interface BillRepository extends JpaRepository<Bill, Long>, JpaSpecificat
     @EntityGraph(attributePaths = {"company", "vehicle"})
     List<Bill> findAllByOrderByCreatedAtDesc();
 
+    List<Bill> findTop5ByOrderByCreatedAtDesc();
+
     @Query("""
             select b.companyName as name, coalesce(sum(coalesce(b.grandTotal, b.amount)), 0) as revenue
             from Bill b

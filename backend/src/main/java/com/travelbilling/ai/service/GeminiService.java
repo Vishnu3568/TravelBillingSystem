@@ -3,6 +3,8 @@ package com.travelbilling.ai.service;
 import com.travelbilling.ai.dto.AiBillResponse;
 import com.travelbilling.ai.dto.AiSearchFilter;
 import com.travelbilling.ai.dto.AiInsightResponse;
+import com.travelbilling.ai.dto.AiAssistantRequest;
+import com.travelbilling.ai.dto.AiAssistantResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.stereotype.Service;
@@ -89,6 +91,19 @@ public class GeminiService {
                             .message("AI Insights Service currently unavailable.")
                             .confidence(0.0)
                             .build()))
+                    .build();
+        }
+    }
+
+    public AiAssistantResponse askAssistant(AiAssistantRequest request) {
+        try {
+            log.info("Delegating assistant query to AI Service (Port 9001)...");
+            return restTemplate.postForObject(aiServiceUrl + "/chat-assistant", request, AiAssistantResponse.class);
+        } catch (Exception e) {
+            log.error("Failed to get response from AI Assistant", e);
+            return AiAssistantResponse.builder()
+                    .answer("I'm having trouble connecting to my brain right now. Please ensure the AI service is running.")
+                    .confidence(0.0)
                     .build();
         }
     }

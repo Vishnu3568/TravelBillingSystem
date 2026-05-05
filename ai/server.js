@@ -252,6 +252,75 @@ Strict JSON only.`;
     }
 });
 
+// AI Bill Assistant (Chat) Endpoint
+app.post('/api/ai/chat-assistant', async (req, res) => {
+    try {
+        const { contextType, billData, aggregatedData, userQuery } = req.body;
+        
+        if (!userQuery) {
+            return res.status(400).json({ error: 'No query provided' });
+        }
+
+        const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "object",
+                    properties: {
+                        answer: { type: "string" },
+                        confidence: { type: "number" },
+                        references: { type: "array", items: { type: "string" } }
+                    },
+                    required: ["answer", "confidence"]
+                }
+            }
+        });
+
+        const contextInfo = contextType === 'BILL' 
+            ? `BILL CONTEXT:
+               - Bill Number: ${billData.billNumber}
+               - Company: ${billData.companyName}
+               - Amount: ₹${billData.totalAmount}
+               - Distance: ${billData.totalKm} km
+               - Time: ${billData.totalHours} hrs
+               - Charges: ${JSON.stringify(billData.charges)}`
+            : `GLOBAL CONTEXT:
+               - Total Revenue: ₹${aggregatedData.totalRevenue}
+               - Top Companies: ${JSON.stringify(aggregatedData.topCompanies)}
+               - Recent Bills: ${JSON.stringify(aggregatedData.recentBills)}`;
+
+        const prompt = `You are the 'Sri Tulja Bhavani Travels' Billing Assistant.
+Answer the user's question accurately based ONLY on the provided data.
+
+${contextInfo}
+
+RULES:
+1. Answer ONLY from provided data.
+2. DO NOT hallucinate.
+3. If data is insufficient, say: "Insufficient data to answer".
+4. Keep answers short and clear (max 3-4 lines).
+5. Use ₹ for currency.
+6. Provide specific data points used in the 'references' array.
+
+USER QUESTION: "${userQuery}"
+
+Strict JSON Response:`;
+
+        console.log(`[AI Assistant] Processing query: "${userQuery}" (${contextType})`);
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        res.json(JSON.parse(response.text()));
+    } catch (error) {
+        console.error('[AI Assistant] Error:', error);
+        res.status(500).json({ 
+            answer: "I encountered an error while processing your request.", 
+            confidence: 0,
+            references: [error.message]
+        });
+    }
+});
+
 app.listen(port, () => {
     console.log(`\n============================================`);
     console.log(`🚀 AI Service running on http://localhost:${port}`);

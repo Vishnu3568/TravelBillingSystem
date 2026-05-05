@@ -1,8 +1,11 @@
 package com.travelbilling.service;
 
 import com.travelbilling.ai.dto.AiInsightResponse;
+import com.travelbilling.ai.dto.AiAssistantRequest;
+import com.travelbilling.ai.dto.AiAssistantResponse;
 import com.travelbilling.ai.service.GeminiService;
 import com.travelbilling.dto.DashboardStatsDTO;
+import com.travelbilling.entity.Bill;
 import com.travelbilling.repository.BillRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,7 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -62,5 +67,56 @@ public class AnalyticsService {
                 .monthlyRevenue(monthlyRevenue)
                 .chargeStats(chargeStats)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public AiAssistantResponse askAssistant(String query, Long billId) {
+        AiAssistantRequest.AiAssistantRequestBuilder requestBuilder = AiAssistantRequest.builder()
+                .userQuery(query);
+
+        if (billId != null) {
+            Bill bill = billRepository.findById(billId).orElse(null);
+            if (bill != null) {
+                requestBuilder.contextType("BILL");
+                requestBuilder.billData(AiAssistantRequest.BillData.builder()
+                        .billNumber(bill.getBillNumber())
+                        .companyName(bill.getCompanyName())
+                        .totalKm(bill.getTotalKms())
+                        .totalHours(bill.getTotalHours())
+                        .totalAmount(bill.getGrandTotal())
+                        .charges(parseCharges(bill.getDynamicCharges()))
+                        .build());
+            } else {
+                requestBuilder.contextType("GLOBAL");
+            }
+        } else {
+            requestBuilder.contextType("GLOBAL");
+        }
+
+        if (requestBuilder.build().getContextType().equals("GLOBAL")) {
+            DashboardStatsDTO stats = getDashboardStats();
+            requestBuilder.aggregatedData(AiAssistantRequest.AggregatedData.builder()
+                    .totalRevenue(stats.totalRevenue)
+                    .topCompanies(stats.getCompanyStats().stream()
+                            .limit(5)
+                            .map(s -> Map.of("name", (Object)s.getName(), "revenue", s.getAmount()))
+                            .collect(Collectors.toList()))
+                    .recentBills(billRepository.findTop5ByOrderByCreatedAtDesc().stream()
+                            .map(b -> Map.of("number", (Object)b.getBillNumber(), "company", b.getCompanyName(), "total", b.getGrandTotal()))
+                            .collect(Collectors.toList()))
+                    .build());
+        }
+
+        return geminiService.askAssistant(requestBuilder.build());
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> parseCharges(String chargesJson) {
+        if (chargesJson == null) return List.of();
+        try {
+            return new com.fasterxml.jackson.databind.ObjectMapper().readValue(chargesJson, List.class);
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 }

@@ -1,0 +1,11 @@
+{
+  "contextType": "GLOBAL",
+  "aggregatedData": {
+    "totalRevenue": 100000,
+    "topCompanies": [
+      { "name": "Ashapura", "revenue": 40000 }
+    ],
+    "recentBills": []
+  },
+  "userQuery": "Which company generated highest revenue?"
+}
