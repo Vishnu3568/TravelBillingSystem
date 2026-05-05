@@ -98,6 +98,8 @@ public class AnalyticsService {
             Double revenue = stats.getTotalRevenue();
             requestBuilder.aggregatedData(AiAssistantRequest.AggregatedData.builder()
                     .totalRevenue(revenue)
+                    .companyCount(companyRepository.count())
+                    .vehicleCount(vehicleRepository.count())
                     .topCompanies(stats.getCompanyStats().stream()
                             .limit(5)
                             .map(s -> {

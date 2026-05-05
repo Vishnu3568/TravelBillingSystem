@@ -99,77 +99,52 @@ public class PdfService {
             
             innerCell.add(metaTable);
 
-            // 4. MAIN INVOICE TABLE (9 COLUMNS)
-            Table mainTable = new Table(UnitValue.createPercentArray(new float[]{10, 10, 15, 8, 8, 8, 8, 18, 15}))
+            // 4. MAIN INVOICE TABLE (8 COLUMNS - Simplified for accuracy)
+            Table mainTable = new Table(UnitValue.createPercentArray(new float[]{15, 15, 25, 15, 15, 15}))
                     .useAllAvailableWidth();
 
-            // Table Headers with SOLID borders
-            String[] headers = {"Duty Slip", "Date", "Vehicle", "Kms", "Hrs", "Extra Kms", "Extra Hrs", "Amt", "Total"};
+            String[] headers = {"Duty Slip", "Date", "Vehicle Reg", "Kms", "Hours", "Total"};
             for (String h : headers) {
-                mainTable.addHeaderCell(new Cell().add(new Paragraph(h).setBold().setFontSize(8)).setTextAlignment(TextAlignment.CENTER).setBorder(new SolidBorder(0.5f)));
+                mainTable.addHeaderCell(new Cell().add(new Paragraph(h).setBold().setFontSize(9)).setTextAlignment(TextAlignment.CENTER).setBorder(new SolidBorder(0.5f)));
             }
 
-            // Calculation Constants
-            double kms = bill.getTotalKms() != null ? bill.getTotalKms() : 0;
-            double hrs = bill.getTotalHours() != null ? bill.getTotalHours() : 0;
-            String vType = (bill.getVehicleType() != null ? bill.getVehicleType() : "SEDAN").toUpperCase();
-            boolean isLongTrip = kms > 200;
-
-            // --- BASE ROW ---
             mainTable.addCell(createCell(bill.getDutySlipNo(), TextAlignment.CENTER));
             String formattedTripDate = bill.getTripDate() != null ? bill.getTripDate().format(TRIP_DATE_FORMATTER) : "";
             mainTable.addCell(createCell(formattedTripDate, TextAlignment.CENTER));
-            mainTable.addCell(createCell(bill.getVehicleName(), TextAlignment.LEFT));
-            mainTable.addCell(createCell(String.valueOf((int)kms), TextAlignment.RIGHT));
-            mainTable.addCell(createCell(String.valueOf((int)hrs), TextAlignment.RIGHT));
-            mainTable.addCell(createCell("", TextAlignment.CENTER));
-            mainTable.addCell(createCell("", TextAlignment.CENTER));
+            mainTable.addCell(createCell(bill.getVehicleName(), TextAlignment.CENTER));
+            mainTable.addCell(createCell(String.valueOf(bill.getTotalKms().intValue()), TextAlignment.RIGHT));
+            mainTable.addCell(createCell(String.valueOf(bill.getTotalHours().intValue()), TextAlignment.RIGHT));
+            mainTable.addCell(createCell(String.format("%.2f", bill.getGrandTotal()), TextAlignment.RIGHT).setBold());
+
+            innerCell.add(mainTable);
+
+            // 5. CHARGES BREAKDOWN (Dynamic and Accurate)
+            Table chargesTable = new Table(UnitValue.createPercentArray(new float[]{70, 30}))
+                    .useAllAvailableWidth()
+                    .setMarginTop(10);
             
-            if (isLongTrip) {
-                double rate = vType.contains("CRYSTA") ? 18 : 14;
-                mainTable.addCell(createCell(((int)kms) + "x" + ((int)rate), TextAlignment.CENTER));
-                mainTable.addCell(createCell(String.format("%.2f", kms * rate), TextAlignment.RIGHT).setBold());
-            } else {
-                mainTable.addCell(createCell("8/80", TextAlignment.CENTER));
-                mainTable.addCell(createCell("2800.00", TextAlignment.RIGHT).setBold());
+            chargesTable.addCell(new Cell().add(new Paragraph("DESCRIPTION").setBold().setFontSize(9)).setBorder(new SolidBorder(0.5f)));
+            chargesTable.addCell(new Cell().add(new Paragraph("AMOUNT").setBold().setFontSize(9)).setTextAlignment(TextAlignment.RIGHT).setBorder(new SolidBorder(0.5f)));
 
-                // EXTRA KM ROW
-                if (kms > 80) {
-                    for(int i=0; i<5; i++) mainTable.addCell(createCell("", TextAlignment.CENTER));
-                    mainTable.addCell(createCell(((int)kms-80) + "x16", TextAlignment.CENTER));
-                    mainTable.addCell(createCell("", TextAlignment.CENTER));
-                    mainTable.addCell(createCell("", TextAlignment.CENTER));
-                    mainTable.addCell(createCell(String.format("%.2f", (kms-80)*16), TextAlignment.RIGHT).setBold());
-                }
-                // EXTRA HR ROW
-                if (hrs > 8) {
-                    for(int i=0; i<6; i++) mainTable.addCell(createCell("", TextAlignment.CENTER));
-                    mainTable.addCell(createCell(((int)hrs-8) + "x130", TextAlignment.CENTER));
-                    mainTable.addCell(createCell("", TextAlignment.CENTER));
-                    mainTable.addCell(createCell(String.format("%.2f", (hrs-8)*130), TextAlignment.RIGHT).setBold());
-                }
-            }
+            // Add Base Amount
+            chargesTable.addCell(new Cell().add(new Paragraph("Base Trip Amount")).setBorder(new SolidBorder(0.5f)).setFontSize(9));
+            chargesTable.addCell(new Cell().add(new Paragraph(String.format("%.2f", bill.getBaseAmount()))).setTextAlignment(TextAlignment.RIGHT).setBorder(new SolidBorder(0.5f)).setFontSize(9));
 
-            // ADDITIONAL CHARGES (Filter 0)
+            // Add Dynamic Charges
             List<ChargeDTO> charges = deserializeCharges(bill.getDynamicCharges());
             if (charges != null) {
                 for (ChargeDTO charge : charges) {
-                    String name = charge.getName().toLowerCase();
-                    if (name.contains("base amount") || name.contains("extra km") || name.contains("extra hours") || name.contains("distance charge")) continue;
-                    if (charge.getAmount() <= 0) continue;
-
-                    for(int i=0; i<7; i++) mainTable.addCell(new Cell().setBorder(new SolidBorder(0.5f))); // Maintain grid
-                    mainTable.addCell(createCell(charge.getName(), TextAlignment.CENTER));
-                    mainTable.addCell(createCell(String.format("%.2f", charge.getAmount()), TextAlignment.RIGHT).setBold());
+                    if (charge.getName().toLowerCase().contains("base")) continue;
+                    chargesTable.addCell(new Cell().add(new Paragraph(charge.getName())).setBorder(new SolidBorder(0.5f)).setFontSize(9));
+                    chargesTable.addCell(new Cell().add(new Paragraph(String.format("%.2f", charge.getAmount()))).setTextAlignment(TextAlignment.RIGHT).setBorder(new SolidBorder(0.5f)).setFontSize(9));
                 }
             }
 
-            // GRAND TOTAL ROW
-            Cell totalLabel = new Cell(1, 8).add(new Paragraph("Grand Total")).setBold().setTextAlignment(TextAlignment.CENTER).setBorder(new SolidBorder(0.5f));
-            mainTable.addCell(totalLabel);
-            mainTable.addCell(new Cell().add(new Paragraph(String.format("%.2f", bill.getGrandTotal()))).setBold().setTextAlignment(TextAlignment.RIGHT).setBorder(new SolidBorder(0.5f)));
+            // Final Total
+            chargesTable.addCell(new Cell().add(new Paragraph("GRAND TOTAL")).setBold().setFontSize(10).setBorder(new SolidBorder(0.8f)));
+            chargesTable.addCell(new Cell().add(new Paragraph("Rs. " + String.format("%.2f", bill.getGrandTotal()))).setBold().setTextAlignment(TextAlignment.RIGHT).setFontSize(10).setBorder(new SolidBorder(0.8f)));
 
-            innerCell.add(mainTable);
+            innerCell.add(chargesTable);
 
             // 5. AMOUNT IN WORDS
             String words = NumberToWordsUtil.convertToRupees(bill.getGrandTotal()).toUpperCase();

@@ -73,11 +73,25 @@ Data: Revenue ₹${stats.totalRevenue}, Bills ${stats.billCount}, Top Co: ${JSON
 app.post('/api/ai/chat-assistant', async (req, res) => {
     try {
         const { contextType, billData, aggregatedData, userQuery } = req.body;
-        const model = genAI.getGenerativeModel({ model: modelName });
         
+        // --- LOCAL INTELLIGENCE (Fast answers for simple stats) ---
+        const lowerQuery = userQuery.toLowerCase();
+        if (contextType === 'GLOBAL' && aggregatedData) {
+            if (lowerQuery.includes('how many companies') || lowerQuery.includes('total companies')) {
+                return res.json({ answer: `You have ${aggregatedData.companyCount || 'several'} companies registered in your system.`, confidence: 1.0 });
+            }
+            if (lowerQuery.includes('how many vehicles') || lowerQuery.includes('total vehicles')) {
+                return res.json({ answer: `You currently have ${aggregatedData.vehicleCount || 'multiple'} vehicles in your fleet.`, confidence: 1.0 });
+            }
+            if (lowerQuery.includes('total revenue')) {
+                return res.json({ answer: `Your total revenue is ₹${aggregatedData.totalRevenue?.toLocaleString()}.`, confidence: 1.0 });
+            }
+        }
+
+        const model = genAI.getGenerativeModel({ model: modelName });
         const context = contextType === 'BILL' 
-            ? `Bill: ${billData.billNumber}, Company: ${billData.companyName}`
-            : `Total Revenue: ₹${aggregatedData.totalRevenue}`;
+            ? `Bill: ${billData.billNumber}, Company: ${billData.companyName}, Amount: ₹${billData.totalAmount}`
+            : `Total Revenue: ₹${aggregatedData.totalRevenue}, Companies: ${aggregatedData.companyCount}, Vehicles: ${aggregatedData.vehicleCount}`;
 
         const prompt = `You are a billing assistant. Answer briefly:
 Context: ${context}
@@ -91,7 +105,7 @@ Return JSON: { "answer": "...", "confidence": 0.9 }`;
     } catch (error) {
         console.error('[AI Assistant] Error:', error.message);
         res.json({ 
-            answer: "I'm currently refreshing my data. Please try your question again in 30 seconds!", 
+            answer: "I'm processing your request. Please try again in a few seconds!", 
             confidence: 0 
         });
     }

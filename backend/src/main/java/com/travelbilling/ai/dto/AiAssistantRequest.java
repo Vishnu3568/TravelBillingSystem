@@ -38,5 +38,7 @@ public class AiAssistantRequest {
         private Double totalRevenue;
         private List<Map<String, Object>> topCompanies;
         private List<Map<String, Object>> recentBills;
+        private Long companyCount;
+        private Long vehicleCount;
     }
 }
