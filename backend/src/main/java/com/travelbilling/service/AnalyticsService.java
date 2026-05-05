@@ -7,6 +7,8 @@ import com.travelbilling.ai.service.GeminiService;
 import com.travelbilling.dto.DashboardStatsDTO;
 import com.travelbilling.entity.Bill;
 import com.travelbilling.repository.BillRepository;
+import com.travelbilling.repository.CompanyRepository;
+import com.travelbilling.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,8 @@ import java.util.stream.Collectors;
 public class AnalyticsService {
 
     private final BillRepository billRepository;
+    private final CompanyRepository companyRepository;
+    private final VehicleRepository vehicleRepository;
     private final GeminiService geminiService;
 
     @Transactional(readOnly = true)

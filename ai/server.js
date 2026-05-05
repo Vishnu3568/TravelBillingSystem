@@ -9,7 +9,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const port = process.env.PORT || 9001;
 const apiKey = process.env.GEMINI_API_KEY;
-const modelName = 'gemini-1.5-flash'; // Using the most stable model name
+const modelName = 'gemini-2.0-flash-lite'; // Reverting to confirmed working model
 
 if (!apiKey) {
     console.error('CRITICAL: GEMINI_API_KEY is not set.');
@@ -74,17 +74,22 @@ app.post('/api/ai/chat-assistant', async (req, res) => {
     try {
         const { contextType, billData, aggregatedData, userQuery } = req.body;
         
-        // --- LOCAL INTELLIGENCE (Fast answers for simple stats) ---
+        // --- LOCAL INTELLIGENCE (Fuzzy Matching for typos & variations) ---
         const lowerQuery = userQuery.toLowerCase();
+        const hasHowMany = lowerQuery.includes('how many') || lowerQuery.includes('total') || lowerQuery.includes('count');
+        const hasCompany = lowerQuery.includes('company') || lowerQuery.includes('companies') || lowerQuery.includes('comapnies');
+        const hasVehicle = lowerQuery.includes('vehicle') || lowerQuery.includes('car') || lowerQuery.includes('fleet');
+        const hasRevenue = lowerQuery.includes('revenue') || lowerQuery.includes('earn') || lowerQuery.includes('money');
+
         if (contextType === 'GLOBAL' && aggregatedData) {
-            if (lowerQuery.includes('how many companies') || lowerQuery.includes('total companies')) {
-                return res.json({ answer: `You have ${aggregatedData.companyCount || 'several'} companies registered in your system.`, confidence: 1.0 });
+            if (hasHowMany && hasCompany) {
+                return res.json({ answer: `You have a total of ${aggregatedData.companyCount || 0} companies registered.`, confidence: 1.0 });
             }
-            if (lowerQuery.includes('how many vehicles') || lowerQuery.includes('total vehicles')) {
-                return res.json({ answer: `You currently have ${aggregatedData.vehicleCount || 'multiple'} vehicles in your fleet.`, confidence: 1.0 });
+            if (hasHowMany && hasVehicle) {
+                return res.json({ answer: `You currently have ${aggregatedData.vehicleCount || 0} vehicles in your fleet.`, confidence: 1.0 });
             }
-            if (lowerQuery.includes('total revenue')) {
-                return res.json({ answer: `Your total revenue is ₹${aggregatedData.totalRevenue?.toLocaleString()}.`, confidence: 1.0 });
+            if (hasRevenue) {
+                return res.json({ answer: `Your total business revenue is ₹${aggregatedData.totalRevenue?.toLocaleString()}.`, confidence: 1.0 });
             }
         }
 
