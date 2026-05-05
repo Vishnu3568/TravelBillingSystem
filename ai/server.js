@@ -98,15 +98,27 @@ app.post('/api/ai/chat-assistant', async (req, res) => {
             ? `Bill: ${billData.billNumber}, Company: ${billData.companyName}, Amount: ₹${billData.totalAmount}`
             : `Total Revenue: ₹${aggregatedData.totalRevenue}, Companies: ${aggregatedData.companyCount}, Vehicles: ${aggregatedData.vehicleCount}`;
 
-        const prompt = `You are a billing assistant. Answer briefly:
-Context: ${context}
-Query: ${userQuery}
-Return JSON: { "answer": "...", "confidence": 0.9 }`;
+        const prompt = `You are the Sri Tulja Bhavani Travels Action Agent.
+Your goal is to answer queries OR perform tasks like creating bills.
 
-        console.log(`[AI Assistant] Processing: "${userQuery}"`);
+If the user wants to CREATE A BILL (e.g., "Create a bill for...", "Add bill..."), 
+identify: companyName, vehicleName, totalKms, totalHours, totalAmount.
+
+Return JSON ONLY: 
+{ 
+  "answer": "A friendly confirmation of what you did", 
+  "action": { "type": "CREATE_BILL", "data": { ...extracted fields... } },
+  "confidence": 0.9 
+}
+
+If no action is needed, leave "action" as null.
+Context: ${context}
+User Query: "${userQuery}"`;
+
+        console.log(`[AI Agent] Analyzing task: "${userQuery}"`);
         const result = await generateWithRetry(model, prompt);
-        const responseText = result.response.text();
-        res.json(JSON.parse(responseText.replace(/```json|```/g, '')));
+        const text = result.response.text();
+        res.json(JSON.parse(text.replace(/```json|```/g, '')));
     } catch (error) {
         console.error('[AI Assistant] Error:', error.message);
         res.json({ 
