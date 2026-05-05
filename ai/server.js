@@ -16,7 +16,7 @@ if (!apiKey) {
     process.exit(1);
 }
 
-const genAI = new GoogleGenerativeAI(apiKey);
+const genAI = new GoogleGenerativeAI(apiKey, { apiVersion: 'v1' });
 
 // Health Check
 app.get('/health', (req, res) => {
