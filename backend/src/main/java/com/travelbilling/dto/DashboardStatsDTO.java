@@ -6,7 +6,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.List;
 
-@Data
+@lombok.Getter
+@lombok.Setter
+@lombok.ToString
+@lombok.EqualsAndHashCode
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -18,7 +21,10 @@ public class DashboardStatsDTO {
     private List<StatEntry> monthlyRevenue;
     private List<StatEntry> chargeStats;
 
-    @Data
+    @lombok.Getter
+    @lombok.Setter
+    @lombok.ToString
+    @lombok.EqualsAndHashCode
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder

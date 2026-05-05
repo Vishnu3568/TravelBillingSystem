@@ -95,8 +95,9 @@ public class AnalyticsService {
 
         if (requestBuilder.build().getContextType().equals("GLOBAL")) {
             DashboardStatsDTO stats = getDashboardStats();
+            Double revenue = stats.getTotalRevenue();
             requestBuilder.aggregatedData(AiAssistantRequest.AggregatedData.builder()
-                    .totalRevenue(stats.getTotalRevenue())
+                    .totalRevenue(revenue)
                     .topCompanies(stats.getCompanyStats().stream()
                             .limit(5)
                             .map(s -> {
