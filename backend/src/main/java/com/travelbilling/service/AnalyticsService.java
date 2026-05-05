@@ -96,13 +96,24 @@ public class AnalyticsService {
         if (requestBuilder.build().getContextType().equals("GLOBAL")) {
             DashboardStatsDTO stats = getDashboardStats();
             requestBuilder.aggregatedData(AiAssistantRequest.AggregatedData.builder()
-                    .totalRevenue(stats.totalRevenue)
+                    .totalRevenue(stats.getTotalRevenue())
                     .topCompanies(stats.getCompanyStats().stream()
                             .limit(5)
-                            .map(s -> Map.of("name", (Object)s.getName(), "revenue", s.getAmount()))
+                            .map(s -> {
+                                Map<String, Object> m = new HashMap<>();
+                                m.put("name", s.getName());
+                                m.put("revenue", s.getAmount());
+                                return m;
+                            })
                             .collect(Collectors.toList()))
                     .recentBills(billRepository.findTop5ByOrderByCreatedAtDesc().stream()
-                            .map(b -> Map.of("number", (Object)b.getBillNumber(), "company", b.getCompanyName(), "total", b.getGrandTotal()))
+                            .map(b -> {
+                                Map<String, Object> m = new HashMap<>();
+                                m.put("number", b.getBillNumber());
+                                m.put("company", b.getCompanyName());
+                                m.put("total", b.getGrandTotal());
+                                return m;
+                            })
                             .collect(Collectors.toList()))
                     .build());
         }

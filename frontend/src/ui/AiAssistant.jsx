@@ -37,9 +37,10 @@ export default function AiAssistant({ billId = null }) {
       };
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
+      const errorMsg = error.response?.data?.answer || error.response?.data?.message || 'Sorry, I encountered an error connecting to the intelligence server.';
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: 'Sorry, I encountered an error connecting to the intelligence server.', 
+        content: errorMsg, 
         error: true,
         time: new Date() 
       }]);

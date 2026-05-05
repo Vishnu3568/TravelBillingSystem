@@ -18,6 +18,11 @@ if (!apiKey) {
 
 const genAI = new GoogleGenerativeAI(apiKey);
 
+// Health Check
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', model: modelName, port });
+});
+
 // AI Bill Parsing Endpoint
 app.post('/api/ai/parse-bill', async (req, res) => {
     try {
@@ -261,6 +266,7 @@ app.post('/api/ai/chat-assistant', async (req, res) => {
             return res.status(400).json({ error: 'No query provided' });
         }
 
+        // Use a more direct initialization to potentially bypass SDK auto-versioning issues
         const model = genAI.getGenerativeModel({
             model: modelName,
             generationConfig: {
@@ -314,9 +320,9 @@ Strict JSON Response:`;
     } catch (error) {
         console.error('[AI Assistant] Error:', error);
         res.status(500).json({ 
-            answer: "I encountered an error while processing your request.", 
+            answer: `AI Engine Error: ${error.message}. Please check model availability and API key.`, 
             confidence: 0,
-            references: [error.message]
+            references: [error.stack]
         });
     }
 });
