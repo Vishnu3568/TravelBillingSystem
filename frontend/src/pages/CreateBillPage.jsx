@@ -5,6 +5,7 @@ import api from "../services/api.js";
 import { numberToWords } from "../utils/numberToWords.js";
 import { calculateCharges } from "../utils/pricingUtils.js";
 import { toast } from "sonner";
+import AiSuggestions from "../ui/AiSuggestions.jsx";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -99,6 +100,24 @@ export default function CreateBillPage() {
     setManualCharges(newCharges.length > 0 ? newCharges : [{ name: "", calculation: "", amount: "", isSystem: false }]);
   };
 
+  const handleApplySuggestion = (field, value) => {
+    const fieldMap = {
+      'driverBata': 'Driver Bata',
+      'toll': 'Toll',
+      'parking': 'Parking'
+    };
+    const targetName = fieldMap[field] || field;
+    const index = manualCharges.findIndex(c => c.name.toLowerCase() === targetName.toLowerCase());
+    
+    if (index !== -1) {
+      handleManualChargeChange(index, "amount", value);
+      toast.info(`Applied suggestion for ${targetName}`);
+    } else {
+      setManualCharges(prev => [...prev, { name: targetName, calculation: "AI Suggested", amount: value, isSystem: false }]);
+      toast.info(`Added suggestion for ${targetName}`);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.company || !form.vehicle || !form.dutySlipNumber) {
@@ -146,7 +165,7 @@ export default function CreateBillPage() {
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white px-6 py-4">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
+        <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-600">Transport Billing</p>
             <h1 className="text-xl font-bold text-black">New Customer Bill</h1>
@@ -160,8 +179,8 @@ export default function CreateBillPage() {
         </div>
       </header>
 
-      <main className="mx-auto mt-8 max-w-5xl px-6">
-        <form onSubmit={handleSubmit} className="space-y-8 rounded-none border border-slate-200 bg-white p-8 shadow-sm">
+      <main className="mx-auto mt-8 max-w-7xl px-6 grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-8 rounded-none border border-slate-200 bg-white p-8 shadow-sm">
           
           <section>
             <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">1. Basic Information</h2>
@@ -294,6 +313,14 @@ export default function CreateBillPage() {
             </div>
           </section>
         </form>
+
+        {/* AI SUGGESTIONS SIDE PANEL */}
+        <aside className="lg:col-span-1 space-y-6">
+           <AiSuggestions 
+             currentBill={{ companyName: form.company, vehicleType: form.vehicleType, totalKms: form.totalKms, totalHours: form.totalHours }} 
+             onApply={handleApplySuggestion}
+           />
+        </aside>
       </main>
     </div>
   );

@@ -2,12 +2,13 @@ package com.travelbilling.controller;
 
 import com.travelbilling.ai.dto.AiInsightResponse;
 import com.travelbilling.ai.dto.AiAssistantResponse;
+import com.travelbilling.ai.dto.AiSuggestionRequest;
+import com.travelbilling.ai.dto.AiSuggestionResponse;
 import com.travelbilling.service.AnalyticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.CrossOrigin;
 
 @RestController
 @RequestMapping("/api/analytics")
@@ -28,5 +29,11 @@ public class AnalyticsController {
             @RequestParam String query,
             @RequestParam(required = false) Long billId) {
         return ResponseEntity.ok(analyticsService.askAssistant(query, billId));
+    }
+
+    @PostMapping("/suggestions")
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'OPERATOR')")
+    public ResponseEntity<AiSuggestionResponse> getSuggestions(@RequestBody AiSuggestionRequest.CurrentBill currentBill) {
+        return ResponseEntity.ok(analyticsService.generateSuggestions(currentBill));
     }
 }

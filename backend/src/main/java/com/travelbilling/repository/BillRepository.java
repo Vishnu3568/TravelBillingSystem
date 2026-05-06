@@ -14,6 +14,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 public interface BillRepository extends JpaRepository<Bill, Long>, JpaSpecificationExecutor<Bill> {
     boolean existsByBillNumber(String billNumber);
     boolean existsByDutySlipNoAndCompanyName(String dutySlipNo, String companyName);
+    List<Bill> findTop10ByCompanyNameAndVehicleTypeOrderByCreatedAtDesc(String companyName, String vehicleType);
 
     long countByBillDateGreaterThanEqualAndBillDateLessThan(LocalDateTime start, LocalDateTime end);
 

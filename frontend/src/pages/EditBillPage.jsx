@@ -1,11 +1,12 @@
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import api from "../services/api.js";
 import { numberToWords } from "../utils/numberToWords.js";
 import { calculateCharges } from "../utils/pricingUtils.js";
 import { toast } from "sonner";
 import { Undo2, Redo2, RotateCcw } from "lucide-react";
+import AiSuggestions from "../ui/AiSuggestions.jsx";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -28,7 +29,7 @@ const initialForm = {
   contactPerson: "",
   bookedBy: "",
   managerName: "Sri Tulja Bhavani Travels",
-  dynamicCharges: [], // This will hold both system and manual charges
+  dynamicCharges: [],
 };
 
 const inputClass = "w-full border-none bg-transparent px-2 py-1 text-black focus:ring-0 outline-none";
@@ -39,9 +40,8 @@ export default function EditBillPage() {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const [form, setForm] = useState(initialForm);
-  const [manualCharges, setManualCharges] = useState([]); // User added rows
+  const [manualCharges, setManualCharges] = useState([]);
   
-  // History Stack for Undo/Redo
   const [history, setHistory] = useState({
     past: [],
     future: []
@@ -63,8 +63,6 @@ export default function EditBillPage() {
         
         const bill = billRes.data;
         const allCharges = bill.dynamicCharges || [];
-        
-        // Separate system charges from manual ones
         const system = allCharges.filter(c => c.isSystem);
         const manual = allCharges.filter(c => !c.isSystem);
 
@@ -94,13 +92,7 @@ export default function EditBillPage() {
 
         setForm(initialFormData);
         setManualCharges(initialManual);
-        
-        // Initialize history with the first state
-        setHistory({
-          past: [],
-          future: []
-        });
-
+        setHistory({ past: [], future: [] });
         setCompanies(companiesRes.data);
         setVehicles(vehiclesRes.data);
       } catch (err) {
@@ -114,12 +106,9 @@ export default function EditBillPage() {
     fetchData();
   }, [id, navigate]);
 
-  // AUTO-CALCULATION ENGINE
   useEffect(() => {
     if (isLoading) return;
-
     const result = calculateCharges(form.totalKms, form.totalHours, form.vehicleType);
-    
     setForm(prev => ({
       ...prev,
       pricingType: result.pricingType,
@@ -161,7 +150,25 @@ export default function EditBillPage() {
     setManualCharges(newCharges.length > 0 ? newCharges : [{ name: "", calculation: "", amount: "", isSystem: false }]);
   };
 
-  // HISTORY LOGIC
+  const handleApplySuggestion = (field, value) => {
+    saveToHistory();
+    const fieldMap = {
+      'driverBata': 'Driver Bata',
+      'toll': 'Toll',
+      'parking': 'Parking'
+    };
+    const targetName = fieldMap[field] || field;
+    const index = manualCharges.findIndex(c => c.name.toLowerCase() === targetName.toLowerCase());
+    
+    if (index !== -1) {
+      handleManualChargeChange(index, "amount", value);
+      toast.info(`Applied suggestion for ${targetName}`);
+    } else {
+      setManualCharges(prev => [...prev, { name: targetName, calculation: "AI Suggested", amount: value, isSystem: false }]);
+      toast.info(`Added suggestion for ${targetName}`);
+    }
+  };
+
   const saveToHistory = () => {
     setHistory(prev => ({
       past: [...prev.past.slice(-49), { form: JSON.parse(JSON.stringify(form)), manualCharges: JSON.parse(JSON.stringify(manualCharges)) }],
@@ -171,30 +178,24 @@ export default function EditBillPage() {
 
   const undo = () => {
     if (history.past.length === 0) return;
-    
     const previous = history.past[history.past.length - 1];
     const newPast = history.past.slice(0, history.past.length - 1);
-    
     setHistory({
       past: newPast,
       future: [{ form: JSON.parse(JSON.stringify(form)), manualCharges: JSON.parse(JSON.stringify(manualCharges)) }, ...history.future]
     });
-    
     setForm(previous.form);
     setManualCharges(previous.manualCharges);
   };
 
   const redo = () => {
     if (history.future.length === 0) return;
-    
     const next = history.future[0];
     const newFuture = history.future.slice(1);
-    
     setHistory({
       past: [...history.past, { form: JSON.parse(JSON.stringify(form)), manualCharges: JSON.parse(JSON.stringify(manualCharges)) }],
       future: newFuture
     });
-    
     setForm(next.form);
     setManualCharges(next.manualCharges);
   };
@@ -208,7 +209,6 @@ export default function EditBillPage() {
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     setIsSaving(true);
-    
     try {
       const payload = {
         billDate: form.date,
@@ -235,7 +235,6 @@ export default function EditBillPage() {
           isSystem: c.isSystem || false
         }))
       };
-
       await api.put(`/bills/${id}`, payload);
       toast.success("Bill updated successfully");
       navigate(`/bill-view/${id}`);
@@ -261,62 +260,33 @@ export default function EditBillPage() {
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div>
             <h1 className="text-xl font-bold text-black">Edit Bill (Auto-Calculation Active)</h1>
             <p className="text-sm text-slate-500">Bill Number: {form.billNumber}</p>
           </div>
           <div className="flex items-center gap-3">
-            {/* MS Word Style Quick Access Buttons */}
             <div className="flex items-center gap-1 border-r border-slate-200 pr-3 mr-1">
-              <button
-                type="button"
-                onClick={undo}
-                disabled={history.past.length === 0}
-                title="Undo (Ctrl+Z)"
-                className="p-1.5 rounded-none hover:bg-slate-100 text-slate-600 disabled:opacity-30 transition-colors"
-              >
+              <button type="button" onClick={undo} disabled={history.past.length === 0} title="Undo (Ctrl+Z)" className="p-1.5 rounded-none hover:bg-slate-100 text-slate-600 disabled:opacity-30 transition-colors">
                 <Undo2 className="w-4 h-4" />
               </button>
-              <button
-                type="button"
-                onClick={redo}
-                disabled={history.future.length === 0}
-                title="Redo (Ctrl+Y)"
-                className="p-1.5 rounded-none hover:bg-slate-100 text-slate-600 disabled:opacity-30 transition-colors"
-              >
+              <button type="button" onClick={redo} disabled={history.future.length === 0} title="Redo (Ctrl+Y)" className="p-1.5 rounded-none hover:bg-slate-100 text-slate-600 disabled:opacity-30 transition-colors">
                 <Redo2 className="w-4 h-4" />
               </button>
-              <button
-                type="button"
-                onClick={resetToOriginal}
-                title="Reset to Original"
-                className="p-1.5 rounded-none hover:bg-slate-100 text-slate-600 transition-colors"
-              >
+              <button type="button" onClick={resetToOriginal} title="Reset to Original" className="p-1.5 rounded-none hover:bg-slate-100 text-slate-600 transition-colors">
                 <RotateCcw className="w-4 h-4" />
               </button>
             </div>
-
-            <button
-              onClick={() => navigate(-1)}
-              className="rounded-none border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={isSaving}
-              className="rounded-none bg-cyan-600 px-6 py-2 text-sm font-semibold text-white shadow-md hover:bg-cyan-700 disabled:opacity-50"
-            >
+            <button onClick={() => navigate(-1)} className="rounded-none border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+            <button onClick={handleSubmit} disabled={isSaving} className="rounded-none bg-cyan-600 px-6 py-2 text-sm font-semibold text-white shadow-md hover:bg-cyan-700 disabled:opacity-50">
               {isSaving ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto mt-8 max-w-5xl px-6">
-        <form onSubmit={handleSubmit} className="space-y-8 rounded-none border border-slate-200 bg-white p-8 shadow-sm">
-          
+      <main className="mx-auto mt-8 max-w-7xl px-6 grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-8 rounded-none border border-slate-200 bg-white p-8 shadow-sm">
           <section>
             <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">1. Basic Information</h2>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
@@ -387,7 +357,6 @@ export default function EditBillPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* System Charges (Read-only) */}
                   {form.dynamicCharges.map((charge, index) => (
                     <tr key={`sys-${index}`} className="bg-slate-50 italic">
                       <td className="border-t border-slate-300 py-2 text-center text-xs text-slate-400 font-medium">SYS</td>
@@ -400,13 +369,9 @@ export default function EditBillPage() {
                       <td className={`${cellClass} border-t border-l bg-slate-50/50`}>
                         <input type="text" readOnly value={charge.amount} className={`${inputClass} text-right font-bold text-cyan-700`} />
                       </td>
-                      <td className="border-t border-l border-slate-300 text-center">
-                        <span className="text-[10px] font-bold text-slate-300 uppercase">Auto</span>
-                      </td>
+                      <td className="border-t border-l border-slate-300 text-center"><span className="text-[10px] font-bold text-slate-300 uppercase">Auto</span></td>
                     </tr>
                   ))}
-
-                  {/* Manual Charges */}
                   {manualCharges.map((charge, index) => (
                     <tr key={`man-${index}`} className="group hover:bg-cyan-50/30 transition-colors">
                       <td className="border-t border-slate-300 py-2 text-center text-xs text-slate-400 font-medium">{index + 1}</td>
@@ -436,25 +401,14 @@ export default function EditBillPage() {
             </div>
             <p className="text-sm font-medium italic text-slate-500 uppercase">Rupees {amountInWords}</p>
           </section>
-
-          <section className="rounded-none border border-dashed border-slate-200 p-6">
-            <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">4. Office Details</h2>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Customer Person</label>
-                <input type="text" name="contactPerson" value={form.contactPerson} onChange={handleChange} className="w-full rounded-none border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Booked By</label>
-                <input type="text" name="bookedBy" value={form.bookedBy} onChange={handleChange} className="w-full rounded-none border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Manager Signature</label>
-                <input type="text" name="managerName" value={form.managerName} onChange={handleChange} className="w-full rounded-none border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
-              </div>
-            </div>
-          </section>
         </form>
+
+        <aside className="lg:col-span-1 space-y-6">
+           <AiSuggestions 
+             currentBill={{ companyName: form.company, vehicleType: form.vehicleType, totalKms: form.totalKms, totalHours: form.totalHours }} 
+             onApply={handleApplySuggestion}
+           />
+        </aside>
       </main>
     </div>
   );

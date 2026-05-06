@@ -3,6 +3,8 @@ package com.travelbilling.service;
 import com.travelbilling.ai.dto.AiInsightResponse;
 import com.travelbilling.ai.dto.AiAssistantRequest;
 import com.travelbilling.ai.dto.AiAssistantResponse;
+import com.travelbilling.ai.dto.AiSuggestionRequest;
+import com.travelbilling.ai.dto.AiSuggestionResponse;
 import com.travelbilling.ai.service.GeminiService;
 import com.travelbilling.dto.DashboardStatsDTO;
 import com.travelbilling.entity.Bill;
@@ -136,5 +138,47 @@ public class AnalyticsService {
         } catch (Exception e) {
             return List.of();
         }
+    }
+
+    @Transactional(readOnly = true)
+    public AiSuggestionResponse generateSuggestions(AiSuggestionRequest.CurrentBill currentBill) {
+        if (currentBill.getCompanyName() == null || currentBill.getVehicleType() == null) {
+            return AiSuggestionResponse.builder().suggestions(List.of()).build();
+        }
+
+        List<Bill> historicalBills = billRepository.findTop10ByCompanyNameAndVehicleTypeOrderByCreatedAtDesc(
+                currentBill.getCompanyName(), currentBill.getVehicleType());
+
+        if (historicalBills.isEmpty()) {
+            return AiSuggestionResponse.builder().suggestions(List.of()).build();
+        }
+
+        double avgBata = historicalBills.stream().mapToDouble(b -> b.getDriverBata() != null ? b.getDriverBata() : 0.0).average().orElse(0.0);
+        double avgToll = historicalBills.stream().mapToDouble(b -> b.getToll() != null ? b.getToll() : 0.0).average().orElse(0.0);
+        double avgParking = historicalBills.stream().mapToDouble(b -> b.getParking() != null ? b.getParking() : 0.0).average().orElse(0.0);
+
+        List<String> commonCharges = new ArrayList<>();
+        if (historicalBills.stream().filter(b -> b.getDriverBata() != null && b.getDriverBata() > 0).count() > 5) commonCharges.add("Driver Bata");
+        if (historicalBills.stream().filter(b -> b.getToll() != null && b.getToll() > 0).count() > 5) commonCharges.add("Toll");
+        if (historicalBills.stream().filter(b -> b.getParking() != null && b.getParking() > 0).count() > 5) commonCharges.add("Parking");
+
+        AiSuggestionRequest request = AiSuggestionRequest.builder()
+                .currentBill(currentBill)
+                .historicalPatterns(AiSuggestionRequest.HistoricalPatterns.builder()
+                        .averageDriverBata(avgBata)
+                        .averageToll(avgToll)
+                        .averageParking(avgParking)
+                        .commonCharges(commonCharges)
+                        .recentSimilarBills(historicalBills.stream().limit(3).map(b -> {
+                            Map<String, Object> m = new HashMap<>();
+                            m.put("amount", b.getGrandTotal());
+                            m.put("kms", b.getTotalKms());
+                            m.put("hours", b.getTotalHours());
+                            return m;
+                        }).collect(Collectors.toList()))
+                        .build())
+                .build();
+
+        return geminiService.generateSuggestions(request);
     }
 }

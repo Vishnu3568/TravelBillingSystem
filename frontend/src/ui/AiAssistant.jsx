@@ -38,38 +38,6 @@ export default function AiAssistant({ billId = null }) {
         time: new Date() 
       };
       setMessages(prev => [...prev, aiMessage]);
-
-      // --- AGENT ACTION EXECUTION ---
-      if (aiData.action && aiData.action.type === 'CREATE_BILL') {
-        try {
-          const billData = {
-            ...aiData.action.data,
-            billDate: new Date().toISOString().split('T')[0],
-            tripDate: new Date().toISOString().split('T')[0],
-            dutySlipNo: `AI-${Math.floor(Math.random() * 10000)}`,
-            pricingType: 'BASE'
-          };
-          
-          await api.post('/bills', billData);
-          setMessages(prev => [...prev, { 
-            role: 'assistant', 
-            content: `✅ Task Complete: Bill created for ${billData.companyName}. You can see it in Bill History.`,
-            time: new Date() 
-          }]);
-          
-          // Trigger refresh if on dashboard
-          if (window.location.pathname.includes('dashboard')) {
-             setTimeout(() => window.location.reload(), 2000);
-          }
-        } catch (err) {
-          console.error('Agent Action Failed:', err);
-          setMessages(prev => [...prev, { 
-            role: 'assistant', 
-            content: `❌ Task Failed: I tried to create the bill but encountered a system error.`,
-            time: new Date() 
-          }]);
-        }
-      }
     } catch (error) {
       const errorMsg = error.response?.data?.answer || error.response?.data?.message || 'Sorry, I encountered an error connecting to the intelligence server.';
       setMessages(prev => [...prev, { 

@@ -5,6 +5,8 @@ import com.travelbilling.ai.dto.AiSearchFilter;
 import com.travelbilling.ai.dto.AiInsightResponse;
 import com.travelbilling.ai.dto.AiAssistantRequest;
 import com.travelbilling.ai.dto.AiAssistantResponse;
+import com.travelbilling.ai.dto.AiSuggestionRequest;
+import com.travelbilling.ai.dto.AiSuggestionResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.stereotype.Service;
@@ -105,6 +107,16 @@ public class GeminiService {
                     .answer("I'm having trouble connecting to my brain right now. Please ensure the AI service is running.")
                     .confidence(0.0)
                     .build();
+        }
+    }
+
+    public AiSuggestionResponse generateSuggestions(AiSuggestionRequest request) {
+        try {
+            log.info("Delegating suggestions generation to AI Service (Port 9001)...");
+            return restTemplate.postForObject(aiServiceUrl + "/generate-suggestions", request, AiSuggestionResponse.class);
+        } catch (Exception e) {
+            log.error("Failed to generate suggestions via AI", e);
+            return AiSuggestionResponse.builder().suggestions(List.of()).build();
         }
     }
 }

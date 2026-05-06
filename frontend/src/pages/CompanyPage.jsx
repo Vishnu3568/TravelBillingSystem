@@ -15,7 +15,6 @@ import {
 import api from "../services/api";
 import { toast } from "sonner";
 
-
 const CompanyPage = () => {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +25,6 @@ const CompanyPage = () => {
   const [error, setError] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = React.useRef(null);
-
 
   useEffect(() => {
     fetchCompanies();
@@ -81,7 +79,7 @@ const CompanyPage = () => {
         fetchCompanies();
       } catch (err) {
         console.error("Error deleting company:", err);
-        alert("Failed to delete company");
+        toast.error("Failed to delete company");
       }
     }
   };
@@ -135,7 +133,6 @@ const CompanyPage = () => {
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (c.gstNumber && c.gstNumber.toLowerCase().includes(searchQuery.toLowerCase()))
   );
-
 
   return (
     <div className="p-6 bg-slate-50 min-h-screen">
