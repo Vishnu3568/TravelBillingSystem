@@ -1,28 +1,18 @@
 package com.travelbilling.service;
 
-import com.travelbilling.dto.BillRequest;
 import com.travelbilling.dto.BillResponse;
-import com.travelbilling.dto.ChargeDTO;
 import com.travelbilling.entity.Company;
-import com.travelbilling.entity.Vehicle;
 import com.travelbilling.ai.dto.AiBillResponse;
 import com.travelbilling.ai.service.GeminiService;
 import com.travelbilling.repository.BillRepository;
 import com.travelbilling.repository.CompanyRepository;
-import com.travelbilling.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.xwpf.usermodel.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.InputStream;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -32,11 +22,8 @@ public class BulkImportService {
     private final BillService billService;
     private final BillRepository billRepository;
     private final CompanyRepository companyRepository;
-    private final VehicleRepository vehicleRepository;
     private final DocxExtractionService docxExtractionService;
     private final GeminiService geminiService;
-
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
     @Transactional
     public Map<String, Object> importCompanies(MultipartFile[] files) {
