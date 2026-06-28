@@ -1,9 +1,11 @@
 package com.travelbilling.service;
 
 import com.travelbilling.dto.BillRequest;
+import com.travelbilling.dto.BillResponse;
 import com.travelbilling.dto.ChargeDTO;
 import com.travelbilling.entity.Company;
 import com.travelbilling.entity.Vehicle;
+import com.travelbilling.ai.dto.AiBillResponse;
 import com.travelbilling.ai.service.GeminiService;
 import com.travelbilling.repository.BillRepository;
 import com.travelbilling.repository.CompanyRepository;
@@ -96,30 +98,46 @@ public class BulkImportService {
                 if (file.isEmpty()) continue;
                 
                 String fileName = file.getOriginalFilename();
-                BillRequest request = parseDocx(file);
+                log.info("Starting AI-assisted bulk bill import for file: {}", fileName);
                 
-                if (request == null) {
+                String rawText = docxExtractionService.extractRawText(file);
+                List<AiBillResponse> aiResponses = geminiService.parseBillText(rawText);
+                
+                if (aiResponses.isEmpty()) {
                     failureCount++;
-                    errors.add(fileName + ": Failed to parse content");
+                    errors.add(fileName + ": AI failed to extract any bills.");
                     continue;
                 }
-
-                // Handle Duplicates based on Duty Slip + Company
-                if (billRepository.existsByDutySlipNoAndCompanyName(request.getDutySlipNo(), request.getCompanyName())) {
-                    duplicateCount++;
-                    continue;
+                
+                List<BillResponse> savedList = billService.saveAiParsedBills(aiResponses, createdBy);
+                
+                if (savedList.isEmpty()) {
+                    // Check if they were all duplicates
+                    boolean allDuplicates = true;
+                    for (AiBillResponse ai : aiResponses) {
+                        String dsNo = ai.getDutySlipNo();
+                        if (dsNo == null || dsNo.trim().isEmpty() || "---".equals(dsNo)) {
+                            allDuplicates = false;
+                            break;
+                        }
+                        if (!billRepository.existsByDutySlipNoAndCompanyName(dsNo, ai.getCompanyName())) {
+                            allDuplicates = false;
+                            break;
+                        }
+                    }
+                    if (allDuplicates) {
+                        duplicateCount += aiResponses.size();
+                    } else {
+                        failureCount++;
+                        errors.add(fileName + ": Failed to save AI parsed bills.");
+                    }
+                } else {
+                    successCount += savedList.size();
+                    if (savedList.size() < aiResponses.size()) {
+                        duplicateCount += (aiResponses.size() - savedList.size());
+                    }
                 }
-
-                // Ensure Company exists
-                findOrCreateCompany(request.getCompanyName(), request.getNotes()); // Using notes as temp address if found
-
-                // Ensure Vehicle exists
-                findOrCreateVehicle(request.getVehicleName(), request.getVehicleType());
-
-                // Create Bill
-                billService.createBill(request, createdBy);
-                successCount++;
-
+                
             } catch (Exception e) {
                 log.error("Import failed for file: " + file.getOriginalFilename(), e);
                 failureCount++;

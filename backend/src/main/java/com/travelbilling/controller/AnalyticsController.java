@@ -27,8 +27,9 @@ public class AnalyticsController {
     @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
     public ResponseEntity<AiAssistantResponse> askAssistant(
             @RequestParam String query,
-            @RequestParam(required = false) Long billId) {
-        return ResponseEntity.ok(analyticsService.askAssistant(query, billId));
+            @RequestParam(required = false) Long billId,
+            java.security.Principal principal) {
+        return ResponseEntity.ok(analyticsService.askAssistant(query, billId, principal.getName()));
     }
 
     @PostMapping("/suggestions")

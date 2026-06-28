@@ -110,6 +110,11 @@ public class BillService {
 
         Bill saved = billRepository.save(bill);
         auditLogService.logAction("CREATE_BILL", "BILL", "Bill " + saved.getBillNumber() + " created for " + saved.getCompanyName());
+        try {
+            geminiService.indexBill(saved.getId(), formatBillText(saved));
+        } catch (Exception ex) {
+            log.warn("Failed to index bill #{} on create: {}", saved.getId(), ex.getMessage());
+        }
         return toResponse(saved);
     }
 
@@ -140,6 +145,11 @@ public class BillService {
                     req.setDutySlipNo("AI-" + (System.currentTimeMillis() % 10000));
                 } else {
                     req.setDutySlipNo(ai.getDutySlipNo());
+                }
+                
+                if (billRepository.existsByDutySlipNoAndCompanyName(req.getDutySlipNo(), req.getCompanyName())) {
+                    log.info("Duplicate AI bill skipped: {} for company {}", req.getDutySlipNo(), req.getCompanyName());
+                    continue;
                 }
                 
                 req.setTripType("Outstation"); // Default
@@ -210,6 +220,11 @@ public class BillService {
 
         Bill saved = billRepository.save(bill);
         auditLogService.logAction("UPDATE_BILL", "BILL", "Bill " + saved.getBillNumber() + " updated");
+        try {
+            geminiService.indexBill(saved.getId(), formatBillText(saved));
+        } catch (Exception ex) {
+            log.warn("Failed to index bill #{} on update: {}", saved.getId(), ex.getMessage());
+        }
         return toResponse(saved);
     }
 
@@ -472,5 +487,18 @@ public class BillService {
             log.error("Error deserializing charges", e);
             return Collections.emptyList();
         }
+    }
+
+    private String formatBillText(Bill bill) {
+        return String.format("Bill Number: %s, Date: %s, Company: %s, Vehicle: %s (%s), KMS: %.1f, Hours: %.1f, Total Amount: %.2f, Notes: %s",
+            bill.getBillNumber(), 
+            bill.getBillDate() != null ? bill.getBillDate().toString() : "N/A", 
+            resolveCompanyName(bill), 
+            resolveVehicleName(bill), 
+            bill.getVehicleType() != null ? bill.getVehicleType() : "N/A",
+            safeAmount(bill.getTotalKms()), 
+            safeAmount(bill.getTotalHours()), 
+            bill.getGrandTotal() != null ? bill.getGrandTotal() : 0.0, 
+            bill.getNotes() != null ? bill.getNotes() : "");
     }
 }

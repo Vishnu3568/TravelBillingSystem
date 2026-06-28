@@ -119,4 +119,17 @@ public class GeminiService {
             return AiSuggestionResponse.builder().suggestions(List.of()).build();
         }
     }
+
+    public void indexBill(Long billId, String text) {
+        try {
+            Map<String, Object> request = new HashMap<>();
+            request.put("billId", billId);
+            request.put("text", text);
+            
+            log.info("Indexing bill #{} in AI Vector Store...", billId);
+            restTemplate.postForObject(aiServiceUrl + "/index-bill", request, Map.class);
+        } catch (Exception e) {
+            log.warn("Failed to index bill #{} in AI Vector Store: {}", billId, e.getMessage());
+        }
+    }
 }

@@ -16,6 +16,7 @@ public class AiAssistantRequest {
     private BillData billData;
     private AggregatedData aggregatedData;
     private String userQuery;
+    private String sessionId;
 
     @Data
     @NoArgsConstructor

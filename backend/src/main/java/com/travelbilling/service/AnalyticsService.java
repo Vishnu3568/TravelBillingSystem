@@ -76,9 +76,10 @@ public class AnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public AiAssistantResponse askAssistant(String query, Long billId) {
+    public AiAssistantResponse askAssistant(String query, Long billId, String username) {
         AiAssistantRequest.AiAssistantRequestBuilder requestBuilder = AiAssistantRequest.builder()
-                .userQuery(query);
+                .userQuery(query)
+                .sessionId(username + (billId != null ? "_bill_" + billId : "_global"));
 
         if (billId != null) {
             Bill bill = billRepository.findById(billId).orElse(null);
