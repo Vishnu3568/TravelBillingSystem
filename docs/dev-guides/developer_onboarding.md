@@ -11,11 +11,11 @@ The application is structured into a 3-tier architecture with an auxiliary AI mi
 ```
 +------------------+         REST API         +---------------------+
 |                  | <----------------------> |                     |
-|  React Frontend  |     (JWT Authorized)     | Spring Boot Backend |
-|   (Vite, Port    |                          |   (Port 9000, Java) |
+|  React Frontend  |     (JWT Authorized)     |   FastAPI Backend   |
+|   (Vite, Port    |                          |  (Port 9000, Python)|
 |      5173)       |                          +----------+----------+
 +------------------+                                     |
-                                                         | JPA / Hibernate
+                                                         | SQLAlchemy ORM
                                                          v
 +------------------+         REST API         +---------------------+
 |                  | <----------------------> |                     |
@@ -38,8 +38,7 @@ The application is structured into a 3-tier architecture with an auxiliary AI mi
 ## 2. Local Environment Setup
 
 ### Prerequisites
-*   Java Development Kit (JDK) 21
-*   Maven 3.8+
+*   Python 3.11+
 *   Node.js v18+ & npm
 *   MySQL 8.0+
 
@@ -48,7 +47,7 @@ The application is structured into a 3-tier architecture with an auxiliary AI mi
    ```sql
    CREATE DATABASE travelbillingdb;
    ```
-2. Set credentials in `backend/src/main/resources/application.properties` (defaults to root/root).
+2. Set credentials in `backend/.env` (defaults to root/root).
 3. If seeding from a dump, run the restore script:
    ```powershell
    cd database/scripts
@@ -64,7 +63,7 @@ The application is structured into a 3-tier architecture with an auxiliary AI mi
    ```env
    PORT=9001
    GEMINI_API_KEY=your_gemini_api_key_here
-   GEMINI_MODEL=gemini-1.5-flash
+   GEMINI_MODEL=gemini-2.0-flash
    ```
 3. Install dependencies and start:
    ```bash
@@ -72,15 +71,20 @@ The application is structured into a 3-tier architecture with an auxiliary AI mi
    npm run dev
    ```
 
-### Running the Spring Boot Backend
+### Running the FastAPI Backend
 1. Navigate to the `backend/` folder:
    ```bash
    cd backend
    ```
-2. Configure environmental variables or pass them to properties (e.g. set `GEMINI_API_KEY` env var).
-3. Start the application:
-   ```bash
-   mvn spring-boot:run
+2. Create your virtual environment and install packages:
+   ```powershell
+   python -m venv .venv
+   .venv\Scripts\pip install -r requirements.txt
+   ```
+3. Configure environmental variables in `.env` (database details, JWT secrets, Gemini URL).
+4. Start the application:
+   ```powershell
+   .venv\Scripts\python -m uvicorn app.main:app --port 9000 --reload
    ```
    The backend will start on `http://localhost:9000`.
 
@@ -102,4 +106,4 @@ The application is structured into a 3-tier architecture with an auxiliary AI mi
 
 *   **Authentication**: Frontend requests token from `POST /api/auth/login`. Subsequent API requests use the token in `Authorization: Bearer <token>` header.
 *   **AI Search**: Frontend calls backend `GET /api/bills/search/nl?query=...`. The backend delegates parsing to AI microservice `POST /api/ai/nl-search` to obtain standard query predicates.
-*   **AI Bill Import**: Users upload `.docx` duty slips in the browser. The frontend calls `POST /api/import/ai-parse`. The backend extracts raw text using Apache POI, segments the document into 8,000 character chunks, and delegates text parsing to the AI microservice at `POST /api/ai/parse-bill`.
+*   **AI Bill Import**: Users upload `.docx` or `.doc` duty slips in the browser. The frontend calls `POST /api/import/ai-parse`. The backend extracts raw text using `python-docx` (or binary OLE decoder for legacy files), segments the document, and delegates text parsing to the AI microservice at `POST /api/ai/parse-bill`.

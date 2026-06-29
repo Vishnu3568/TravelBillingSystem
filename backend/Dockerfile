@@ -1,13 +1,20 @@
-# Stage 1: Build the Spring Boot application
-FROM maven:3.9.6-eclipse-temurin-21 AS build
-WORKDIR /app
-COPY pom.xml .
-COPY src ./src
-RUN mvn clean package -DskipTests
+FROM python:3.11-slim
 
-# Stage 2: Runtime image
-FROM eclipse-temurin:21-jre-jammy
+# Install system dependencies (including mysql client for backup/restore utilities)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    default-mysql-client \
+    gcc \
+    libc6-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
-COPY --from=build /app/target/travel-billing-backend-0.0.1-SNAPSHOT.jar app.jar
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
 EXPOSE 9000
-ENTRYPOINT ["java", "-jar", "app.jar"]
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9000"]

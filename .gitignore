@@ -43,3 +43,13 @@ vite.*.log
 .mtj.tmp/
 hs_err_pid*
 replay_pid*
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
