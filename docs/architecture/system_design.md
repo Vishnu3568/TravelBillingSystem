@@ -77,7 +77,7 @@ classDiagram
 
 ## 2. Dynamic Pricing Logic
 
-The backend calculates the invoice total in `BillService.java` based on a combination of base rates and dynamic adjustments:
+The backend calculates the invoice total in `bills.py` based on a combination of base rates and dynamic adjustments:
 
 $$\text{Grand Total} = \text{Base Amount} + \sum \text{Dynamic Charges}$$
 

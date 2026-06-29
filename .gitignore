@@ -1,48 +1,12 @@
 # System Port Configuration
 # Frontend (Vite): 5173
-# Backend (Spring Boot): 9000
+# Backend (FastAPI): 9000
+# AI Service (Express): 9001
 # Database (MySQL): 3306
-
-dist/
-# Java
-target/
-*.class
-*.jar
 
 # Node
 node_modules/
 dist/
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs and Backups
-*.log
-backups/
-backend_log*.txt
-vite.*.log
-
-# Env
-.env
-
-# Maven Wrapper logs
-.mvn/wrapper/maven-wrapper.jar
-# Additional patterns from remote
-*.war
-*.nar
-*.ear
-*.zip
-*.tar.gz
-*.rar
-.ctxt
-.mtj.tmp/
-hs_err_pid*
-replay_pid*
 
 # Python
 .venv/
@@ -53,3 +17,19 @@ __pycache__/
 *.pyd
 .pytest_cache/
 
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Env
+.env
+
+# Backups (runtime generated)
+backups/
