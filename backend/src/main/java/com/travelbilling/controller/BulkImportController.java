@@ -3,6 +3,7 @@ package com.travelbilling.controller;
 import com.travelbilling.service.BulkImportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -17,6 +18,7 @@ public class BulkImportController {
     private final BulkImportService bulkImportService;
 
     @PostMapping("/bills")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<?> importBills(
             @RequestParam("files") MultipartFile[] files,
             Authentication authentication) {
@@ -28,6 +30,7 @@ public class BulkImportController {
     }
 
     @PostMapping("/companies")
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
     public ResponseEntity<?> importCompanies(@RequestParam("files") MultipartFile[] files) {
         Map<String, Object> summary = bulkImportService.importCompanies(files);
         return ResponseEntity.ok(summary);

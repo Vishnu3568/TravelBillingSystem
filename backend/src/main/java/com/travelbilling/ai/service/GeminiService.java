@@ -22,15 +22,23 @@ public class GeminiService {
 
     private final RestTemplate restTemplate;
 
-    public GeminiService() {
+    private String aiServiceUrl;
+
+    public GeminiService(
+            @org.springframework.beans.factory.annotation.Value("${google.ai.service-url:http://localhost:9001/api/ai}") String aiServiceUrl,
+            @org.springframework.beans.factory.annotation.Value("${google.ai.internal-api-key:}") String internalApiKey) {
+        this.aiServiceUrl = aiServiceUrl;
         this.restTemplate = new RestTemplateBuilder()
                 .setConnectTimeout(java.time.Duration.ofMinutes(5))
                 .setReadTimeout(java.time.Duration.ofMinutes(5))
+                .additionalInterceptors((request, body, execution) -> {
+                    if (internalApiKey != null && !internalApiKey.isBlank()) {
+                        request.getHeaders().add("x-api-key", internalApiKey);
+                    }
+                    return execution.execute(request, body);
+                })
                 .build();
     }
-
-    @org.springframework.beans.factory.annotation.Value("${google.ai.service-url:http://localhost:9001/api/ai}")
-    private String aiServiceUrl;
 
     public List<AiBillResponse> parseBillText(String rawText) {
         try {

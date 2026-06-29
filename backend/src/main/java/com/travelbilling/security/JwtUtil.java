@@ -14,12 +14,28 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtUtil {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(JwtUtil.class);
+    
     private final SecretKey signingKey;
     private final long expirationMillis;
 
     public JwtUtil(
             @Value("${jwt.secret:travel-billing-default-secret-key-change-me-please-32chars}") String secret,
-            @Value("${jwt.expiration-ms:86400000}") long expirationMillis) {
+            @Value("${jwt.expiration-ms:86400000}") long expirationMillis,
+            org.springframework.core.env.Environment env) {
+        
+        if ("travel-billing-default-secret-key-change-me-please-32chars".equals(secret)) {
+            boolean isProd = java.util.Arrays.asList(env.getActiveProfiles()).contains("prod");
+            if (isProd) {
+                throw new IllegalStateException("CRITICAL SECURITY ERROR: Cannot start application in production ('prod' profile) with default fallback JWT secret key!");
+            } else {
+                log.warn("========================================================================");
+                log.warn("  WARNING: USING DEFAULT INSECURE FALLBACK JWT SECRET KEY!");
+                log.warn("  Please configure 'JWT_SECRET' environment variable for production.");
+                log.warn("========================================================================");
+            }
+        }
+        
         this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationMillis = expirationMillis;
     }

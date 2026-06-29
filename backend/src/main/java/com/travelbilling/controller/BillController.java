@@ -108,6 +108,7 @@ public class BillController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
     public ResponseEntity<BillResponse> updateBill(
             @PathVariable Long id,
             @Valid @RequestBody BillRequest request) {

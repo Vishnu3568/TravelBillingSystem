@@ -10,6 +10,20 @@ app.use(express.json({ limit: '10mb' }));
 const port = process.env.PORT || 9001;
 const apiKey = process.env.GEMINI_API_KEY;
 const modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+const internalApiKey = process.env.INTERNAL_API_KEY;
+
+if (internalApiKey) {
+    console.log('🔒 AI Service security enabled. x-api-key header will be verified.');
+    app.use((req, res, next) => {
+        const clientKey = req.headers['x-api-key'];
+        if (!clientKey || clientKey !== internalApiKey) {
+            return res.status(401).json({ error: 'Unauthorized: Invalid or missing x-api-key header.' });
+        }
+        next();
+    });
+} else {
+    console.warn('⚠️ WARNING: INTERNAL_API_KEY is not set. AI Service endpoints are unauthenticated.');
+}
 
 if (!apiKey) {
     console.error('CRITICAL: GEMINI_API_KEY is not set.');
