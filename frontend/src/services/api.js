@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:9000/api",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:9000/api",
   headers: {
     "Content-Type": "application/json",
   },
@@ -14,5 +14,21 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem("jwtToken");
+      localStorage.removeItem("username");
+      localStorage.removeItem("role");
+      
+      if (!window.location.pathname.endsWith("/login")) {
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;

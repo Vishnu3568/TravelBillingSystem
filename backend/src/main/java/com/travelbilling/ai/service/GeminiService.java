@@ -29,7 +29,8 @@ public class GeminiService {
                 .build();
     }
 
-    private final String aiServiceUrl = "http://localhost:9001/api/ai";
+    @org.springframework.beans.factory.annotation.Value("${google.ai.service-url:http://localhost:9001/api/ai}")
+    private String aiServiceUrl;
 
     public List<AiBillResponse> parseBillText(String rawText) {
         try {
