@@ -69,7 +69,6 @@ const VehiclePage = () => {
   };
 
   const handleDelete = async (id) => {
-    console.log("handleDelete called for vehicle id:", id);
     if (window.confirm("Are you sure you want to delete this vehicle?")) {
       try {
         await api.delete(`/vehicles/${id}`);

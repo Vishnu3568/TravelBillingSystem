@@ -14,3 +14,16 @@ class User(Base):
     active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
+
+    @property
+    def fullName(self):
+        return self.full_name
+
+    @property
+    def createdAt(self):
+        return self.created_at
+
+    @property
+    def updatedAt(self):
+        return self.updated_at
+

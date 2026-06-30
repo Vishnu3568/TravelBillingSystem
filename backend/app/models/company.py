@@ -13,4 +13,17 @@ class Company(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
 
+    @property
+    def gstNumber(self):
+        return self.gst_number
+
+    @property
+    def createdAt(self):
+        return self.created_at
+
+    @property
+    def updatedAt(self):
+        return self.updated_at
+
     bills = relationship("Bill", back_populates="company")
+

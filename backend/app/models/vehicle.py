@@ -13,4 +13,17 @@ class Vehicle(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
 
+    @property
+    def registrationNumber(self):
+        return self.registration_number
+
+    @property
+    def createdAt(self):
+        return self.created_at
+
+    @property
+    def updatedAt(self):
+        return self.updated_at
+
     bills = relationship("Bill", back_populates="vehicle")
+

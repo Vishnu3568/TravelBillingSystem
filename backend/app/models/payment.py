@@ -12,5 +12,22 @@ class Payment(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
 
+    @property
+    def paymentDate(self):
+        return self.payment_date
+
+    @property
+    def createdAt(self):
+        return self.created_at
+
+    @property
+    def updatedAt(self):
+        return self.updated_at
+
+    @property
+    def billId(self):
+        return self.bill_id
+
     bill_id = Column(Integer, ForeignKey("bills.id"), nullable=True)
     bill = relationship("Bill", back_populates="payments")
+

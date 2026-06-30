@@ -8,11 +8,7 @@ export default function SettingsPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [passwords, setPasswords] = useState({ current: 'admin123', next: '', confirm: '' });
 
-  // Simulate fetching password from DB on mount
-  React.useEffect(() => {
-    // In a real app, you'd do: api.get('/user/profile').then(...)
-    console.log("Fetching password from database... Done.");
-  }, []);
+
 
   const handlePasswordChange = (e) => {
     e.preventDefault();
