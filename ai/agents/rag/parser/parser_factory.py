@@ -19,7 +19,9 @@ class ParserFactory:
         ".xlsx": ExcelParser(),
         ".xls": ExcelParser(),
         ".docx": DocxParser(),
+        ".doc": DocxParser(),
         ".pptx": PptxParser(),
+
         ".pdf": PdfParser()
     }
     
