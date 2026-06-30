@@ -11,7 +11,9 @@ class EmbeddingsFactory:
     @staticmethod
     def get_embeddings(strategy: str = None) -> BaseEmbeddings:
         if strategy is None:
-            if settings.GEMINI_API_KEY:
+            key = settings.GEMINI_API_KEY
+            # Only use gemini if key is present and not the default mock placeholder
+            if key and key != "AIzaSyDmncG2GztNQgfJhXuGIRE1ej2Q9ghEVoc" and not key.startswith("YOUR_"):
                 strategy = "gemini"
             else:
                 strategy = "mock"
@@ -22,3 +24,4 @@ class EmbeddingsFactory:
             return EmbeddingsFactory._gemini_client
             
         return EmbeddingsFactory._mock_client
+

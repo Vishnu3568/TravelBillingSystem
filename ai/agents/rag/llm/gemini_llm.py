@@ -13,9 +13,11 @@ class GeminiLlmClient(BaseLlmClient):
         self.api_key = settings.GEMINI_API_KEY
 
     def generate_response(self, system_instruction: str, prompt: str) -> str:
-        if not self.api_key:
-            logger.warning("Gemini API key is missing. Falling back to local Ollama...")
+        # Check if the API key is not configured or is the default mock placeholder
+        if not self.api_key or self.api_key == "AIzaSyDmncG2GztNQgfJhXuGIRE1ej2Q9ghEVoc" or self.api_key.startswith("YOUR_"):
+            logger.warning("Gemini API key is missing or is placeholder. Falling back to local Ollama...")
             return self._generate_ollama(prompt, system_instruction)
+
             
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}:generateContent?key={self.api_key}"
         headers = {"Content-Type": "application/json"}

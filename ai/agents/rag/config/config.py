@@ -1,5 +1,13 @@
 import os
 from pydantic import BaseModel
+from dotenv import load_dotenv
+
+# Try loading from project root or backend/ paths
+for path in [".env", "backend/.env", "../.env", "../../.env", "../../../.env"]:
+    if os.path.exists(path):
+        load_dotenv(path)
+        break
+
 
 class Settings(BaseModel):
     PORT: int = int(os.getenv("RAG_PORT", 9002))
