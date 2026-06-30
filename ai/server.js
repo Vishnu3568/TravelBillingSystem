@@ -79,10 +79,18 @@ async function getEmbedding(text) {
         const result = await model.embedContent(text);
         return result.embedding.values;
     } catch (e) {
-        console.warn("[Embedding API] Failed to fetch embedding, returning null vector:", e.message);
-        return null;
+        try {
+            console.warn("[Embedding API] text-embedding-004 failed, falling back to embedding-001:", e.message);
+            const model = genAI.getGenerativeModel({ model: "embedding-001" });
+            const result = await model.embedContent(text);
+            return result.embedding.values;
+        } catch (err) {
+            console.error("[Embedding API] Failed to fetch embedding, returning null vector:", err.message);
+            return null;
+        }
     }
 }
+
 
 // Helper to communicate with local Ollama Llama3 instance
 const http = require('http');
