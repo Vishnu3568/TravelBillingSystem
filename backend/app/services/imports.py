@@ -153,3 +153,46 @@ class BulkImportService:
             "failureCount": failure_count,
             "errors": errors
         }
+
+    @staticmethod
+    def parse_bills_only(files: List[Dict[str, Any]]) -> List[AiBillResponse]:
+        all_parsed = []
+        for f in files:
+            file_name = f.get("filename", "unknown")
+            file_bytes = f.get("content", b"")
+            if not file_bytes:
+                continue
+
+            try:
+                logger.info(f"AI parsing file for preview: {file_name}")
+                raw_text = DocxExtractionService.extract_raw_text(file_bytes, file_name)
+                ai_responses_dicts = gemini_service.parse_bill_text(raw_text)
+
+                if not ai_responses_dicts:
+                    continue
+
+                for res_dict in ai_responses_dicts:
+                    chgs = []
+                    if "dynamicCharges" in res_dict and res_dict["dynamicCharges"]:
+                        for c in res_dict["dynamicCharges"]:
+                            chgs.append(c)
+                    elif "charges" in res_dict and res_dict["charges"]:
+                        for c in res_dict["charges"]:
+                            chgs.append(c)
+
+                    all_parsed.append(AiBillResponse(
+                        dutySlipNo=res_dict.get("dutySlipNo") or res_dict.get("billNumber"),
+                        billDate=res_dict.get("billDate") or res_dict.get("date"),
+                        companyName=res_dict.get("companyName"),
+                        vehicleNumber=res_dict.get("vehicleNumber"),
+                        vehicleType=res_dict.get("vehicleType"),
+                        totalKms=res_dict.get("totalKms") or res_dict.get("totalKm"),
+                        totalHours=res_dict.get("totalHours"),
+                        dynamicCharges=chgs,
+                        totalAmount=res_dict.get("totalAmount"),
+                        warnings=res_dict.get("warnings")
+                    ))
+            except Exception as e:
+                logger.error(f"Preview parsing failed for file {file_name}: {e}")
+        return all_parsed
+

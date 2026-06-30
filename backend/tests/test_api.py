@@ -320,6 +320,33 @@ def test_ai_search_nl_explain(mock_post):
     assert response.json()["companyName"] == "Ashapura Travels"
     assert response.json()["minAmount"] == 5000.0
 
+@patch("app.services.imports.DocxExtractionService.extract_raw_text")
+@patch("app.services.imports.gemini_service.parse_bill_text")
+def test_ai_parse_endpoint(mock_parse_bill, mock_extract_text):
+    owner_headers = get_auth_headers("owner_test", "OWNER")
+    
+    mock_extract_text.return_value = "raw extracted text from docx"
+    mock_parse_bill.return_value = [
+        {
+            "dutySlipNo": "DS-9041-TEST",
+            "billDate": "2026-06-30",
+            "companyName": "Ashapura Travels",
+            "vehicleNumber": "AP-10-XX-9999",
+            "vehicleType": "Sedan",
+            "totalKms": 300.0,
+            "totalHours": 12.0,
+            "dynamicCharges": [],
+            "totalAmount": 3300.0,
+            "warnings": None
+        }
+    ]
+    
+    files = {"files": ("test.docx", b"dummy file content", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
+    response = client.post("/api/import/ai-parse", files=files, headers=owner_headers)
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["dutySlipNo"] == "DS-9041-TEST"
+
 # ==========================================
 # REPORTS, DASHBOARDS, BACKUPS & AUDIT TESTS
 # ==========================================
