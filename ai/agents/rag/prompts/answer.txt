@@ -1,0 +1,19 @@
+User Query: "{query}"
+
+CONTEXT:
+{context}
+
+Please generate a structured answer. Answer strictly using the context blocks above.
+OUTPUT FORMAT (JSON):
+{{
+  "answer": "Your answer string...",
+  "confidence": 0.95,
+  "citations": [
+     {{
+       "document_name": "example.pdf",
+       "page_number": 1,
+       "chunk_id": "chunk_abc",
+       "similarity_score": 0.88
+     }}
+  ]
+}}
