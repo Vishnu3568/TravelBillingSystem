@@ -30,6 +30,14 @@ Thumbs.db
 
 # Env
 .env
+.env.*
+!.env.example
 
 # Backups (runtime generated)
 backups/
+
+# RAG local runtime files
+vector_index.pkl
+.cache/
+*.db
+
