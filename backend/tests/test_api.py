@@ -16,6 +16,8 @@ from app.models.bill import Bill
 from app.models.payment import Payment
 from app.models.audit_log import AuditLog
 from app.utils.security import hash_password, create_access_token
+from app.services.docx_segmenter import BillChunk
+
 
 TEST_DB_FILE = "./test_temp.db"
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{TEST_DB_FILE}"
@@ -320,32 +322,87 @@ def test_ai_search_nl_explain(mock_post):
     assert response.json()["companyName"] == "Ashapura Travels"
     assert response.json()["minAmount"] == 5000.0
 
-@patch("app.services.imports.DocxExtractionService.extract_raw_text")
-@patch("app.services.imports.gemini_service.parse_bill_text")
-def test_ai_parse_endpoint(mock_parse_bill, mock_extract_text):
+@patch("app.services.imports.DocxSegmenterService.segment_docx")
+@patch("app.services.imports.AiExtractionService.extract_page_data")
+def test_ai_parse_endpoint(mock_extract, mock_segment):
     owner_headers = get_auth_headers("owner_test", "OWNER")
     
-    mock_extract_text.return_value = "raw extracted text from docx"
-    mock_parse_bill.return_value = [
-        {
-            "dutySlipNo": "DS-9041-TEST",
-            "billDate": "2026-06-30",
-            "companyName": "Ashapura Travels",
-            "vehicleNumber": "AP-10-XX-9999",
-            "vehicleType": "Sedan",
-            "totalKms": 300.0,
-            "totalHours": 12.0,
-            "dynamicCharges": [],
-            "totalAmount": 3300.0,
-            "warnings": None
-        }
+    mock_segment.return_value = [
+        BillChunk(
+            page_number=1,
+            company_name="Ashapura Travels",
+            raw_text="raw extracted text",
+            extracted_tables=[]
+        )
     ]
+    mock_extract.return_value = {
+        "company": "Ashapura Travels",
+        "billNumber": "DS-9041-TEST",
+        "invoiceNumber": "DS-9041-TEST",
+        "dutySlip": "DS-9041-TEST",
+        "vehicleNumber": "AP-10-XX-9999",
+        "vehicleType": "Sedan",
+        "driver": "Ramesh",
+        "reportingDate": "2026-06-30",
+        "totalHours": 12.0,
+        "totalKilometers": 300.0,
+        "toll": 200.0,
+        "parking": 150.0,
+        "driverBata": 300.0,
+        "totalAmount": 3300.0
+    }
     
     files = {"files": ("test.docx", b"dummy file content", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
     response = client.post("/api/import/ai-parse", files=files, headers=owner_headers)
     assert response.status_code == 200
     assert len(response.json()) == 1
     assert response.json()[0]["dutySlipNo"] == "DS-9041-TEST"
+
+def test_validation_service_checks():
+    from app.services.validation_service import ValidationService
+    from app.schemas.ai import AiBillResponse, AiBillCharge
+    from sqlalchemy.orm import Session
+    
+    db = TestingSessionLocal()
+    
+    # Test valid bill (should return 0 warnings)
+    valid_bill = AiBillResponse(
+        dutySlipNo="DS-VAL-101",
+        billDate="2026-06-30",
+        companyName="Val Corp",
+        vehicleNumber="AP-10-XY-1234",
+        vehicleType="SUV",
+        totalKms=100.0,
+        totalHours=10.0,
+        dynamicCharges=[
+            AiBillCharge(name="Toll", amount=100.0),
+            AiBillCharge(name="Parking", amount=50.0)
+        ],
+        totalAmount=2500.0
+    )
+    warnings = ValidationService.validate_bill(db, valid_bill)
+    assert len(warnings) == 0
+    
+    # Test invalid bill with warnings
+    invalid_bill = AiBillResponse(
+        dutySlipNo="", # Missing
+        billDate="30/06/2026", # Invalid format
+        companyName="Val Corp",
+        vehicleNumber="INVALID_PLATE", # Malformed
+        vehicleType="SUV",
+        dynamicCharges=[
+            AiBillCharge(name="Toll", amount=3000.0) # Sum exceeds total amount
+        ],
+        totalAmount=1000.0
+    )
+    warnings = ValidationService.validate_bill(db, invalid_bill)
+    assert len(warnings) > 0
+    assert any("Missing mandatory field" in w for w in warnings)
+    assert any("Invalid date format" in w for w in warnings)
+    assert any("Malformed vehicle" in w for w in warnings)
+    assert any("Arithmetic warning" in w for w in warnings)
+    db.close()
+
 
 # ==========================================
 # REPORTS, DASHBOARDS, BACKUPS & AUDIT TESTS

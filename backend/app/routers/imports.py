@@ -15,6 +15,7 @@ manager_guard = RoleChecker(["OWNER", "MANAGER"])
 @router.post("/ai-parse", response_model=List[AiBillResponse])
 async def ai_parse(
     files: List[UploadFile] = File(...),
+    db: Session = Depends(get_db),
     current_user: dict = Depends(owner_guard)
 ):
     files_data = []
@@ -25,7 +26,8 @@ async def ai_parse(
             "content": content
         })
         
-    return BulkImportService.parse_bills_only(files_data)
+    return BulkImportService.parse_bills_only(db, files_data)
+
 
 
 @router.post("/bills")
