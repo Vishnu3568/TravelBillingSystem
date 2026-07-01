@@ -262,6 +262,21 @@ class BillService:
         )
 
     @staticmethod
+    def delete_all_bills(db: Session, current_user: str, current_role: str, ip: str):
+        db.query(Bill).delete()
+        db.commit()
+
+        AuditLogService.log_action(
+            db=db,
+            action="DELETE_ALL_BILLS",
+            module="BILL",
+            description="All bills deleted from database",
+            username=current_user,
+            role=current_role,
+            ip_address=ip
+        )
+
+    @staticmethod
     def get_bills(db: Session, page: int, size: int) -> Tuple[List[Bill], int]:
         query = db.query(Bill).order_by(Bill.created_at.desc())
         total = query.count()

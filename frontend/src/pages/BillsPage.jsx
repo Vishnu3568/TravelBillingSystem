@@ -165,6 +165,51 @@ export default function BillsPage() {
     fetchBills(0, resetFilters);
   };
 
+  const handleDeleteAll = async () => {
+    const result = await Swal.fire({
+      title: "Are you absolutely sure?",
+      text: "This will permanently delete ALL bill/invoice data from the database. This action CANNOT be undone!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, delete everything!",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#e11d48",
+      cancelButtonColor: "#000000",
+      background: "#ffffff",
+      customClass: {
+        popup: 'rounded-none border-[3px] border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]',
+        title: 'text-2xl font-black uppercase tracking-tight text-rose-600',
+        confirmButton: 'rounded-none font-bold uppercase tracking-widest text-xs px-8 py-3 bg-rose-600 text-white',
+        cancelButton: 'rounded-none font-bold uppercase tracking-widest text-xs px-8 py-3 bg-black text-white'
+      }
+    });
+
+    if (result.isConfirmed) {
+      try {
+        setLoading(true);
+        await api.delete("/bills");
+        Swal.fire({
+          title: "Deleted!",
+          text: "All bill data has been removed.",
+          icon: "success",
+          confirmButtonColor: "#000"
+        });
+        fetchBills(0);
+      } catch (error) {
+        console.error("Failed to delete all bills:", error);
+        const errMsg = error.response?.data?.detail || "You do not have permission to delete all bills (Owner access required).";
+        Swal.fire({
+          title: "Error",
+          text: errMsg,
+          icon: "error",
+          confirmButtonColor: "#000"
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   const handlePageChange = (newPage) => {
     if (newPage >= 0 && newPage < totalPages) {
       fetchBills(newPage, filters, isNlSearching ? nlQuery : null);
@@ -236,7 +281,7 @@ export default function BillsPage() {
   return (
     <div className="p-6 bg-slate-50 min-h-screen text-black">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="mb-10 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div>
             <h1 className="text-4xl font-bold tracking-tight flex items-center gap-3">
               <FileText className="text-cyan-600" size={36} />
@@ -245,29 +290,38 @@ export default function BillsPage() {
             <p className="mt-2 text-slate-500">Search and manage all generated invoices across the system.</p>
           </div>
           
-          {/* AI Search Bar */}
-          <div className="flex-1 max-w-xl">
-            <form onSubmit={handleNLSearch} className="relative group">
-              <div className="absolute inset-0 bg-cyan-500 blur-sm opacity-0 group-focus-within:opacity-20 transition-opacity"></div>
-              <div className="relative flex items-center">
-                <div className="absolute left-4 text-cyan-600 animate-pulse">
-                  <Search size={20} strokeWidth={3} />
+          <div className="flex flex-col sm:flex-row gap-4 items-center w-full lg:w-auto lg:max-w-2xl">
+            {/* AI Search Bar */}
+            <div className="flex-1 w-full sm:min-w-[320px]">
+              <form onSubmit={handleNLSearch} className="relative group">
+                <div className="absolute inset-0 bg-cyan-500 blur-sm opacity-0 group-focus-within:opacity-20 transition-opacity"></div>
+                <div className="relative flex items-center">
+                  <div className="absolute left-4 text-cyan-600 animate-pulse">
+                    <Search size={20} strokeWidth={3} />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search using AI (e.g. 'Ashapura bills above 50000')"
+                    className="w-full pl-12 pr-28 py-4 bg-white border-2 border-black rounded-none font-bold text-sm focus:ring-0 focus:border-cyan-500 transition-all outline-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-none"
+                    value={nlQuery}
+                    onChange={(e) => setNlQuery(e.target.value)}
+                  />
+                  <button
+                    type="submit"
+                    className="absolute right-2 bg-black text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-cyan-500 hover:text-black transition-all"
+                  >
+                    AI Search
+                  </button>
                 </div>
-                <input
-                  type="text"
-                  placeholder="Search using AI (e.g. 'Ashapura bills above 50000 in July')"
-                  className="w-full pl-12 pr-28 py-4 bg-white border-2 border-black rounded-none font-bold text-sm focus:ring-0 focus:border-cyan-500 transition-all outline-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus:translate-x-0.5 focus:translate-y-0.5 focus:shadow-none"
-                  value={nlQuery}
-                  onChange={(e) => setNlQuery(e.target.value)}
-                />
-                <button
-                  type="submit"
-                  className="absolute right-2 bg-black text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-cyan-500 hover:text-black transition-all"
-                >
-                  AI Search
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
+
+            <button
+              onClick={handleDeleteAll}
+              className="bg-rose-600 text-white hover:bg-rose-700 transition-all font-bold px-6 py-4 uppercase tracking-widest text-xs shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none w-full sm:w-auto whitespace-nowrap"
+            >
+              Delete All Bills
+            </button>
           </div>
         </div>
 

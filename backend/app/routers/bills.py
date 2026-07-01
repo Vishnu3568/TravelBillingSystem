@@ -157,6 +157,15 @@ def update_bill(
     bill = BillService.update_bill(db, id, request_data, current_user.get("sub"), current_user.get("role"), ip)
     return BillResponse.model_validate(bill)
 
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+def delete_all_bills(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(delete_guard)
+):
+    ip = request.headers.get("X-Forwarded-For", request.client.host if request.client else "")
+    BillService.delete_all_bills(db, current_user.get("sub"), current_user.get("role"), ip)
+
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_bill(
     id: int,
