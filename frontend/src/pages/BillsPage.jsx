@@ -153,6 +153,45 @@ export default function BillsPage() {
     }
   };
 
+  const getPaginatedPages = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 0; i < totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always include first page
+      pages.push(0);
+      
+      let start = Math.max(1, currentPage - 1);
+      let end = Math.min(totalPages - 2, currentPage + 1);
+      
+      if (currentPage <= 2) {
+        end = 3;
+      }
+      if (currentPage >= totalPages - 3) {
+        start = totalPages - 4;
+      }
+      
+      if (start > 1) {
+        pages.push("...");
+      }
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      
+      if (end < totalPages - 2) {
+        pages.push("...");
+      }
+      
+      // Always include last page
+      pages.push(totalPages - 1);
+    }
+    return pages;
+  };
+
+
   const handleViewBill = (id) => {
     navigate(`/bill-view/${id}`);
   };
@@ -416,18 +455,27 @@ export default function BillsPage() {
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                {Array.from({ length: totalPages }).map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handlePageChange(i)}
-                    className={`w-10 h-10 rounded-none border font-medium text-sm transition-all ${currentPage === i
-                      ? "bg-cyan-600 border-cyan-600 text-white shadow-sm"
-                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                      }`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
+                {getPaginatedPages().map((page, index) => {
+                  if (page === "...") {
+                    return (
+                      <span key={`ellipsis-${index}`} className="w-10 h-10 flex items-center justify-center text-slate-400 font-medium select-none">
+                        ...
+                      </span>
+                    );
+                  }
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`w-10 h-10 rounded-none border font-medium text-sm transition-all ${currentPage === page
+                        ? "bg-cyan-600 border-cyan-600 text-white shadow-sm"
+                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                        }`}
+                    >
+                      {page + 1}
+                    </button>
+                  );
+                })}
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages - 1}
