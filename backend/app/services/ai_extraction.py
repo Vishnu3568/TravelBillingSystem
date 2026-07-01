@@ -14,16 +14,18 @@ Your goal is to parse raw text extracted from a transport duty slip/bill/invoice
 
 STRICT INSTRUCTIONS:
 1. Extract every field listed in the output format.
-2. For dates, return "YYYY-MM-DD" format. For times, return "HH:MM" (24-hour format) if available.
-3. Keep all numbers float/integer where applicable, and set missing/unparseable values to null.
-4. Extract all line-item charges (e.g., driver bata, toll, parking, night charges, base fare, permit, fuel charges, helper bata) into their respective numeric fields.
-5. If permit charges or other miscellaneous charges occur, assign them to "permit" or "remarks" as appropriate.
-6. Do NOT hallucinate values. If a field cannot be found, set it to null.
-7. Return ONLY valid JSON. Do not include markdown code block tags (```json ... ```) or any additional chat explanations.
+2. The company name you extract MUST be the client/customer company (the one receiving the travel service, usually located under "TO:", "To,", "Billed To", "Client:", "Company Name:" inside the document, or mentioned in the filename).
+3. Do NOT extract "Sri Tulja Bhavani Travels" as the company. "Sri Tulja Bhavani Travels" is the service provider (our company) that issued the bill/slip. The "company" field in the output JSON must represent the CLIENT company (the other company).
+4. For dates, return "YYYY-MM-DD" format. For times, return "HH:MM" (24-hour format) if available.
+5. Keep all numbers float/integer where applicable, and set missing/unparseable values to null.
+6. Extract all line-item charges (e.g., driver bata, toll, parking, night charges, base fare, permit, fuel charges, helper bata) into their respective numeric fields.
+7. If permit charges or other miscellaneous charges occur, assign them to "permit" or "remarks" as appropriate.
+8. Do NOT hallucinate values. If a field cannot be found, set it to null.
+9. Return ONLY valid JSON. Do not include markdown code block tags (```json ... ```) or any additional chat explanations.
 
 OUTPUT FORMAT (JSON OBJECT):
 {{
-  "company": "name of client company (string)",
+  "company": "name of CLIENT/CUSTOMER company (string) - NEVER 'Sri Tulja Bhavani Travels'",
   "billNumber": "bill number or invoice number (string)",
   "invoiceNumber": "invoice number if distinct, otherwise same as billNumber (string)",
   "dutySlip": "duty slip number (string)",
@@ -57,12 +59,16 @@ RAW TEXT TO PARSE:
 
 class AiExtractionService:
     @staticmethod
-    def extract_page_data(raw_text: str) -> Dict[str, Any]:
+    def extract_page_data(raw_text: str, filename: Optional[str] = None) -> Dict[str, Any]:
         """
         Attempts extraction via Gemini API. Falls back to Ollama, then to local Python regex.
         Returns a dict containing the 26 target billing fields.
         """
         prompt = AI_EXTRACT_PROMPT_TEMPLATE.format(text=raw_text)
+        if filename:
+            # Clean extension
+            clean_filename = filename.rsplit(".", 1)[0].strip()
+            prompt += f"\n\nFILENAME HINT: The uploaded document file name is '{filename}'. Use this file name (excluding extension) as the client/customer company name if the text under 'TO' or 'To,' matches it or is ambiguous."
         
         # 1. Try Gemini
         if settings.GEMINI_API_KEY:
@@ -124,7 +130,7 @@ class AiExtractionService:
             
         # 3. Local Python Regex Parsing Fallback
         logger.info("All LLM methods failed. Executing local regex parsing fallback.")
-        return AiExtractionService._local_regex_parse(raw_text)
+        return AiExtractionService._local_regex_parse(raw_text, filename=filename)
 
     @staticmethod
     def map_to_bill_response(extracted: Dict[str, Any]) -> AiBillResponse:
@@ -224,23 +230,52 @@ class AiExtractionService:
             return None
 
     @staticmethod
-    def _local_regex_parse(text: str) -> Dict[str, Any]:
+    def _local_regex_parse(text: str, filename: Optional[str] = None) -> Dict[str, Any]:
         """
         Robust regex fallback parser to extract values if no AI response is received.
         Optimized for Sri Tulja Bhavani Travels billing layout.
         """
-        # 1. Company Name detection
+        # 1. Company Name detection (Find client company under "TO" block, or fall back to filename)
         company = None
-        for line in text.split("\n"):
+        
+        # Try to locate the TO section
+        lines = text.split("\n")
+        for i, line in enumerate(lines):
             line_s = line.strip()
-            if "sri tulja bhavani" in line_s.lower():
-                company = "Sri Tulja Bhavani Travels"
-                break
-            elif any(x in line_s.lower() for x in ["travels", "logistics", "tours"]):
-                company = line_s
-                break
-        if not company:
-            company = "Sri Tulja Bhavani Travels"
+            # Match "to", "to,", "to:", "to :", "bill to", "billed to"
+            if line_s.lower() in ["to", "to,", "to:", "to :", "bill to", "billed to", "to;"]:
+                # Look at the next few lines for the client name
+                for offset in range(1, 4):
+                    if i + offset < len(lines):
+                        next_line = lines[i + offset].strip()
+                        # Skip empty lines, lines containing address details, or "sri tulja bhavani"
+                        if (next_line and 
+                            "sri tulja bhavani" not in next_line.lower() and 
+                            "travels" not in next_line.lower() and 
+                            not any(x in next_line.lower() for x in ["date:", "bill no:", "vehicle:"])):
+                            # Clean up leading separator chars like |, comma, hyphens
+                            candidate = re.sub(r'^[\|\s,:\-\u2013]+', '', next_line).strip()
+                            if len(candidate) > 2:
+                                company = candidate
+                                break
+                if company:
+                    break
+
+        # Fallback to filename if not found or if the result is still empty/provider name
+        if not company or "sri tulja bhavani" in company.lower():
+            if filename:
+                # Remove file extension and trailing spaces/digits
+                base = filename.rsplit(".", 1)[0]
+                base = re.sub(r'\s+\d+$', '', base)
+                base = re.sub(r'[\s_]*\(\d+\)$', '', base)
+                company = base.strip()
+            else:
+                company = "5M Solutions"  # Default fallback client company if no file context exists
+                
+        # Clean up any trailing/leading symbols from company
+        if company:
+            company = re.sub(r'^[\|\s,:\-\u2013]+', '', company).strip()
+
                 
         # 2. Duty Slip / Bill Number
         duty_slip = None

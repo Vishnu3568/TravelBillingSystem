@@ -31,7 +31,7 @@ class BulkImportService:
                 
                 # Extract companies page by page to avoid mixing up data
                 for chunk in chunks:
-                    company_data = AiExtractionService.extract_page_data(chunk.raw_text)
+                    company_data = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name)
                     name = company_data.get("company")
                     if not name or not name.strip() or name.strip().lower() == "null":
                         continue
@@ -95,7 +95,7 @@ class BulkImportService:
                 for chunk in chunks:
                     try:
                         logger.info(f"Parsing page {chunk.page_number}/{len(chunks)} of {file_name}")
-                        extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text)
+                        extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name)
                         bill_res = AiExtractionService.map_to_bill_response(extracted_dict)
                         
                         # Validate the bill
@@ -193,7 +193,7 @@ class BulkImportService:
                 for chunk in chunks:
                     try:
                         logger.info(f"Parsing preview for page {chunk.page_number}/{len(chunks)}")
-                        extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text)
+                        extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name)
                         bill_res = AiExtractionService.map_to_bill_response(extracted_dict)
                         
                         # Validate and attach warnings
