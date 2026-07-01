@@ -290,9 +290,9 @@ export default function BillsPage() {
             <p className="mt-2 text-slate-500">Search and manage all generated invoices across the system.</p>
           </div>
           
-          <div className="flex flex-col sm:flex-row gap-4 items-center w-full lg:w-auto lg:max-w-2xl">
+          <div className="w-full lg:w-auto lg:max-w-2xl">
             {/* AI Search Bar */}
-            <div className="flex-1 w-full sm:min-w-[320px]">
+            <div className="w-full sm:min-w-[320px]">
               <form onSubmit={handleNLSearch} className="relative group">
                 <div className="absolute inset-0 bg-cyan-500 blur-sm opacity-0 group-focus-within:opacity-20 transition-opacity"></div>
                 <div className="relative flex items-center">
@@ -315,13 +315,6 @@ export default function BillsPage() {
                 </div>
               </form>
             </div>
-
-            <button
-              onClick={handleDeleteAll}
-              className="bg-rose-600 text-white hover:bg-rose-700 transition-all font-bold px-6 py-4 uppercase tracking-widest text-xs shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none w-full sm:w-auto whitespace-nowrap"
-            >
-              Delete All Bills
-            </button>
           </div>
         </div>
 
