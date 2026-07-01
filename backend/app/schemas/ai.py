@@ -49,6 +49,9 @@ class AiBillResponse(BaseModel):
     totalHours: Optional[float] = None
     dynamicCharges: Optional[List[AiBillCharge]] = None
     totalAmount: Optional[float] = None
+    tripDate: Optional[str] = None
+    contactPerson: Optional[str] = None
+    bookedBy: Optional[str] = None
     warnings: Optional[List[str]] = None
 
 # AiInsightResponse

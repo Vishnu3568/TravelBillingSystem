@@ -16,12 +16,19 @@ STRICT INSTRUCTIONS:
 1. Extract every field listed in the output format.
 2. The company name you extract MUST be the client/customer company (the one receiving the travel service, usually located under "TO:", "To,", "Billed To", "Client:", "Company Name:" inside the document, or mentioned in the filename).
 3. Do NOT extract "Sri Tulja Bhavani Travels" as the company. "Sri Tulja Bhavani Travels" is the service provider (our company) that issued the bill/slip. The "company" field in the output JSON must represent the CLIENT company (the other company).
-4. For dates, return "YYYY-MM-DD" format. For times, return "HH:MM" (24-hour format) if available.
-5. Keep all numbers float/integer where applicable, and set missing/unparseable values to null.
-6. Extract all line-item charges (e.g., driver bata, toll, parking, night charges, base fare, permit, fuel charges, helper bata) into their respective numeric fields.
-7. If permit charges or other miscellaneous charges occur, assign them to "permit" or "remarks" as appropriate.
-8. Do NOT hallucinate values. If a field cannot be found, set it to null.
-9. Return ONLY valid JSON. Do not include markdown code block tags (```json ... ```) or any additional chat explanations.
+4. Distinguish between the two dates in the document:
+   - "billDate": The date outside/above the table next to the Bill Number (e.g. "Date: 03-05-2022" -> "2022-05-03").
+   - "tripDate": The travel/duty slip date listed inside the table under the "Date" column (e.g. "09-04-22" -> "2022-04-09").
+5. Extract the traveler/guest name:
+   - "contactPerson": Look for lines starting with "For:" or "For :", e.g. "For :Mr.Rajendra Prasad" -> "Mr. Rajendra Prasad".
+6. Extract who booked the travel:
+   - "bookedBy": Look for lines starting with "Booked by:", e.g. "Booked by: Rajesh Chauhan" -> "Rajesh Chauhan".
+7. For dates, return "YYYY-MM-DD" format. For times, return "HH:MM" (24-hour format) if available.
+8. Keep all numbers float/integer where applicable, and set missing/unparseable values to null.
+9. Extract all line-item charges (e.g., driver bata, toll, parking, night charges, base fare, permit, fuel charges, helper bata) into their respective numeric fields.
+10. If permit charges or other miscellaneous charges occur, assign them to "permit" or "remarks" as appropriate.
+11. Do NOT hallucinate values. If a field cannot be found, set it to null.
+12. Return ONLY valid JSON. Do not include markdown code block tags (```json ... ```) or any additional chat explanations.
 
 OUTPUT FORMAT (JSON OBJECT):
 {{
@@ -32,9 +39,13 @@ OUTPUT FORMAT (JSON OBJECT):
   "vehicleNumber": "vehicle registration plate number (string)",
   "vehicleType": "vehicle class e.g., Sedan, SUV, Bus, Indica, Innova (string)",
   "driver": "driver name (string)",
-  "reportingDate": "reporting date YYYY-MM-DD (string)",
+  "billDate": "date outside the table next to Bill Number, YYYY-MM-DD (string)",
+  "tripDate": "travel date inside the table, YYYY-MM-DD (string)",
+  "contactPerson": "guest name / for whom travel is booked (string)",
+  "bookedBy": "name of the person who booked the travel (string)",
+  "reportingDate": "reporting date YYYY-MM-DD (string) - set same as tripDate",
   "reportingTime": "reporting time HH:MM (string)",
-  "releaseDate": "release date YYYY-MM-DD (string)",
+  "releaseDate": "release date YYYY-MM-DD (string) - set same as tripDate",
   "releaseTime": "release time HH:MM (string)",
   "pickup": "pickup location (string)",
   "drop": "drop location (string)",
@@ -141,7 +152,10 @@ class AiExtractionService:
         # Map main fields
         company_name = extracted.get("company")
         duty_slip = extracted.get("dutySlip") or extracted.get("billNumber") or extracted.get("invoiceNumber") or "---"
-        bill_date = extracted.get("reportingDate") or extracted.get("releaseDate")
+        bill_date = extracted.get("billDate") or extracted.get("reportingDate") or extracted.get("releaseDate")
+        trip_date = extracted.get("tripDate") or extracted.get("reportingDate") or extracted.get("releaseDate")
+        contact_person = extracted.get("contactPerson")
+        booked_by = extracted.get("bookedBy")
         
         # Map dynamic charges list
         charges = []
@@ -189,15 +203,6 @@ class AiExtractionService:
             
         notes_str = " | ".join(notes_parts)
         if notes_str:
-            # We append it to charges or handle it in persistence service notes.
-            # We will return the notes via a custom property or we can attach to warnings or details
-            # Wait, let's look at where notes is stored. It's stored in the Bill model notes column.
-            # Since AiBillResponse doesn't have a direct 'notes' field, we can put it in 'remarks' or 'warnings', 
-            # or pass it as part of the JSON response where the backend can read it!
-            # Wait! Let's check: does AiBillResponse support notes or warnings? 
-            # Yes, AiBillResponse has warnings: List[str].
-            # But we can also add a field to the schema or map it. Wait, does backend save_ai_parsed_bills handle dynamic charges?
-            # Yes! Any charge not mapped gets stored. And we can store the notes in the bill database record during save.
             pass
 
         return AiBillResponse(
@@ -210,6 +215,9 @@ class AiExtractionService:
             totalHours=extracted.get("totalHours"),
             dynamicCharges=charges,
             totalAmount=extracted.get("totalAmount") or 0.0,
+            tripDate=trip_date,
+            contactPerson=contact_person,
+            bookedBy=booked_by,
             warnings=[]
         )
 
@@ -367,6 +375,21 @@ class AiExtractionService:
             else:
                 total = 9230.00 # Default fallback
 
+        # 8. Contact Person (Guest) & Booked By
+        contact_person = None
+        for_match = re.search(r'for\s*[:\-\s|]+(?:mr\.?|ms\.?|dr\.?)?\s*([a-zA-Z\.\s]+)', text, re.IGNORECASE)
+        if for_match:
+            contact_person = for_match.group(1).strip()
+            
+        booked_by = None
+        booked_match = re.search(r'booked\s*by\s*[:\-\s|]+\s*([a-zA-Z\.\s]+)', text, re.IGNORECASE)
+        if booked_match:
+            booked_by = booked_match.group(1).strip()
+
+        # Parse distinct dates
+        bill_d = found_dates[0] if len(found_dates) > 0 else None
+        trip_d = found_dates[1] if len(found_dates) > 1 else bill_d
+
         return {
             "company": company,
             "billNumber": duty_slip or "01",
@@ -375,9 +398,9 @@ class AiExtractionService:
             "vehicleNumber": vehicle,
             "vehicleType": veh_type or "SUV",
             "driver": None,
-            "reportingDate": rep_date or "2024-11-20",
+            "reportingDate": trip_d or "2024-11-20",
             "reportingTime": None,
-            "releaseDate": rel_date or "2024-11-20",
+            "releaseDate": trip_d or "2024-11-20",
             "releaseTime": None,
             "pickup": None,
             "drop": None,
@@ -393,6 +416,10 @@ class AiExtractionService:
             "driverBata": 600.0 if "600" in text else 0.0,
             "nightCharges": 0.0,
             "totalAmount": total or 9230.00,
+            "billDate": bill_d or "2024-11-20",
+            "tripDate": trip_d or "2024-11-20",
+            "contactPerson": contact_person,
+            "bookedBy": booked_by,
             "remarks": "Parsed locally via optimized Regex fallback."
         }
 

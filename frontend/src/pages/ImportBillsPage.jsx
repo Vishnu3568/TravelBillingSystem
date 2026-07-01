@@ -149,6 +149,18 @@ export default function ImportBillsPage() {
         setParsedBills(prev => prev.filter((_, i) => i !== index));
     };
 
+    const getGroupedBills = () => {
+        const groups = {};
+        parsedBills.forEach((bill, index) => {
+            const comp = bill.companyName || "Unknown Company";
+            if (!groups[comp]) {
+                groups[comp] = [];
+            }
+            groups[comp].push({ ...bill, originalIndex: index });
+        });
+        return groups;
+    };
+
     if (isReviewing) {
         return (
             <div className="min-h-screen bg-slate-50 p-8">
@@ -175,62 +187,92 @@ export default function ImportBillsPage() {
                         </div>
                     </div>
 
-                    <div className="bg-white border border-slate-200 shadow-xl overflow-hidden">
-                        <table className="w-full text-left">
-                            <thead className="bg-slate-900 text-white">
-                                <tr>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest">Duty Slip #</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest">Bill Date</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest">Company</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest">Vehicle</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-right">Amount</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest">Issues</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {parsedBills.map((bill, index) => (
-                                    <tr
-                                        key={index}
-                                        className={`hover:bg-slate-50 transition-colors ${bill.warnings?.length > 0 ? 'bg-amber-50/50' : ''}`}
-                                    >
-                                        <td className="p-4 font-bold text-slate-900">{bill.dutySlipNo || '---'}</td>
-                                        <td className="p-4 text-slate-600 font-medium">{bill.billDate || '---'}</td>
-                                        <td className="p-4 text-slate-600 font-medium">{bill.companyName || '---'}</td>
-                                        <td className="p-4 text-slate-500 text-sm">
-                                            <span className="font-bold text-slate-700">{bill.vehicleNumber}</span>
-                                            <br />
-                                            {bill.vehicleType}
-                                        </td>
-                                        <td className="p-4 text-right font-black text-slate-900">₹{bill.totalAmount?.toLocaleString()}</td>
-                                        <td className="p-4">
-                                            {bill.warnings?.map((w, i) => (
-                                                <div key={i} className="flex items-center gap-1.5 text-amber-700 text-[10px] bg-amber-100 px-2 py-1 mb-1 font-bold last:mb-0">
-                                                    <AlertTriangle size={12} />
-                                                    {w}
-                                                </div>
-                                            ))}
-                                        </td>
-                                        <td className="p-4 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <button
-                                                    onClick={() => startEdit(index)}
-                                                    className="p-2 text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all"
-                                                >
-                                                    <Edit2 size={16} />
-                                                </button>
-                                                <button
-                                                    onClick={() => deleteBill(index)}
-                                                    className="p-2 text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                    <div className="space-y-8">
+                        {Object.entries(getGroupedBills()).map(([company, billsInGroup]) => (
+                            <div key={company} className="bg-white border border-slate-200 shadow-sm overflow-hidden">
+                                <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                                    <h2 className="text-lg font-bold text-black flex items-center gap-2">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>
+                                        {company}
+                                        <span className="text-xs text-slate-500 font-medium bg-slate-100 px-2 py-0.5 rounded-full ml-2">
+                                            {billsInGroup.length} {billsInGroup.length === 1 ? 'bill' : 'bills'}
+                                        </span>
+                                    </h2>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-900 text-white">
+                                            <tr>
+                                                <th className="p-4 text-xs font-black uppercase tracking-widest">Duty Slip #</th>
+                                                <th className="p-4 text-xs font-black uppercase tracking-widest">Bill Date</th>
+                                                <th className="p-4 text-xs font-black uppercase tracking-widest">Trip Date</th>
+                                                <th className="p-4 text-xs font-black uppercase tracking-widest">Vehicle</th>
+                                                <th className="p-4 text-xs font-black uppercase tracking-widest">Guest & Booker</th>
+                                                <th className="p-4 text-xs font-black uppercase tracking-widest text-right">Amount</th>
+                                                <th className="p-4 text-xs font-black uppercase tracking-widest">Issues</th>
+                                                <th className="p-4 text-xs font-black uppercase tracking-widest text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {billsInGroup.map((bill) => {
+                                                const index = bill.originalIndex;
+                                                return (
+                                                    <tr
+                                                        key={index}
+                                                        className={`hover:bg-slate-50 transition-colors ${bill.warnings?.length > 0 ? 'bg-amber-50/50' : ''}`}
+                                                    >
+                                                        <td className="p-4 font-bold text-slate-900">{bill.dutySlipNo || '---'}</td>
+                                                        <td className="p-4 text-slate-600 font-medium text-sm">{bill.billDate || '---'}</td>
+                                                        <td className="p-4 text-slate-600 font-medium text-sm">{bill.tripDate || '---'}</td>
+                                                        <td className="p-4 text-slate-500 text-xs">
+                                                            <span className="font-bold text-slate-700">{bill.vehicleNumber || '---'}</span>
+                                                            <br />
+                                                            {bill.vehicleType || '---'}
+                                                        </td>
+                                                        <td className="p-4 text-slate-600 font-medium text-xs">
+                                                            {bill.contactPerson ? (
+                                                                <div className="mb-1"><span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider block">Guest</span> {bill.contactPerson}</div>
+                                                            ) : null}
+                                                            {bill.bookedBy ? (
+                                                                <div><span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider block">Booked By</span> {bill.bookedBy}</div>
+                                                            ) : null}
+                                                            {!bill.contactPerson && !bill.bookedBy ? '---' : null}
+                                                        </td>
+                                                        <td className="p-4 text-right font-black text-slate-900 text-sm">₹{bill.totalAmount?.toLocaleString()}</td>
+                                                        <td className="p-4">
+                                                            {bill.warnings?.map((w, i) => (
+                                                                <div key={i} className="flex items-center gap-1.5 text-amber-700 text-[10px] bg-amber-100 px-2 py-1 mb-1 font-bold last:mb-0">
+                                                                    <AlertTriangle size={12} />
+                                                                    {w}
+                                                                </div>
+                                                            ))}
+                                                        </td>
+                                                        <td className="p-4 text-right">
+                                                            <div className="flex justify-end gap-2">
+                                                                <button
+                                                                    onClick={() => startEdit(index)}
+                                                                    className="p-2 text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all"
+                                                                    title="Edit Details"
+                                                                >
+                                                                    <Edit2 size={16} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); deleteBill(index); }}
+                                                                    className="p-2 text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
+                                                                    title="Discard Bill"
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
@@ -242,11 +284,11 @@ export default function ImportBillsPage() {
                                 <h3 className="text-xl font-black text-black uppercase tracking-tight">Manual Data Correction</h3>
                                 <button onClick={() => setEditingIndex(null)} className="text-slate-400 hover:text-black transition-colors"><X size={24} /></button>
                             </div>
-                            <div className="p-8 grid grid-cols-2 gap-8">
+                            <div className="p-8 grid grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Duty Slip Number</label>
                                     <input
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold"
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold text-sm"
                                         value={editForm.dutySlipNo || ''}
                                         onChange={e => setEditForm({ ...editForm, dutySlipNo: e.target.value })}
                                     />
@@ -254,28 +296,52 @@ export default function ImportBillsPage() {
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Bill Date (YYYY-MM-DD)</label>
                                     <input
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold"
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold text-sm"
                                         value={editForm.billDate || ''}
                                         onChange={e => setEditForm({ ...editForm, billDate: e.target.value })}
                                     />
                                 </div>
-                                <div className="space-y-2 col-span-2">
-                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Company Name</label>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Trip Date (YYYY-MM-DD)</label>
                                     <input
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold"
-                                        value={editForm.companyName || ''}
-                                        onChange={e => setEditForm({ ...editForm, companyName: e.target.value })}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold text-sm"
+                                        value={editForm.tripDate || ''}
+                                        onChange={e => setEditForm({ ...editForm, tripDate: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Vehicle Number</label>
                                     <input
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold"
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold text-sm"
                                         value={editForm.vehicleNumber || ''}
                                         onChange={e => setEditForm({ ...editForm, vehicleNumber: e.target.value })}
                                     />
                                 </div>
+                                <div className="space-y-2 col-span-2">
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Company Name</label>
+                                    <input
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold text-sm"
+                                        value={editForm.companyName || ''}
+                                        onChange={e => setEditForm({ ...editForm, companyName: e.target.value })}
+                                    />
+                                </div>
                                 <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Guest Name (For)</label>
+                                    <input
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold text-sm"
+                                        value={editForm.contactPerson || ''}
+                                        onChange={e => setEditForm({ ...editForm, contactPerson: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Booked By</label>
+                                    <input
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-black focus:bg-white transition-all outline-none font-bold text-sm"
+                                        value={editForm.bookedBy || ''}
+                                        onChange={e => setEditForm({ ...editForm, bookedBy: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2 col-span-2">
                                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Total Amount</label>
                                     <input
                                         type="number"
@@ -286,8 +352,8 @@ export default function ImportBillsPage() {
                                 </div>
                             </div>
                             <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-4">
-                                <button onClick={() => setEditingIndex(null)} className="px-6 py-3 border border-slate-200 font-bold hover:bg-white transition-all">Cancel</button>
-                                <button onClick={saveEdit} className="px-10 py-3 bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all">Apply Fix</button>
+                                <button onClick={() => setEditingIndex(null)} className="px-6 py-3 border border-slate-200 font-bold hover:bg-white transition-all text-sm">Cancel</button>
+                                <button onClick={saveEdit} className="px-10 py-3 bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all text-sm">Apply Fix</button>
                             </div>
                         </div>
                     </div>

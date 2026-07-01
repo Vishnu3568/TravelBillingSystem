@@ -152,6 +152,19 @@ class BillService:
                 else:
                     req_data["billDate"] = date.today()
 
+                # Trip date parsing
+                if ai.tripDate:
+                    try:
+                        req_data["tripDate"] = date.fromisoformat(ai.tripDate)
+                    except Exception:
+                        req_data["tripDate"] = req_data["billDate"]
+                else:
+                    req_data["tripDate"] = req_data["billDate"]
+
+                # Contact person (Guest) and Booked by
+                req_data["contactPerson"] = ai.contactPerson
+                req_data["bookedBy"] = ai.bookedBy
+
                 # Dynamic charges mapping
                 dynamic = []
                 if ai.dynamicCharges:
