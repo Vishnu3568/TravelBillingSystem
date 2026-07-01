@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   Search,
   RotateCcw,
@@ -15,11 +15,15 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import { format } from "date-fns";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
 
 export default function BillsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const initialCompany = queryParams.get("companyName") || "";
+
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(0);
@@ -30,10 +34,15 @@ export default function BillsPage() {
 
   const [filters, setFilters] = useState({
     billNumber: "",
-    companyName: "",
+    companyName: initialCompany,
     fromDate: "",
     toDate: ""
   });
+
+  const filtersRef = useRef(filters);
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
 
   const fetchBills = useCallback(async (page = 0, currentFilters = null, nlSearchQuery = null) => {
     setLoading(true);
@@ -45,7 +54,7 @@ export default function BillsPage() {
         endpoint = "/bills/search/nl";
         params.query = nlSearchQuery;
       } else {
-        const activeFilters = currentFilters || filters;
+        const activeFilters = currentFilters || filtersRef.current;
         const { billNumber, companyName, fromDate, toDate } = activeFilters;
         const isSearching = billNumber || companyName || fromDate || toDate;
         if (isSearching) {
@@ -66,17 +75,26 @@ export default function BillsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters, pageSize]);
+  }, [pageSize]);
 
   useEffect(() => {
-    fetchBills();
-  }, [fetchBills]);
+    const params = new URLSearchParams(location.search);
+    const queryCompany = params.get("companyName") || "";
+    const activeFilters = {
+      billNumber: "",
+      companyName: queryCompany,
+      fromDate: "",
+      toDate: ""
+    };
+    setFilters(activeFilters);
+    fetchBills(0, activeFilters);
+  }, [location.search, fetchBills]);
 
   const handleSearch = (e) => {
     e.preventDefault();
     setIsNlSearching(false);
     setNlQuery("");
-    fetchBills(0);
+    fetchBills(0, filters);
   };
 
   const handleNLSearch = async (e) => {
@@ -372,7 +390,12 @@ export default function BillsPage() {
                         {bill.billDate ? format(new Date(bill.billDate), "dd MMM yyyy") : "-"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-800">
-                        {bill.companyName}
+                        <button
+                          onClick={() => navigate(`/bills?companyName=${encodeURIComponent(bill.companyName)}`)}
+                          className="hover:text-cyan-600 transition-colors font-semibold text-left"
+                        >
+                          {bill.companyName}
+                        </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                         {bill.vehicleName || "-"}

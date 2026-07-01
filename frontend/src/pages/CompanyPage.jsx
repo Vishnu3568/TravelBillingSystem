@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Building2,
   Plus,
@@ -16,6 +17,7 @@ import api from "../services/api";
 import { toast } from "sonner";
 
 const CompanyPage = () => {
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -275,7 +277,12 @@ const CompanyPage = () => {
                           <div className="w-8 h-8 rounded-none bg-cyan-50 flex items-center justify-center text-cyan-600">
                             <Building2 size={16} />
                           </div>
-                          <span className="font-medium text-slate-800">{company.name}</span>
+                          <button
+                            onClick={() => navigate(`/bills?companyName=${encodeURIComponent(company.name)}`)}
+                            className="font-semibold text-slate-800 hover:text-cyan-600 transition-colors text-left"
+                          >
+                            {company.name}
+                          </button>
                         </div>
                       </td>
                       <td className="px-6 py-4">
