@@ -112,16 +112,25 @@ class UserService:
                 detail="User not found"
             )
 
-        # Soft delete / disable user
-        user.active = False
+        # Prevent owner from deleting their own account
+        if user.username == current_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot delete your own account"
+            )
+
+        # Hard delete user record
+        username_deleted = user.username
+        db.delete(user)
         db.commit()
 
         AuditLogService.log_action(
             db=db,
             action="DELETE_USER",
             module="USER",
-            description=f"Disabled/Deleted user {user.username}",
+            description=f"Deleted user {username_deleted} from database",
             username=current_user,
             role=current_role,
             ip_address=ip
         )
+

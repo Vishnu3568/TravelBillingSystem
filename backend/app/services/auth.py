@@ -17,6 +17,14 @@ class AuthService:
                 detail="Invalid username or password"
             )
 
+        # Check if account is active
+        if not user.active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Your account is inactive. Please contact the administrator."
+            )
+
+
         # Check password matching (verifies against hashed value)
         encoded_password = user.password.strip() if user.password else ""
         if not verify_password(request.password, encoded_password):
