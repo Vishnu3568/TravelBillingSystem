@@ -12,7 +12,7 @@ for path in [".env", "backend/.env", "../.env", "../../.env", "../../../.env"]:
 class Settings(BaseModel):
     PORT: int = int(os.getenv("RAG_PORT", 9002))
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-1.5-pro")
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
     VECTOR_DB_TYPE: str = os.getenv("VECTOR_DB_TYPE", "faiss")
     

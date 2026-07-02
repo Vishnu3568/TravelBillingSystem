@@ -7,7 +7,7 @@ class Settings:
     
     # AI Integration
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-1.5-pro")
     AI_SERVICE_URL: str = os.getenv("AI_SERVICE_URL", "http://localhost:9001/api/ai")
     INTERNAL_API_KEY: str = os.getenv("INTERNAL_API_KEY", "")
 

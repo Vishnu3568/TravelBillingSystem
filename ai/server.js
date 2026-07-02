@@ -9,7 +9,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const port = process.env.PORT || 9001;
 const apiKey = process.env.GEMINI_API_KEY;
-const modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-pro';
 const internalApiKey = process.env.INTERNAL_API_KEY;
 
 if (internalApiKey) {
