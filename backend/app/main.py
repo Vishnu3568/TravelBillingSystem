@@ -72,6 +72,28 @@ def on_startup():
     # Replicates spring.jpa.hibernate.ddl-auto=update by creating tables/columns if missing
     Base.metadata.create_all(bind=engine)
     
+    # Seed default owner user if not present
+    db = SessionLocal()
+    try:
+        from app.models.user import User
+        from app.utils.security import hash_password
+        owner_exists = db.query(User).filter(User.username == "owner2").first()
+        if not owner_exists:
+            logger.info("Seeding default owner user 'owner2'...")
+            new_owner = User(
+                username="owner2",
+                password_hash=hash_password("admin123"),
+                email="owner2@test.com",
+                role="OWNER",
+                active=True
+            )
+            db.add(new_owner)
+            db.commit()
+    except Exception as e:
+        logger.error(f"Failed to seed default owner: {e}")
+    finally:
+        db.close()
+    
     logger.info("Starting automated backup scheduler...")
     scheduler.start()
 
