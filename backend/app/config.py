@@ -1,5 +1,15 @@
 import os
 
+# Load environment variables manually from .env file if it exists
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+if os.path.exists(env_path):
+    with open(env_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, val = line.split("=", 1)
+                os.environ[key.strip()] = val.strip()
+
 class Settings:
     PORT: int = int(os.getenv("PORT", 9000))
     JWT_SECRET: str = os.getenv("JWT_SECRET", "travel-billing-default-secret-key-change-me-please-32chars")

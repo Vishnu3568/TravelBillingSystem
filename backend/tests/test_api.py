@@ -372,13 +372,13 @@ def test_validation_service_checks():
         companyName="Val Corp",
         vehicleNumber="AP-10-XY-1234",
         vehicleType="SUV",
-        totalKms=100.0,
-        totalHours=10.0,
+        totalKms="100.0",
+        totalHours="10.0",
         dynamicCharges=[
-            AiBillCharge(name="Toll", amount=100.0),
-            AiBillCharge(name="Parking", amount=50.0)
+            AiBillCharge(name="Toll", amount="100.0"),
+            AiBillCharge(name="Parking", amount="50.0")
         ],
-        totalAmount=2500.0
+        totalAmount="2500.0"
     )
     warnings = ValidationService.validate_bill(db, valid_bill)
     assert len(warnings) == 0
@@ -391,9 +391,9 @@ def test_validation_service_checks():
         vehicleNumber="INVALID_PLATE", # Malformed
         vehicleType="SUV",
         dynamicCharges=[
-            AiBillCharge(name="Toll", amount=3000.0) # Sum exceeds total amount
+            AiBillCharge(name="Toll", amount="3000.0") # Sum exceeds total amount
         ],
-        totalAmount=1000.0
+        totalAmount="1000.0"
     )
     warnings = ValidationService.validate_bill(db, invalid_bill)
     assert len(warnings) > 0
@@ -447,19 +447,4 @@ def test_audit_logs_logging():
     assert len(data["content"]) >= 1
 
 
-@patch("subprocess.run")
-def test_backup_history_and_create(mock_subproc):
-    owner_headers = get_auth_headers("owner_test", "OWNER")
-    
-    # Mock mysqldump success run
-    mock_subproc.return_value.returncode = 0
-    mock_subproc.return_value.stdout = ""
 
-    response = client.post("/api/backup/create", headers=owner_headers)
-    assert response.status_code == 200
-    assert "Backup created successfully" in response.text
-
-    # Get history check
-    response = client.get("/api/backup/history", headers=owner_headers)
-    assert response.status_code == 200
-    assert isinstance(response.json(), list)

@@ -12,11 +12,10 @@ import CompanyPage from "./pages/CompanyPage.jsx";
 import VehiclePage from "./pages/VehiclePage.jsx";
 import ReportsPage from "./pages/ReportsPage.jsx";
 import UserManagementPage from "./pages/UserManagementPage.jsx";
-import BackupPage from "./pages/BackupPage.jsx";
 import AuditLogPage from "./pages/AuditLogPage.jsx";
 import EditBillPage from "./pages/EditBillPage.jsx";
-import ImportBillsPage from "./pages/ImportBillsPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
+import ImportBillsPage from "./pages/ImportBillsPage.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import { Toaster } from "sonner";
 import "./styles/index.css";
@@ -51,13 +50,14 @@ const router = createBrowserRouter([
             ),
           },
           {
-            path: "import-bills",
+            path: "owner-dashboard/import-bills",
             element: (
               <ProtectedRoute allowedRoles={["OWNER"]}>
                 <ImportBillsPage />
               </ProtectedRoute>
             ),
           },
+
           {
             path: "create-bill",
             element: (
@@ -122,14 +122,7 @@ const router = createBrowserRouter([
               </ProtectedRoute>
             ),
           },
-          {
-            path: "backup",
-            element: (
-              <ProtectedRoute allowedRoles={["OWNER"]}>
-                <BackupPage />
-              </ProtectedRoute>
-            ),
-          },
+
           {
             path: "audit-logs",
             element: (

@@ -17,6 +17,7 @@ class BillChunk(BaseModel):
     extracted_tables: List[List[List[str]]] = []
     formatting_metadata: Dict[str, Any] = {}
     document_metadata: Dict[str, Any] = {}
+    html_representation: Optional[str] = ""
 
 class DocxSegmenterService:
     @staticmethod
@@ -33,12 +34,14 @@ class DocxSegmenterService:
             logger.info("Legacy .doc detected. Returning entire text as single chunk.")
             from app.services.docx_extractor import DocxExtractionService
             raw_text = DocxExtractionService._extract_doc_fallback(file_bytes)
+            html_rep = "".join([f"<p>{line}</p>" for line in raw_text.split("\n") if line.strip()])
             return [
                 BillChunk(
                     page_number=1,
                     raw_text=raw_text,
                     extracted_tables=[],
-                    formatting_metadata={"legacy_doc": True}
+                    formatting_metadata={"legacy_doc": True},
+                    html_representation=html_rep
                 )
             ]
 
@@ -49,6 +52,7 @@ class DocxSegmenterService:
             current_page = 1
             current_text_blocks = []
             current_tables = []
+            current_html_blocks = []
             
             body = doc.element.body
             
@@ -68,15 +72,21 @@ class DocxSegmenterService:
                     
                     if has_break_before and (current_text_blocks or current_tables):
                         chunks.append(DocxSegmenterService._create_chunk(
-                            current_page, current_text_blocks, current_tables, file_name
+                            current_page, current_text_blocks, current_tables, file_name, current_html_blocks
                         ))
                         current_page += 1
                         current_text_blocks = []
                         current_tables = []
+                        current_html_blocks = []
                     
                     # Add paragraph text if any
                     if text:
                         current_text_blocks.append(text)
+                        is_bold = any(run.bold for run in p.runs)
+                        if is_bold:
+                            current_html_blocks.append(f"<p><strong>{text}</strong></p>")
+                        else:
+                            current_html_blocks.append(f"<p>{text}</p>")
                     
                     # 2. Check for page breaks WITHIN this paragraph's runs (manual or rendered page breaks)
                     has_break_within = False
@@ -91,11 +101,12 @@ class DocxSegmenterService:
                         
                     if has_break_within:
                         chunks.append(DocxSegmenterService._create_chunk(
-                            current_page, current_text_blocks, current_tables, file_name
+                            current_page, current_text_blocks, current_tables, file_name, current_html_blocks
                         ))
                         current_page += 1
                         current_text_blocks = []
                         current_tables = []
+                        current_html_blocks = []
                 
                 # Check for Table
                 elif child.tag.endswith('tbl'):
@@ -119,6 +130,16 @@ class DocxSegmenterService:
                     
                     current_tables.append(table_data)
                     
+                    # Construct HTML table representation
+                    tbl_html = '<table class="doc-table" style="border-collapse:collapse; width:100%; border:1px solid #ddd; margin:10px 0;">'
+                    for row_data in table_data:
+                        tbl_html += '<tr>'
+                        for col_val in row_data:
+                            tbl_html += f'<td style="border:1px solid #ddd; padding:8px;">{col_val}</td>'
+                        tbl_html += '</tr>'
+                    tbl_html += '</table>'
+                    current_html_blocks.append(tbl_html)
+                    
                     # Append visual Markdown table block into text blocks to preserve reading order
                     table_lines = []
                     for row_data in table_data:
@@ -129,18 +150,20 @@ class DocxSegmenterService:
             # Save the final page chunk
             if current_text_blocks or current_tables:
                 chunks.append(DocxSegmenterService._create_chunk(
-                    current_page, current_text_blocks, current_tables, file_name
+                    current_page, current_text_blocks, current_tables, file_name, current_html_blocks
                 ))
             
             # If no chunks were created, fallback to whole document
             if not chunks:
                 from app.services.docx_extractor import DocxExtractionService
                 raw_text = DocxExtractionService.extract_raw_text(file_bytes, file_name)
+                html_rep = "".join([f"<p>{line}</p>" for line in raw_text.split("\n") if line.strip()])
                 chunks.append(BillChunk(
                     page_number=1,
                     raw_text=raw_text,
                     extracted_tables=[],
-                    formatting_metadata={"fallback": True}
+                    formatting_metadata={"fallback": True},
+                    html_representation=html_rep
                 ))
                 
             logger.info(f"Successfully segmented document {file_name} into {len(chunks)} pages")
@@ -150,18 +173,23 @@ class DocxSegmenterService:
             logger.error(f"Failed to segment docx {file_name}: {e}. Falling back to single-page parser.")
             from app.services.docx_extractor import DocxExtractionService
             raw_text = DocxExtractionService.extract_raw_text(file_bytes, file_name)
+            html_rep = "".join([f"<p>{line}</p>" for line in raw_text.split("\n") if line.strip()])
             return [
                 BillChunk(
                     page_number=1,
                     raw_text=raw_text,
                     extracted_tables=[],
-                    formatting_metadata={"exception_fallback": True}
+                    formatting_metadata={"exception_fallback": True},
+                    html_representation=html_rep
                 )
             ]
 
     @staticmethod
-    def _create_chunk(page_num: int, text_blocks: List[str], tables: List[List[List[str]]], filename: str) -> BillChunk:
+    def _create_chunk(page_num: int, text_blocks: List[str], tables: List[List[List[str]]], filename: str, html_blocks: List[str] = None) -> BillChunk:
         raw_text = "\n".join(text_blocks)
+        html_rep = "\n".join(html_blocks) if html_blocks else ""
+        if not html_rep:
+            html_rep = "".join([f"<p>{b}</p>" for b in text_blocks])
         
         # Try to guess the company name from the first few lines of text
         company_name = None
@@ -180,5 +208,6 @@ class DocxSegmenterService:
             raw_text=raw_text,
             extracted_tables=tables,
             formatting_metadata={},
-            document_metadata={"filename": filename}
+            document_metadata={"filename": filename},
+            html_representation=html_rep
         )

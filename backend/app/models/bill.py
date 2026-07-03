@@ -37,6 +37,8 @@ class Bill(Base):
     created_by = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
+    raw_values = Column(Text, nullable=True)
+    original_doc = Column(Text, nullable=True)
 
     @property
     def billNumber(self):
@@ -137,6 +139,14 @@ class Bill(Base):
     @property
     def updatedAt(self):
         return self.updated_at
+
+    @property
+    def rawValues(self):
+        return self.raw_values
+
+    @property
+    def originalDoc(self):
+        return self.original_doc
 
     @property
     def dynamicCharges(self):

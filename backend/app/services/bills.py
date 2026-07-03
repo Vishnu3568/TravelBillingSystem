@@ -75,7 +75,9 @@ class BillService:
             vehicle_id=vehicle.id if vehicle else None,
             contact_person=request.contactPerson,
             booked_by=request.bookedBy,
-            manager_name=request.managerName
+            manager_name=request.managerName,
+            raw_values=request.rawValues,
+            original_doc=request.originalDoc
         )
         
         BillService._populate_hardcoded_fields(bill, request)
@@ -181,6 +183,8 @@ class BillService:
                             req_data["nightCharges"] = c.amount
 
                 req_data["dynamicCharges"] = dynamic
+                req_data["rawValues"] = ai.rawValues
+                req_data["originalDoc"] = ai.originalDoc
                 
                 request_obj = BillRequest(**req_data)
                 saved_bills.append(BillService.create_bill(db, request_obj, created_by, ip))
@@ -218,6 +222,10 @@ class BillService:
         bill.contact_person = request.contactPerson
         bill.booked_by = request.bookedBy
         bill.manager_name = request.managerName
+        if request.rawValues is not None:
+            bill.raw_values = request.rawValues
+        if request.originalDoc is not None:
+            bill.original_doc = request.originalDoc
 
         BillService._populate_hardcoded_fields(bill, request)
         db.commit()

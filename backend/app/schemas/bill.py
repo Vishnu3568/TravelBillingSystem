@@ -32,6 +32,8 @@ class BillRequest(BaseModel):
     contactPerson: Optional[str] = None
     bookedBy: Optional[str] = None
     managerName: Optional[str] = None
+    rawValues: Optional[str] = None
+    originalDoc: Optional[str] = None
 
 class BillResponse(BaseModel):
     id: int
@@ -63,6 +65,8 @@ class BillResponse(BaseModel):
     contactPerson: Optional[str] = None
     bookedBy: Optional[str] = None
     managerName: Optional[str] = None
+    rawValues: Optional[str] = None
+    originalDoc: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -20,6 +20,24 @@ class ValidationService:
         Validates the extracted AiBillResponse object.
         Returns a list of warnings/errors. If list is empty, validation passed.
         """
+        def safe_float(val) -> float:
+            if val is None or val == "":
+                return 0.0
+            if isinstance(val, (int, float)):
+                return float(val)
+            cleaned = str(val).strip()
+            try:
+                return float(cleaned)
+            except ValueError:
+                import re
+                match = re.search(r'[\d\.]+', cleaned)
+                if match:
+                    try:
+                        return float(match.group(0))
+                    except ValueError:
+                        pass
+            return 0.0
+
         warnings = []
         
         # 1. Missing Fields Check
@@ -32,7 +50,8 @@ class ValidationService:
         if not bill.vehicleNumber or bill.vehicleNumber.strip() in ["", "---", "null"]:
             warnings.append("Missing mandatory field: Vehicle Number")
             
-        if not bill.totalAmount or bill.totalAmount <= 0.0:
+        total_amount_float = safe_float(bill.totalAmount)
+        if not bill.totalAmount or total_amount_float <= 0.0:
             warnings.append("Total Amount is missing or zero/negative")
 
         # 2. Date Verification
@@ -76,11 +95,11 @@ class ValidationService:
         charges_sum = 0.0
         if bill.dynamicCharges:
             for charge in bill.dynamicCharges:
-                charges_sum += charge.amount
+                charges_sum += safe_float(charge.amount)
         
         # If totalAmount is provided, and we have dynamic charges but no baseAmount explicitly separated, 
         # let's make sure the sum of dynamic charges does not exceed the totalAmount.
-        if bill.totalAmount and charges_sum > bill.totalAmount:
-            warnings.append(f"Arithmetic warning: Sum of line-item charges (₹{charges_sum}) exceeds the Total Amount (₹{bill.totalAmount})")
+        if bill.totalAmount and charges_sum > total_amount_float:
+            warnings.append(f"Arithmetic warning: Sum of line-item charges (₹{charges_sum}) exceeds the Total Amount (₹{total_amount_float})")
             
         return warnings

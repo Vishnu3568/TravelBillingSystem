@@ -1,11 +1,8 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from apscheduler.schedulers.background import BackgroundScheduler
-
 from app.config import settings
 from app.database import engine, Base, SessionLocal
-from app.services.backups import backup_service
 
 # Routers
 from app.routers.auth import router as auth_router
@@ -17,7 +14,6 @@ from app.routers.audit_logs import router as audit_logs_router
 from app.routers.analytics import router as analytics_router
 from app.routers.reports import router as reports_router
 from app.routers.imports import router as imports_router
-from app.routers.backups import router as backups_router
 from app.routers.dashboard import router as dashboard_router
 
 # Configure logging
@@ -49,22 +45,7 @@ app.include_router(audit_logs_router)
 app.include_router(analytics_router)
 app.include_router(reports_router)
 app.include_router(imports_router)
-app.include_router(backups_router)
 app.include_router(dashboard_router)
-
-# Scheduler for automated backups (replicates Spring Boot's @Scheduled(cron = "0 0 1 * * ?"))
-def run_auto_backup():
-    db = SessionLocal()
-    try:
-        logger.info("Starting automated daily backup...")
-        backup_service.create_backup(db)
-    except Exception as e:
-        logger.error(f"Automated daily backup failed: {e}")
-    finally:
-        db.close()
-
-scheduler = BackgroundScheduler()
-scheduler.add_job(run_auto_backup, 'cron', hour=1, minute=0)
 
 @app.on_event("startup")
 def on_startup():
@@ -93,14 +74,10 @@ def on_startup():
         logger.error(f"Failed to seed default owner: {e}")
     finally:
         db.close()
-    
-    logger.info("Starting automated backup scheduler...")
-    scheduler.start()
 
 @app.on_event("shutdown")
 def on_shutdown():
-    logger.info("Shutting down automated backup scheduler...")
-    scheduler.shutdown()
+    pass
 
 @app.get("/")
 def read_root():

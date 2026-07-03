@@ -37,7 +37,7 @@ class AiAssistantResponse(BaseModel):
 # AiBillResponse
 class AiBillCharge(BaseModel):
     name: str
-    amount: float
+    amount: Any  # Can be float or string representation
 
 class AiBillResponse(BaseModel):
     dutySlipNo: Optional[str] = None
@@ -45,14 +45,24 @@ class AiBillResponse(BaseModel):
     companyName: Optional[str] = None
     vehicleNumber: Optional[str] = None
     vehicleType: Optional[str] = None
-    totalKms: Optional[float] = None
-    totalHours: Optional[float] = None
+    totalKms: Optional[str] = None
+    totalHours: Optional[str] = None
+    extraKms: Optional[str] = None
+    extraHours: Optional[str] = None
+    baseAmount: Optional[str] = None
+    driverBata: Optional[str] = None
+    parking: Optional[str] = None
+    toll: Optional[str] = None
+    nightCharges: Optional[str] = None
+    otherCharges: Optional[str] = None
     dynamicCharges: Optional[List[AiBillCharge]] = None
-    totalAmount: Optional[float] = None
+    totalAmount: Optional[str] = None
     tripDate: Optional[str] = None
     contactPerson: Optional[str] = None
     bookedBy: Optional[str] = None
     warnings: Optional[List[str]] = None
+    rawValues: Optional[str] = None
+    originalDoc: Optional[str] = None
 
 # AiInsightResponse
 class Insight(BaseModel):

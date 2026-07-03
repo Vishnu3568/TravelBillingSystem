@@ -1,4 +1,5 @@
 import logging
+import requests
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from app.models.company import Company
@@ -71,6 +72,34 @@ class BulkImportService:
         }
 
     @staticmethod
+    def _index_and_retrieve_rag_context(chunk_text: str, filename: str, page_number: int) -> str:
+        # 1. Index in RAG by uploading virtual text file
+        try:
+            files = {
+                "file": (f"{filename}_page_{page_number}.txt", chunk_text.encode("utf-8"), "text/plain")
+            }
+            upload_res = requests.post("http://localhost:9002/upload", files=files, timeout=10)
+            if upload_res.status_code != 200:
+                logger.warning(f"RAG upload failed: {upload_res.text}")
+        except Exception as e:
+            logger.warning(f"RAG upload exception: {e}")
+
+        # 2. Query RAG for contextual matching
+        try:
+            query_payload = {
+                "query": f"Find company details, invoice numbers, or duty slip patterns for {filename} page {page_number}",
+                "top_k": 3,
+                "use_reranker": True
+            }
+            query_res = requests.post("http://localhost:9002/query", json=query_payload, timeout=10)
+            if query_res.status_code == 200:
+                ans_data = query_res.json()
+                return ans_data.get("answer", "")
+        except Exception as e:
+            logger.warning(f"RAG query exception: {e}")
+        return ""
+
+    @staticmethod
     def import_bills(db: Session, files: List[Dict[str, Any]], created_by: str, ip: str) -> Dict[str, Any]:
         """
         Segment, extract, validate, and save bills page-by-page.
@@ -95,8 +124,10 @@ class BulkImportService:
                 for chunk in chunks:
                     try:
                         logger.info(f"Parsing page {chunk.page_number}/{len(chunks)} of {file_name}")
-                        extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name)
+                        rag_context = BulkImportService._index_and_retrieve_rag_context(chunk.raw_text, file_name, chunk.page_number)
+                        extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name, rag_context=rag_context)
                         bill_res = AiExtractionService.map_to_bill_response(extracted_dict)
+                        bill_res.originalDoc = chunk.html_representation
                         
                         # Validate the bill
                         warnings = ValidationService.validate_bill(db, bill_res)
@@ -193,8 +224,10 @@ class BulkImportService:
                 for chunk in chunks:
                     try:
                         logger.info(f"Parsing preview for page {chunk.page_number}/{len(chunks)}")
-                        extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name)
+                        rag_context = BulkImportService._index_and_retrieve_rag_context(chunk.raw_text, file_name, chunk.page_number)
+                        extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name, rag_context=rag_context)
                         bill_res = AiExtractionService.map_to_bill_response(extracted_dict)
+                        bill_res.originalDoc = chunk.html_representation
                         
                         # Validate and attach warnings
                         warnings = ValidationService.validate_bill(db, bill_res)

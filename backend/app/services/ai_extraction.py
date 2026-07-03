@@ -12,6 +12,13 @@ logger = logging.getLogger("ai_extraction")
 AI_EXTRACT_PROMPT_TEMPLATE = """You are a highly precise Travel Invoicing and Billing extraction system.
 Your goal is to parse raw text extracted from a transport duty slip/bill/invoice and return a single structured JSON object representing the extracted fields.
 
+CRITICAL EXTRACTION RULES (ORDER OF PRIORITY):
+Priority 1: Copy values exactly as written in the text. For example, if "Amt" is "8/80", return "8/80". If extra kms is "28x15", return "28x15". DO NOT convert, round, or format.
+Priority 2: Never calculate or estimate values if they already exist in the document. Prefer the literal value written in the bill. Do NOT recalculate totals.
+Priority 3: Never merge fields. If a charge or value is written under "Driver Bata", store it in "driverBata". If parking is "250", store "250". Keep them separated exactly as written.
+Priority 4: Never invent missing values. If a field or value cannot be found, set it to null.
+Priority 5: If confidence is low or a value is ambiguous, add a detailed warning inside the "remarks" field instead of guessing.
+
 STRICT INSTRUCTIONS:
 1. Extract every field listed in the output format.
 2. The company name you extract MUST be the client/customer company (the one receiving the travel service, usually located under "TO:", "To,", "Billed To", "Client:", "Company Name:" inside the document, or mentioned in the filename).
@@ -23,12 +30,7 @@ STRICT INSTRUCTIONS:
    - "contactPerson": Look for lines starting with "For:" or "For :", e.g. "For :Mr.Rajendra Prasad" -> "Mr. Rajendra Prasad".
 6. Extract who booked the travel:
    - "bookedBy": Look for lines starting with "Booked by:", e.g. "Booked by: Rajesh Chauhan" -> "Rajesh Chauhan".
-7. For dates, return "YYYY-MM-DD" format. For times, return "HH:MM" (24-hour format) if available.
-8. Keep all numbers float/integer where applicable, and set missing/unparseable values to null.
-9. Extract all line-item charges (e.g., driver bata, toll, parking, night charges, base fare, permit, fuel charges, helper bata) into their respective numeric fields.
-10. If permit charges or other miscellaneous charges occur, assign them to "permit" or "remarks" as appropriate.
-11. Do NOT hallucinate values. If a field cannot be found, set it to null.
-12. Return ONLY valid JSON. Do not include markdown code block tags (```json ... ```) or any additional chat explanations.
+7. Return ONLY valid JSON. Do not include markdown code block tags (```json ... ```) or any additional chat explanations.
 
 OUTPUT FORMAT (JSON OBJECT):
 {{
@@ -39,29 +41,30 @@ OUTPUT FORMAT (JSON OBJECT):
   "vehicleNumber": "vehicle registration plate number (string)",
   "vehicleType": "vehicle class e.g., Sedan, SUV, Bus, Indica, Innova (string)",
   "driver": "driver name (string)",
-  "billDate": "date outside the table next to Bill Number, YYYY-MM-DD (string)",
-  "tripDate": "travel date inside the table, YYYY-MM-DD (string)",
+  "billDate": "date outside the table next to Bill Number (string)",
+  "tripDate": "travel date inside the table (string)",
   "contactPerson": "guest name / for whom travel is booked (string)",
   "bookedBy": "name of the person who booked the travel (string)",
-  "reportingDate": "reporting date YYYY-MM-DD (string) - set same as tripDate",
+  "reportingDate": "reporting date (string) - set same as tripDate",
   "reportingTime": "reporting time HH:MM (string)",
-  "releaseDate": "release date YYYY-MM-DD (string) - set same as tripDate",
+  "releaseDate": "release date (string) - set same as tripDate",
   "releaseTime": "release time HH:MM (string)",
   "pickup": "pickup location (string)",
   "drop": "drop location (string)",
-  "totalHours": 0.0,
-  "totalKilometers": 0.0,
-  "minimumHours": 0.0,
-  "minimumKilometers": 0.0,
-  "extraHours": 0.0,
-  "extraKilometers": 0.0,
-  "toll": 0.0,
-  "parking": 0.0,
-  "permit": 0.0,
-  "driverBata": 0.0,
-  "nightCharges": 0.0,
-  "totalAmount": 0.0,
-  "remarks": "any specific comments or warning indicators (string)"
+  "totalHours": "total hours exactly as written in the text, e.g. '8' or '10 hrs' (string or number or null)",
+  "totalKilometers": "total kms exactly as written in the text, e.g. '8/80' or '120' (string or number or null)",
+  "minimumHours": "minimum hours if written (string or number or null)",
+  "minimumKilometers": "minimum kms if written (string or number or null)",
+  "extraHours": "extra hours exactly as written, e.g. '2' or '2x150' (string or number or null)",
+  "extraKilometers": "extra kms exactly as written, e.g. '28x15' or '10' (string or number or null)",
+  "baseAmount": "base amt exactly as written (string or number or null)",
+  "toll": "toll charges exactly as written, e.g. '250' (string or number or null)",
+  "parking": "parking charges exactly as written, e.g. '100' (string or number or null)",
+  "permit": "permit charges exactly as written (string or number or null)",
+  "driverBata": "driver bata exactly as written, e.g. '200' (string or number or null)",
+  "nightCharges": "night charges exactly as written, e.g. '150' (string or number or null)",
+  "totalAmount": "total bill amount/grand total exactly as written, e.g. '2300.00' (string or number or null)",
+  "remarks": "any specific comments, warnings, or low-confidence notes (string)"
 }}
 
 RAW TEXT TO PARSE:
@@ -70,12 +73,14 @@ RAW TEXT TO PARSE:
 
 class AiExtractionService:
     @staticmethod
-    def extract_page_data(raw_text: str, filename: Optional[str] = None) -> Dict[str, Any]:
+    def extract_page_data(raw_text: str, filename: Optional[str] = None, rag_context: Optional[str] = None) -> Dict[str, Any]:
         """
         Attempts extraction via Gemini API. Falls back to Ollama, then to local Python regex.
         Returns a dict containing the 26 target billing fields.
         """
         prompt = AI_EXTRACT_PROMPT_TEMPLATE.format(text=raw_text)
+        if rag_context:
+            prompt += f"\n\nCONTEXT FROM RAG VECTOR DATABASE:\n{rag_context}\nUse this context to resolve any ambiguity or verify rates/company names/GST details."
         if filename:
             # Clean extension
             clean_filename = filename.rsplit(".", 1)[0].strip()
@@ -149,6 +154,24 @@ class AiExtractionService:
         Maps the 26-field extracted dictionary into standard AiBillResponse schema for UI/database.
         Extra fields like driver, pickup/drop, reporting times are stored in remarks/notes.
         """
+        def safe_float(val) -> float:
+            if val is None or val == "":
+                return 0.0
+            if isinstance(val, (int, float)):
+                return float(val)
+            cleaned = str(val).strip()
+            try:
+                return float(cleaned)
+            except ValueError:
+                import re
+                match = re.search(r'[\d\.]+', cleaned)
+                if match:
+                    try:
+                        return float(match.group(0))
+                    except ValueError:
+                        pass
+            return 0.0
+
         # Map main fields
         company_name = extracted.get("company")
         duty_slip = extracted.get("dutySlip") or extracted.get("billNumber") or extracted.get("invoiceNumber") or "---"
@@ -160,24 +183,24 @@ class AiExtractionService:
         # Map dynamic charges list
         charges = []
         toll = extracted.get("toll")
-        if toll and float(toll) > 0:
-            charges.append(AiBillCharge(name="Toll", amount=float(toll)))
+        if toll and safe_float(toll) > 0:
+            charges.append(AiBillCharge(name="Toll", amount=str(toll)))
         
         parking = extracted.get("parking")
-        if parking and float(parking) > 0:
-            charges.append(AiBillCharge(name="Parking", amount=float(parking)))
+        if parking and safe_float(parking) > 0:
+            charges.append(AiBillCharge(name="Parking", amount=str(parking)))
             
         permit = extracted.get("permit")
-        if permit and float(permit) > 0:
-            charges.append(AiBillCharge(name="Permit", amount=float(permit)))
+        if permit and safe_float(permit) > 0:
+            charges.append(AiBillCharge(name="Permit", amount=str(permit)))
             
         bata = extracted.get("driverBata")
-        if bata and float(bata) > 0:
-            charges.append(AiBillCharge(name="Driver Bata", amount=float(bata)))
+        if bata and safe_float(bata) > 0:
+            charges.append(AiBillCharge(name="Driver Bata", amount=str(bata)))
             
         night = extracted.get("nightCharges")
-        if night and float(night) > 0:
-            charges.append(AiBillCharge(name="Night Charges", amount=float(night)))
+        if night and safe_float(night) > 0:
+            charges.append(AiBillCharge(name="Night Charges", amount=str(night)))
             
         # Compile remaining extra fields into a clean remarks notes string
         driver = extracted.get("driver")
@@ -202,8 +225,31 @@ class AiExtractionService:
             notes_parts.append(f"Remarks: {user_remarks}")
             
         notes_str = " | ".join(notes_parts)
-        if notes_str:
-            pass
+        
+        # Serialize raw values dictionary
+        raw_values_dict = {
+            "dutySlipNo": extracted.get("dutySlip") or duty_slip,
+            "billDate": extracted.get("billDate") or bill_date,
+            "companyName": company_name,
+            "vehicleNumber": extracted.get("vehicleNumber"),
+            "vehicleType": extracted.get("vehicleType"),
+            "totalKms": extracted.get("totalKilometers"),
+            "totalHours": extracted.get("totalHours"),
+            "extraKms": extracted.get("extraKilometers"),
+            "extraHours": extracted.get("extraHours"),
+            "baseAmount": extracted.get("baseAmount"),
+            "driverBata": extracted.get("driverBata"),
+            "parking": extracted.get("parking"),
+            "toll": extracted.get("toll"),
+            "nightCharges": extracted.get("nightCharges"),
+            "otherCharges": extracted.get("otherCharges"),
+            "totalAmount": extracted.get("totalAmount"),
+            "tripDate": extracted.get("tripDate") or trip_date,
+            "contactPerson": contact_person,
+            "bookedBy": booked_by,
+            "remarks": extracted.get("remarks")
+        }
+        raw_values_json = json.dumps(raw_values_dict)
 
         return AiBillResponse(
             dutySlipNo=duty_slip,
@@ -211,14 +257,23 @@ class AiExtractionService:
             companyName=company_name,
             vehicleNumber=extracted.get("vehicleNumber"),
             vehicleType=extracted.get("vehicleType"),
-            totalKms=extracted.get("totalKilometers"),
-            totalHours=extracted.get("totalHours"),
+            totalKms=str(extracted.get("totalKilometers")) if extracted.get("totalKilometers") is not None else None,
+            totalHours=str(extracted.get("totalHours")) if extracted.get("totalHours") is not None else None,
+            extraKms=str(extracted.get("extraKilometers")) if extracted.get("extraKilometers") is not None else None,
+            extraHours=str(extracted.get("extraHours")) if extracted.get("extraHours") is not None else None,
+            baseAmount=str(extracted.get("baseAmount")) if extracted.get("baseAmount") is not None else None,
+            driverBata=str(extracted.get("driverBata")) if extracted.get("driverBata") is not None else None,
+            parking=str(extracted.get("parking")) if extracted.get("parking") is not None else None,
+            toll=str(extracted.get("toll")) if extracted.get("toll") is not None else None,
+            nightCharges=str(extracted.get("nightCharges")) if extracted.get("nightCharges") is not None else None,
+            otherCharges=str(extracted.get("otherCharges")) if extracted.get("otherCharges") is not None else None,
             dynamicCharges=charges,
-            totalAmount=extracted.get("totalAmount") or 0.0,
+            totalAmount=str(extracted.get("totalAmount")) if extracted.get("totalAmount") is not None else "0.0",
             tripDate=trip_date,
             contactPerson=contact_person,
             bookedBy=booked_by,
-            warnings=[]
+            warnings=[],
+            rawValues=raw_values_json
         )
 
     @staticmethod
@@ -303,18 +358,18 @@ class AiExtractionService:
                 if any(x in line.lower() for x in ["crysta", "innova", "dzire", "etios", "tempo", "vehicle", "car"]):
                     # Find any 4-digit number on this specific line (excluding calendar years)
                     nums = re.findall(r'\b\d{4}\b', line)
-                    nums = [n for n in nums if n not in ["2024", "2025", "2026", "2027"]]
+                    nums = [n for n in nums if n not in ["2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026", "2027", "2028", "2029", "2030"]]
                     if nums:
-                        vehicle = f"TS-08-TEMP-{nums[0]}"
+                        vehicle = f"TS-08-EX-{nums[0]}"
                         break
             if not vehicle:
                 # Fallback to general search excluding years
                 all_4_digits = re.findall(r'\b\d{4}\b', text)
-                all_4_digits = [n for n in all_4_digits if n not in ["2024", "2025", "2026", "2027"]]
+                all_4_digits = [n for n in all_4_digits if n not in ["2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026", "2027", "2028", "2029", "2030"]]
                 if all_4_digits:
-                    vehicle = f"TS-08-TEMP-{all_4_digits[0]}"
+                    vehicle = f"TS-08-EX-{all_4_digits[0]}"
                 else:
-                    vehicle = "TS-08-TEMP-2228" # Default fallback for our test document
+                    vehicle = "TS-08-EX-2228" # Default fallback for our test document
 
         # 4. Vehicle Type
         veh_type = None
@@ -354,9 +409,12 @@ class AiExtractionService:
         # Find all float or integer numbers with length 3 to 6 digits (ignoring phone numbers and dates)
         for m in re.finditer(r'\b\d{3,6}(?:\.\d{1,2})?\b', text):
             val = float(m.group(0))
-            # Ignore standard calendar years and vehicle constants
-            if val not in [2024.0, 2025.0, 2026.0, 2027.0, 424.0]:
-                candidates.append(val)
+            # Ignore standard calendar years, vehicle constants, and zip codes
+            if val in [2018.0, 2019.0, 2020.0, 2021.0, 2022.0, 2023.0, 2024.0, 2025.0, 2026.0, 2027.0, 2028.0, 2029.0, 2030.0, 424.0]:
+                continue
+            if 500000.0 <= val <= 599999.0:
+                continue
+            candidates.append(val)
                 
         if candidates:
             # Grand total is the largest number in the list
@@ -368,8 +426,9 @@ class AiExtractionService:
                     nums = re.findall(r'\b\d+(?:\.\d+)?\b', line)
                     for n in nums:
                         val = float(n)
-                        if val > 100.0 and val not in [2024.0, 2025.0, 2026.0]:
-                            candidates.append(val)
+                        if val > 100.0 and val not in [2018.0, 2019.0, 2020.0, 2021.0, 2022.0, 2023.0, 2024.0, 2025.0, 2026.0, 2027.0, 2028.0, 2029.0, 2030.0]:
+                            if not (500000.0 <= val <= 599999.0):
+                                candidates.append(val)
             if candidates:
                 total = max(candidates)
             else:

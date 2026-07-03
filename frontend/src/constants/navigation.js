@@ -9,9 +9,8 @@ export const routes = [
   { to: '/bill-history', icon: FileText, label: 'Bills' },
   { to: '/companies', icon: Building2, label: 'Companies', roles: ['OWNER', 'MANAGER'] },
   { to: '/vehicles', icon: Car, label: 'Vehicles', roles: ['OWNER', 'MANAGER'] },
+  { to: '/owner-dashboard/import-bills', icon: UploadCloud, label: 'Bulk Upload', roles: ['OWNER'] },
   { to: '/users', icon: Users, label: 'Users', roles: ['OWNER'] },
-  { to: '/import-bills', icon: UploadCloud, label: 'Bulk Upload', roles: ['OWNER'] },
   { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['OWNER', 'MANAGER'] },
-  { to: '/backup', icon: Database, label: 'Backup', roles: ['OWNER'] },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
