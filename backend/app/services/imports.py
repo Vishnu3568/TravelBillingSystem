@@ -126,7 +126,7 @@ class BulkImportService:
                         logger.info(f"Parsing page {chunk.page_number}/{len(chunks)} of {file_name}")
                         rag_context = BulkImportService._index_and_retrieve_rag_context(chunk.raw_text, file_name, chunk.page_number)
                         extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name, rag_context=rag_context)
-                        bill_res = AiExtractionService.map_to_bill_response(extracted_dict)
+                        bill_res = AiExtractionService.map_to_bill_response(extracted_dict, chunk.raw_text)
                         bill_res.originalDoc = chunk.html_representation
                         
                         # Validate the bill
@@ -226,7 +226,7 @@ class BulkImportService:
                         logger.info(f"Parsing preview for page {chunk.page_number}/{len(chunks)}")
                         rag_context = BulkImportService._index_and_retrieve_rag_context(chunk.raw_text, file_name, chunk.page_number)
                         extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name, rag_context=rag_context)
-                        bill_res = AiExtractionService.map_to_bill_response(extracted_dict)
+                        bill_res = AiExtractionService.map_to_bill_response(extracted_dict, chunk.raw_text)
                         bill_res.originalDoc = chunk.html_representation
                         
                         # Validate and attach warnings

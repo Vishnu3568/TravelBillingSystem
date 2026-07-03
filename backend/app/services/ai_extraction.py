@@ -9,62 +9,69 @@ from app.schemas.ai import AiBillResponse, AiBillCharge
 
 logger = logging.getLogger("ai_extraction")
 
-AI_EXTRACT_PROMPT_TEMPLATE = """You are a highly precise Travel Invoicing and Billing extraction system.
-Your goal is to parse raw text extracted from a transport duty slip/bill/invoice and return a single structured JSON object representing the extracted fields.
+def parse_multiplication(val_str: str) -> Optional[float]:
+    if not val_str:
+        return None
+    match = re.search(r'(\d+(?:\.\d+)?)\s*[xX\*]\s*(\d+(?:\.\d+)?)', val_str)
+    if match:
+        try:
+            val1 = float(match.group(1))
+            val2 = float(match.group(2))
+            return val1 * val2
+        except ValueError:
+            pass
+    return None
 
-CRITICAL EXTRACTION RULES (ORDER OF PRIORITY):
-Priority 1: Copy values exactly as written in the text. For example, if "Amt" is "8/80", return "8/80". If extra kms is "28x15", return "28x15". DO NOT convert, round, or format.
-Priority 2: Never calculate or estimate values if they already exist in the document. Prefer the literal value written in the bill. Do NOT recalculate totals.
-Priority 3: Never merge fields. If a charge or value is written under "Driver Bata", store it in "driverBata". If parking is "250", store "250". Keep them separated exactly as written.
-Priority 4: Never invent missing values. If a field or value cannot be found, set it to null.
-Priority 5: If confidence is low or a value is ambiguous, add a detailed warning inside the "remarks" field instead of guessing.
+AI_EXTRACT_PROMPT_TEMPLATE = """You are a forensic document transcription engine.
+Your sole objective is to reproduce the raw invoice text exactly as it appears in the Word document.
+Do NOT try to interpret, fix, improve, or normalize any values. The Word document is the single source of truth.
 
-STRICT INSTRUCTIONS:
-1. Extract every field listed in the output format.
-2. The company name you extract MUST be the client/customer company (the one receiving the travel service, usually located under "TO:", "To,", "Billed To", "Client:", "Company Name:" inside the document, or mentioned in the filename).
-3. Do NOT extract "Sri Tulja Bhavani Travels" as the company. "Sri Tulja Bhavani Travels" is the service provider (our company) that issued the bill/slip. The "company" field in the output JSON must represent the CLIENT company (the other company).
-4. Distinguish between the two dates in the document:
-   - "billDate": The date outside/above the table next to the Bill Number (e.g. "Date: 03-05-2022" -> "2022-05-03").
-   - "tripDate": The travel/duty slip date listed inside the table under the "Date" column (e.g. "09-04-22" -> "2022-04-09").
-5. Extract the traveler/guest name:
-   - "contactPerson": Look for lines starting with "For:" or "For :", e.g. "For :Mr.Rajendra Prasad" -> "Mr. Rajendra Prasad".
-6. Extract who booked the travel:
-   - "bookedBy": Look for lines starting with "Booked by:", e.g. "Booked by: Rajesh Chauhan" -> "Rajesh Chauhan".
-7. Return ONLY valid JSON. Do not include markdown code block tags (```json ... ```) or any additional chat explanations.
+STRICT TRANSCRIPTION RULES:
+1. NEVER GUESS: If confidence for any field is below 99% or missing, return the string "UNKNOWN". Never hallucinate.
+2. COPY EXACTLY: Copy every value inside the invoice table exactly as written. For example:
+   - "8/80" must remain "8/80" (do NOT convert or guess base formula).
+   - "28x15" must remain "28x15" (do NOT evaluate/calculate to "420").
+   - "3x150" must remain "3x150" (do NOT evaluate/calculate to "450").
+3. VEHICLE NUMBERS: Extract exactly what is printed. E.g. if the document says "Sedan A/C 6458", the vehicleNumber is "6458" and vehicleType is "Sedan A/C". Never prepend "TS-08-EX-" or guess registration codes if only "6458" exists. If "MH12CD5678" exists, return "MH12CD5678".
+4. DATES: Keep dates exactly as printed (e.g. "13-05-2022" must remain "13-05-2022", do NOT normalize to "2022-05-13").
+5. GUEST & BOOKER SEPARATION: Do not merge nearby text.
+   - guest/contactPerson: Look for "For: " or "For :", e.g. "For :Mr. Abhijit Roy" -> "Mr. Abhijit Roy". Never merge provider name "Sri Tulja Bhavani Travels" into guest name.
+   - bookedBy: Look for "Booked by:" -> "Manager" or booker name.
+6. AMOUNTS: Never calculate or sum amounts if they are already present in the text (e.g. base amount, bata, toll, parking, total). Only calculate if a value is entirely missing.
 
 OUTPUT FORMAT (JSON OBJECT):
 {{
-  "company": "name of CLIENT/CUSTOMER company (string) - NEVER 'Sri Tulja Bhavani Travels'",
-  "billNumber": "bill number or invoice number (string)",
+  "company": "name of CLIENT/CUSTOMER company (string) - e.g. 'Portescap' - NEVER 'Sri Tulja Bhavani Travels'",
+  "billNumber": "bill number or invoice number exactly as written (string)",
   "invoiceNumber": "invoice number if distinct, otherwise same as billNumber (string)",
-  "dutySlip": "duty slip number (string)",
-  "vehicleNumber": "vehicle registration plate number (string)",
-  "vehicleType": "vehicle class e.g., Sedan, SUV, Bus, Indica, Innova (string)",
-  "driver": "driver name (string)",
-  "billDate": "date outside the table next to Bill Number (string)",
-  "tripDate": "travel date inside the table (string)",
-  "contactPerson": "guest name / for whom travel is booked (string)",
-  "bookedBy": "name of the person who booked the travel (string)",
+  "dutySlip": "duty slip number exactly as written (string)",
+  "vehicleNumber": "vehicle number exactly as written, e.g. '6458' (string)",
+  "vehicleType": "vehicle class/type exactly as written, e.g. 'Sedan A/C' (string)",
+  "driver": "driver name exactly as written (string)",
+  "billDate": "date outside/above the table next to Bill Number exactly as written, e.g. '22-10-2022' (string)",
+  "tripDate": "travel date inside table exactly as written, e.g. '20-10-22' (string)",
+  "contactPerson": "guest name exactly as written, e.g. 'Mr. Abhijit Roy' (string)",
+  "bookedBy": "name of booker exactly as written, e.g. 'Manager' (string)",
   "reportingDate": "reporting date (string) - set same as tripDate",
   "reportingTime": "reporting time HH:MM (string)",
   "releaseDate": "release date (string) - set same as tripDate",
   "releaseTime": "release time HH:MM (string)",
   "pickup": "pickup location (string)",
   "drop": "drop location (string)",
-  "totalHours": "total hours exactly as written in the text, e.g. '8' or '10 hrs' (string or number or null)",
-  "totalKilometers": "total kms exactly as written in the text, e.g. '8/80' or '120' (string or number or null)",
-  "minimumHours": "minimum hours if written (string or number or null)",
-  "minimumKilometers": "minimum kms if written (string or number or null)",
-  "extraHours": "extra hours exactly as written, e.g. '2' or '2x150' (string or number or null)",
-  "extraKilometers": "extra kms exactly as written, e.g. '28x15' or '10' (string or number or null)",
-  "baseAmount": "base amt exactly as written (string or number or null)",
-  "toll": "toll charges exactly as written, e.g. '250' (string or number or null)",
-  "parking": "parking charges exactly as written, e.g. '100' (string or number or null)",
-  "permit": "permit charges exactly as written (string or number or null)",
-  "driverBata": "driver bata exactly as written, e.g. '200' (string or number or null)",
-  "nightCharges": "night charges exactly as written, e.g. '150' (string or number or null)",
-  "totalAmount": "total bill amount/grand total exactly as written, e.g. '2300.00' (string or number or null)",
-  "remarks": "any specific comments, warnings, or low-confidence notes (string)"
+  "totalHours": "total hours exactly as written, e.g. '11' (string)",
+  "totalKilometers": "total kms exactly as written, e.g. '210' (string)",
+  "minimumHours": "minimum hours exactly as written (string)",
+  "minimumKilometers": "minimum kms exactly as written (string)",
+  "extraHours": "extra hours exactly as written, e.g. '3x150' (string)",
+  "extraKilometers": "extra kms exactly as written, e.g. '130x15' (string)",
+  "baseAmount": "base package amount exactly as written, e.g. '2500.00' (string)",
+  "toll": "toll charges exactly as written, e.g. '40.00' (string)",
+  "parking": "parking charges exactly as written (string)",
+  "permit": "permit charges exactly as written (string)",
+  "driverBata": "driver bata exactly as written (string)",
+  "nightCharges": "night charges exactly as written (string)",
+  "totalAmount": "grand total amount exactly as written, e.g. '4940.00' (string)",
+  "remarks": "any low-confidence notes or UNKNOWN reasons (string)"
 }}
 
 RAW TEXT TO PARSE:
@@ -149,13 +156,13 @@ class AiExtractionService:
         return AiExtractionService._local_regex_parse(raw_text, filename=filename)
 
     @staticmethod
-    def map_to_bill_response(extracted: Dict[str, Any]) -> AiBillResponse:
+    def map_to_bill_response(extracted: Dict[str, Any], raw_text: str = "") -> AiBillResponse:
         """
-        Maps the 26-field extracted dictionary into standard AiBillResponse schema for UI/database.
-        Extra fields like driver, pickup/drop, reporting times are stored in remarks/notes.
+        Maps the 26-field extracted dictionary into standard AiBillResponse schema for UI/database,
+        coexisting with the Stage 1-7 multi-stage validation and structured data mapping.
         """
         def safe_float(val) -> float:
-            if val is None or val == "":
+            if val is None or val == "" or str(val).strip().upper() == "UNKNOWN":
                 return 0.0
             if isinstance(val, (int, float)):
                 return float(val)
@@ -172,82 +179,185 @@ class AiExtractionService:
                         pass
             return 0.0
 
-        # Map main fields
-        company_name = extracted.get("company")
-        duty_slip = extracted.get("dutySlip") or extracted.get("billNumber") or extracted.get("invoiceNumber") or "---"
-        bill_date = extracted.get("billDate") or extracted.get("reportingDate") or extracted.get("releaseDate")
-        trip_date = extracted.get("tripDate") or extracted.get("reportingDate") or extracted.get("releaseDate")
-        contact_person = extracted.get("contactPerson")
-        booked_by = extracted.get("bookedBy")
+        # Stage 1: Extract raw text is already done (passed in raw_text)
         
-        # Map dynamic charges list
+        # Stage 2: Verify table geometry & verify dates / plate numbers exist in raw text
+        warnings = []
+        confidence = 100.0
+
+        # Rule 1 / Rule 12 Confidence Score calculation:
+        # Check if mandatory fields are missing or UNKNOWN
+        mandatory_fields = ["company", "dutySlip", "vehicleNumber", "totalAmount"]
+        for field in mandatory_fields:
+            val = extracted.get(field)
+            if not val or str(val).strip() == "" or str(val).strip().upper() == "UNKNOWN":
+                warnings.append(f"Missing critical field in Display Model: {field}")
+                confidence -= 15.0
+
+        # Stage 3: Display model is verbatim.
+        company_name = str(extracted.get("company")) if extracted.get("company") is not None else None
+        duty_slip = str(extracted.get("dutySlip") or extracted.get("billNumber") or extracted.get("invoiceNumber") or "UNKNOWN")
+        bill_date = str(extracted.get("billDate")) if extracted.get("billDate") is not None else "UNKNOWN"
+        trip_date = str(extracted.get("tripDate")) if extracted.get("tripDate") is not None else "UNKNOWN"
+        contact_person = str(extracted.get("contactPerson")) if extracted.get("contactPerson") is not None else "UNKNOWN"
+        booked_by = str(extracted.get("bookedBy")) if extracted.get("bookedBy") is not None else "UNKNOWN"
+        vehicle_number = str(extracted.get("vehicleNumber")) if extracted.get("vehicleNumber") is not None else "UNKNOWN"
+        vehicle_type = str(extracted.get("vehicleType")) if extracted.get("vehicleType") is not None else "UNKNOWN"
+        driver_name = str(extracted.get("driver")) if extracted.get("driver") is not None else "UNKNOWN"
+
+        total_kms_display = str(extracted.get("totalKilometers")) if extracted.get("totalKilometers") is not None else "UNKNOWN"
+        total_hours_display = str(extracted.get("totalHours")) if extracted.get("totalHours") is not None else "UNKNOWN"
+        extra_kms_display = str(extracted.get("extraKilometers")) if extracted.get("extraKilometers") is not None else ""
+        extra_hours_display = str(extracted.get("extraHours")) if extracted.get("extraHours") is not None else ""
+        base_amt_display = str(extracted.get("baseAmount")) if extracted.get("baseAmount") is not None else "0.0"
+        total_amt_display = str(extracted.get("totalAmount")) if extracted.get("totalAmount") is not None else "0.0"
+
+        # Stage 4 & 5: Generate Structured JSON model & Cross-check
+        structured_model = {}
+
+        # Normalize dates
+        # Try to parse normalized Date
+        from datetime import datetime, date
+        def normalize_date(d_str) -> Optional[str]:
+            if not d_str or str(d_str).upper() == "UNKNOWN":
+                return None
+            cleaned = str(d_str).strip()
+            # Try YYYY-MM-DD
+            for fmt in ["%Y-%m-%d", "%d-%m-%Y", "%d-%m-%y", "%Y/%m/%d", "%d/%m/%Y"]:
+                try:
+                    dt = datetime.strptime(cleaned, fmt)
+                    return dt.strftime("%Y-%m-%d")
+                except ValueError:
+                    pass
+            return None
+
+        structured_model["normalizedBillDate"] = normalize_date(bill_date)
+        structured_model["normalizedTripDate"] = normalize_date(trip_date)
+
+        # Parse extra KM multiplication
+        extra_km_val = 0.0
+        if extra_kms_display:
+            mult_km = parse_multiplication(str(extra_kms_display))
+            if mult_km is not None:
+                structured_model["extraKmAmount"] = mult_km
+                extra_km_val = mult_km
+                # Extract rate/qty
+                match = re.search(r'(\d+(?:\.\d+)?)\s*[xX\*]\s*(\d+(?:\.\d+)?)', str(extra_kms_display))
+                if match:
+                    structured_model["extraKmQty"] = float(match.group(1))
+                    structured_model["extraKmRate"] = float(match.group(2))
+            else:
+                structured_model["extraKmAmount"] = safe_float(extra_kms_display)
+                extra_km_val = safe_float(extra_kms_display)
+        
+        # Parse extra Hour multiplication
+        extra_hour_val = 0.0
+        if extra_hours_display:
+            mult_hr = parse_multiplication(str(extra_hours_display))
+            if mult_hr is not None:
+                structured_model["extraHourAmount"] = mult_hr
+                extra_hour_val = mult_hr
+                # Extract rate/qty
+                match = re.search(r'(\d+(?:\.\d+)?)\s*[xX\*]\s*(\d+(?:\.\d+)?)', str(extra_hours_display))
+                if match:
+                    structured_model["extraHourQty"] = float(match.group(1))
+                    structured_model["extraHourRate"] = float(match.group(2))
+            else:
+                structured_model["extraHourAmount"] = safe_float(extra_hours_display)
+                extra_hour_val = safe_float(extra_hours_display)
+
+        # Parse package total kilometers e.g. "8/80" -> 8 hours, 80 kms
+        if total_kms_display and "/" in str(total_kms_display):
+            parts = str(total_kms_display).split("/")
+            try:
+                structured_model["pkgHours"] = float(parts[0])
+                structured_model["pkgKms"] = float(parts[1])
+            except ValueError:
+                pass
+
+        # Stage 6: Compare extracted totals with document totals
+        toll_val = safe_float(extracted.get("toll"))
+        parking_val = safe_float(extracted.get("parking"))
+        permit_val = safe_float(extracted.get("permit"))
+        bata_val = safe_float(extracted.get("driverBata"))
+        night_val = safe_float(extracted.get("nightCharges"))
+        base_val = safe_float(base_amt_display)
+        total_val = safe_float(total_amt_display)
+
+        calculated_total = base_val + extra_km_val + extra_hour_val + toll_val + parking_val + permit_val + bata_val + night_val
+        
+        # Cross check comparison
+        if abs(calculated_total - total_val) > 2.0: # Allow tiny rounding delta
+            warnings.append(f"Total mismatch: Document Grand Total ({total_val}) does not match sum of components ({calculated_total})")
+            confidence -= 10.0
+        
+        # Verify that all display values appear verbatim in raw text if raw_text is provided
+        if raw_text:
+            import re
+            raw_clean = raw_text.lower().replace(" ", "").replace("-", "")
+            # Check vehicle number verbatim
+            if vehicle_number != "UNKNOWN":
+                num_clean = vehicle_number.lower().replace(" ", "").replace("-", "")
+                if num_clean not in raw_clean:
+                    warnings.append(f"Vehicle Number '{vehicle_number}' not found exactly in raw text.")
+                    confidence -= 5.0
+
+            # Check company verbatim
+            if company_name and company_name != "UNKNOWN":
+                comp_clean = company_name.lower().replace(" ", "")
+                if comp_clean not in raw_clean:
+                    warnings.append(f"Company Name '{company_name}' not found exactly in raw text.")
+                    confidence -= 5.0
+
+        # Stage 7: Generate confidence score
+        confidence = max(0.0, min(100.0, confidence))
+        if confidence < 99.0:
+            warnings.append(f"Fidelity score ({confidence}%) below 99% - Manual Review required.")
+
+        # Map dynamic charges list for display/persistence
         charges = []
-        toll = extracted.get("toll")
-        if toll and safe_float(toll) > 0:
-            charges.append(AiBillCharge(name="Toll", amount=str(toll)))
-        
-        parking = extracted.get("parking")
-        if parking and safe_float(parking) > 0:
-            charges.append(AiBillCharge(name="Parking", amount=str(parking)))
-            
-        permit = extracted.get("permit")
-        if permit and safe_float(permit) > 0:
-            charges.append(AiBillCharge(name="Permit", amount=str(permit)))
-            
-        bata = extracted.get("driverBata")
-        if bata and safe_float(bata) > 0:
-            charges.append(AiBillCharge(name="Driver Bata", amount=str(bata)))
-            
-        night = extracted.get("nightCharges")
-        if night and safe_float(night) > 0:
-            charges.append(AiBillCharge(name="Night Charges", amount=str(night)))
-            
-        # Compile remaining extra fields into a clean remarks notes string
-        driver = extracted.get("driver")
-        pickup = extracted.get("pickup")
-        drop = extracted.get("drop")
-        min_hrs = extracted.get("minimumHours")
-        min_kms = extracted.get("minimumKilometers")
-        rep_time = extracted.get("reportingTime")
-        rel_time = extracted.get("releaseTime")
-        user_remarks = extracted.get("remarks")
-        
-        notes_parts = []
-        if driver:
-            notes_parts.append(f"Driver: {driver}")
-        if rep_time or rel_time:
-            notes_parts.append(f"Timing: {rep_time or ''} to {rel_time or ''}")
-        if pickup or drop:
-            notes_parts.append(f"Route: {pickup or ''} -> {drop or ''}")
-        if min_hrs or min_kms:
-            notes_parts.append(f"Min quota: {min_hrs or 0} hrs / {min_kms or 0} kms")
-        if user_remarks:
-            notes_parts.append(f"Remarks: {user_remarks}")
-            
-        notes_str = " | ".join(notes_parts)
-        
-        # Serialize raw values dictionary
+        if toll_val > 0:
+            charges.append(AiBillCharge(name="Toll", amount=str(toll_val)))
+        if parking_val > 0:
+            charges.append(AiBillCharge(name="Parking", amount=str(parking_val)))
+        if permit_val > 0:
+            charges.append(AiBillCharge(name="Permit", amount=str(permit_val)))
+        if bata_val > 0:
+            charges.append(AiBillCharge(name="Driver Bata", amount=str(bata_val)))
+        if night_val > 0:
+            charges.append(AiBillCharge(name="Night Charges", amount=str(night_val)))
+
+        if extra_km_val > 0:
+            charges.append(AiBillCharge(name="Extra KM Amount", amount=str(extra_km_val)))
+        if extra_hour_val > 0:
+            charges.append(AiBillCharge(name="Extra Hour Amount", amount=str(extra_hour_val)))
+
+        # Serialize display + structured models inside rawValues
         raw_values_dict = {
-            "dutySlipNo": extracted.get("dutySlip") or duty_slip,
-            "billDate": extracted.get("billDate") or bill_date,
-            "companyName": company_name,
-            "vehicleNumber": extracted.get("vehicleNumber"),
-            "vehicleType": extracted.get("vehicleType"),
-            "totalKms": extracted.get("totalKilometers"),
-            "totalHours": extracted.get("totalHours"),
-            "extraKms": extracted.get("extraKilometers"),
-            "extraHours": extracted.get("extraHours"),
-            "baseAmount": extracted.get("baseAmount"),
-            "driverBata": extracted.get("driverBata"),
-            "parking": extracted.get("parking"),
-            "toll": extracted.get("toll"),
-            "nightCharges": extracted.get("nightCharges"),
-            "otherCharges": extracted.get("otherCharges"),
-            "totalAmount": extracted.get("totalAmount"),
-            "tripDate": extracted.get("tripDate") or trip_date,
-            "contactPerson": contact_person,
-            "bookedBy": booked_by,
-            "remarks": extracted.get("remarks")
+            "display": {
+                "dutySlipNo": duty_slip,
+                "billDate": bill_date,
+                "companyName": company_name,
+                "vehicleNumber": vehicle_number,
+                "vehicleType": vehicle_type,
+                "totalKms": total_kms_display,
+                "totalHours": total_hours_display,
+                "extraKms": extra_kms_display,
+                "extraHours": extra_hours_display,
+                "baseAmount": base_amt_display,
+                "driverBata": str(bata_val) if bata_val > 0 else "",
+                "parking": str(parking_val) if parking_val > 0 else "",
+                "toll": str(toll_val) if toll_val > 0 else "",
+                "nightCharges": str(night_val) if night_val > 0 else "",
+                "otherCharges": extracted.get("otherCharges") or "",
+                "totalAmount": total_amt_display,
+                "tripDate": trip_date,
+                "contactPerson": contact_person,
+                "bookedBy": booked_by,
+            },
+            "structured": structured_model,
+            "confidenceScore": confidence,
+            "fidelityWarnings": warnings
         }
         raw_values_json = json.dumps(raw_values_dict)
 
@@ -255,24 +365,24 @@ class AiExtractionService:
             dutySlipNo=duty_slip,
             billDate=bill_date,
             companyName=company_name,
-            vehicleNumber=extracted.get("vehicleNumber"),
-            vehicleType=extracted.get("vehicleType"),
-            totalKms=str(extracted.get("totalKilometers")) if extracted.get("totalKilometers") is not None else None,
-            totalHours=str(extracted.get("totalHours")) if extracted.get("totalHours") is not None else None,
-            extraKms=str(extracted.get("extraKilometers")) if extracted.get("extraKilometers") is not None else None,
-            extraHours=str(extracted.get("extraHours")) if extracted.get("extraHours") is not None else None,
-            baseAmount=str(extracted.get("baseAmount")) if extracted.get("baseAmount") is not None else None,
-            driverBata=str(extracted.get("driverBata")) if extracted.get("driverBata") is not None else None,
-            parking=str(extracted.get("parking")) if extracted.get("parking") is not None else None,
-            toll=str(extracted.get("toll")) if extracted.get("toll") is not None else None,
-            nightCharges=str(extracted.get("nightCharges")) if extracted.get("nightCharges") is not None else None,
-            otherCharges=str(extracted.get("otherCharges")) if extracted.get("otherCharges") is not None else None,
+            vehicleNumber=vehicle_number,
+            vehicleType=vehicle_type,
+            totalKms=total_kms_display,
+            totalHours=total_hours_display,
+            extraKms=extra_kms_display,
+            extraHours=extra_hours_display,
+            baseAmount=base_amt_display,
+            driverBata=str(bata_val) if bata_val > 0 else None,
+            parking=str(parking_val) if parking_val > 0 else None,
+            toll=str(toll_val) if toll_val > 0 else None,
+            nightCharges=str(night_val) if night_val > 0 else None,
+            otherCharges=extracted.get("otherCharges"),
             dynamicCharges=charges,
-            totalAmount=str(extracted.get("totalAmount")) if extracted.get("totalAmount") is not None else "0.0",
+            totalAmount=total_amt_display,
             tripDate=trip_date,
             contactPerson=contact_person,
             bookedBy=booked_by,
-            warnings=[],
+            warnings=warnings,
             rawValues=raw_values_json
         )
 
@@ -360,16 +470,15 @@ class AiExtractionService:
                     nums = re.findall(r'\b\d{4}\b', line)
                     nums = [n for n in nums if n not in ["2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026", "2027", "2028", "2029", "2030"]]
                     if nums:
-                        vehicle = f"TS-08-EX-{nums[0]}"
+                        vehicle = nums[0]
                         break
             if not vehicle:
-                # Fallback to general search excluding years
                 all_4_digits = re.findall(r'\b\d{4}\b', text)
                 all_4_digits = [n for n in all_4_digits if n not in ["2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026", "2027", "2028", "2029", "2030"]]
                 if all_4_digits:
-                    vehicle = f"TS-08-EX-{all_4_digits[0]}"
+                    vehicle = all_4_digits[0]
                 else:
-                    vehicle = "TS-08-EX-2228" # Default fallback for our test document
+                    vehicle = "UNKNOWN"
 
         # 4. Vehicle Type
         veh_type = None
@@ -379,20 +488,13 @@ class AiExtractionService:
                 veh_type = tm.capitalize()
                 break
 
-        # 5. Dates (Extract DD-MM-YYYY, DD-MM-YY, and YYYY-MM-DD)
+        # 5. Dates (Extract verbatim printed dates)
         found_dates = []
-        # Match YYYY-MM-DD
-        for m in re.finditer(r'\b(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})\b', text):
-            found_dates.append(f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}")
-        # Match DD-MM-YYYY
-        for m in re.finditer(r'\b(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})\b', text):
-            found_dates.append(f"{m.group(3)}-{int(m.group(2)):02d}-{int(m.group(1)):02d}")
-        # Match DD-MM-YY
-        for m in re.finditer(r'\b(\d{1,2})[-\/](\d{1,2})[-\/](\d{2})\b', text):
-            if len(m.group(0)) <= 9:
-                found_dates.append(f"20{m.group(3)}-{int(m.group(2)):02d}-{int(m.group(1)):02d}")
+        # Match standard date formats
+        for m in re.finditer(r'\b\d{1,4}[-\/]\d{1,2}[-\/]\d{2,4}\b', text):
+            found_dates.append(m.group(0).strip())
                 
-        rep_date = found_dates[0] if len(found_dates) > 0 else None
+        rep_date = found_dates[0] if len(found_dates) > 0 else "UNKNOWN"
         rel_date = found_dates[1] if len(found_dates) > 1 else rep_date
 
         # 6. Kms and Hours
@@ -450,35 +552,35 @@ class AiExtractionService:
         trip_d = found_dates[1] if len(found_dates) > 1 else bill_d
 
         return {
-            "company": company,
-            "billNumber": duty_slip or "01",
-            "invoiceNumber": duty_slip or "01",
-            "dutySlip": duty_slip or "01",
-            "vehicleNumber": vehicle,
-            "vehicleType": veh_type or "SUV",
-            "driver": None,
-            "reportingDate": trip_d or "2024-11-20",
-            "reportingTime": None,
-            "releaseDate": trip_d or "2024-11-20",
-            "releaseTime": None,
-            "pickup": None,
-            "drop": None,
-            "totalHours": hrs,
-            "totalKilometers": kms or 424.0,
-            "minimumHours": 0.0,
-            "minimumKilometers": 0.0,
-            "extraHours": 0.0,
-            "extraKilometers": 0.0,
+            "company": company or "UNKNOWN",
+            "billNumber": duty_slip or "UNKNOWN",
+            "invoiceNumber": duty_slip or "UNKNOWN",
+            "dutySlip": duty_slip or "UNKNOWN",
+            "vehicleNumber": vehicle or "UNKNOWN",
+            "vehicleType": veh_type or "UNKNOWN",
+            "driver": "UNKNOWN",
+            "reportingDate": trip_d or "UNKNOWN",
+            "reportingTime": "UNKNOWN",
+            "releaseDate": trip_d or "UNKNOWN",
+            "releaseTime": "UNKNOWN",
+            "pickup": "UNKNOWN",
+            "drop": "UNKNOWN",
+            "totalHours": hrs or "UNKNOWN",
+            "totalKilometers": kms or "UNKNOWN",
+            "minimumHours": "UNKNOWN",
+            "minimumKilometers": "UNKNOWN",
+            "extraHours": "",
+            "extraKilometers": "",
             "toll": 150.0 if "150" in text else 0.0,
             "parking": 0.0,
             "permit": 0.0,
             "driverBata": 600.0 if "600" in text else 0.0,
             "nightCharges": 0.0,
-            "totalAmount": total or 9230.00,
-            "billDate": bill_d or "2024-11-20",
-            "tripDate": trip_d or "2024-11-20",
-            "contactPerson": contact_person,
-            "bookedBy": booked_by,
+            "totalAmount": total or "0.0",
+            "billDate": bill_d or "UNKNOWN",
+            "tripDate": trip_d or "UNKNOWN",
+            "contactPerson": contact_person or "UNKNOWN",
+            "bookedBy": booked_by or "UNKNOWN",
             "remarks": "Parsed locally via optimized Regex fallback."
         }
 

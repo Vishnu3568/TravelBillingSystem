@@ -16,6 +16,58 @@ from app.services.gemini import gemini_service
 
 logger = logging.getLogger("bill_service")
 
+def parse_any_date(date_str: str) -> date:
+    if not date_str or str(date_str).strip() in ["", "---", "UNKNOWN"]:
+        return date.today()
+    cleaned = str(date_str).strip()
+    
+    # Try YYYY-MM-DD
+    try:
+        return date.fromisoformat(cleaned)
+    except ValueError:
+        pass
+        
+    # Try DD-MM-YYYY
+    try:
+        return datetime.strptime(cleaned, "%d-%m-%Y").date()
+    except ValueError:
+        pass
+        
+    # Try DD-MM-YY
+    try:
+        return datetime.strptime(cleaned, "%d-%m-%y").date()
+    except ValueError:
+        pass
+        
+    # Try YYYY/MM/DD
+    try:
+        return datetime.strptime(cleaned, "%Y/%m/%d").date()
+    except ValueError:
+        pass
+        
+    # Try DD/MM/YYYY
+    try:
+        return datetime.strptime(cleaned, "%d/%m/%Y").date()
+    except ValueError:
+        pass
+        
+    # Fallback to finding digits
+    import re
+    match = re.findall(r'\d+', cleaned)
+    if len(match) >= 3:
+        try:
+            if len(match[0]) == 4:
+                return date(int(match[0]), int(match[1]), int(match[2]))
+            else:
+                year = int(match[2])
+                if year < 100:
+                    year += 2000
+                return date(year, int(match[1]), int(match[0]))
+        except Exception:
+            pass
+            
+    return date.today()
+
 class BillService:
     @staticmethod
     def create_bill(db: Session, request: BillRequest, created_by: str, ip: str) -> Bill:
@@ -118,13 +170,35 @@ class BillService:
         for ai in ai_responses:
             try:
                 # Map AI response back to BillRequest
+                def sf(val) -> float:
+                    if val is None or val == "":
+                        return 0.0
+                    try:
+                        return float(val)
+                    except Exception:
+                        import re
+                        match = re.search(r'[\d\.]+', str(val))
+                        if match:
+                            try:
+                                return float(match.group(0))
+                            except Exception:
+                                pass
+                    return 0.0
+
                 req_data = {
                     "companyName": ai.companyName or "Unknown Company",
                     "vehicleName": ai.vehicleNumber or "Unknown Vehicle",
                     "vehicleType": ai.vehicleType or "Car",
-                    "totalKms": ai.totalKms or 0.0,
-                    "totalHours": ai.totalHours or 0.0,
-                    "baseAmount": ai.totalAmount or 0.0,
+                    "totalKms": sf(ai.totalKms),
+                    "totalHours": sf(ai.totalHours),
+                    "extraKms": sf(ai.extraKms),
+                    "extraHours": sf(ai.extraHours),
+                    "baseAmount": sf(ai.baseAmount) if ai.baseAmount else sf(ai.totalAmount),
+                    "driverBata": sf(ai.driverBata),
+                    "parking": sf(ai.parking),
+                    "toll": sf(ai.toll),
+                    "nightCharges": sf(ai.nightCharges),
+                    "otherCharges": sf(ai.otherCharges),
                     "tripType": "Outstation",
                     "pricingType": "BASE"
                 }
@@ -146,22 +220,10 @@ class BillService:
                     continue
 
                 # Bill date parsing
-                if ai.billDate:
-                    try:
-                        req_data["billDate"] = date.fromisoformat(ai.billDate)
-                    except Exception:
-                        req_data["billDate"] = date.today()
-                else:
-                    req_data["billDate"] = date.today()
+                req_data["billDate"] = parse_any_date(ai.billDate)
 
                 # Trip date parsing
-                if ai.tripDate:
-                    try:
-                        req_data["tripDate"] = date.fromisoformat(ai.tripDate)
-                    except Exception:
-                        req_data["tripDate"] = req_data["billDate"]
-                else:
-                    req_data["tripDate"] = req_data["billDate"]
+                req_data["tripDate"] = parse_any_date(ai.tripDate) if ai.tripDate else req_data["billDate"]
 
                 # Contact person (Guest) and Booked by
                 req_data["contactPerson"] = ai.contactPerson
