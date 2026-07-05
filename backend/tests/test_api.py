@@ -17,6 +17,7 @@ from app.models.payment import Payment
 from app.models.audit_log import AuditLog
 from app.utils.security import hash_password, create_access_token
 from app.services.docx_segmenter import BillChunk
+from app.services.document_intelligence import DocumentIntelligenceService
 
 
 TEST_DB_FILE = "./test_temp.db"
@@ -357,6 +358,33 @@ def test_ai_parse_endpoint(mock_extract, mock_segment):
     assert response.status_code == 200
     assert len(response.json()) == 1
     assert response.json()[0]["dutySlipNo"] == "DS-9041-TEST"
+    assert "documentIntelligence" in response.json()[0]
+
+
+def test_document_intelligence_service_parses_docx_structure():
+    from io import BytesIO
+    from docx import Document as DocxDocument
+
+    doc = DocxDocument()
+    doc.add_paragraph("Header line")
+    table = doc.add_table(rows=2, cols=2)
+    table.cell(0, 0).text = "Duty Slip"
+    table.cell(0, 1).text = "DS-1001"
+    table.cell(1, 0).text = "Vehicle Number"
+    table.cell(1, 1).text = "AP-09-TV-1234"
+
+    buffer = BytesIO()
+    doc.save(buffer)
+
+    parsed = DocumentIntelligenceService.extract_document(buffer.getvalue(), "sample.docx")
+    payload = parsed.to_json()
+
+    assert payload["metadata"]["file_name"] == "sample.docx"
+    assert payload["pages"]
+    assert payload["tables"]
+    assert payload["tables"][0]["number_of_rows"] == 2
+    assert payload["tables"][0]["number_of_columns"] == 2
+    assert payload["paragraphs"][0]["text"] == "Header line"
 
 def test_validation_service_checks():
     from app.services.validation_service import ValidationService

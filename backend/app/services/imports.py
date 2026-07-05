@@ -6,6 +6,7 @@ from app.models.company import Company
 from app.models.bill import Bill
 from app.services.docx_segmenter import DocxSegmenterService
 from app.services.ai_extraction import AiExtractionService
+from app.services.document_intelligence import DocumentIntelligenceService
 from app.services.validation_service import ValidationService
 from app.services.bills import BillService
 from app.services.audit_log import AuditLogService
@@ -14,6 +15,11 @@ from app.schemas.ai import AiBillResponse
 logger = logging.getLogger("bulk_import_service")
 
 class BulkImportService:
+    @staticmethod
+    def _build_document_intelligence(file_bytes: bytes, file_name: str) -> Dict[str, Any]:
+        document_model = DocumentIntelligenceService.extract_document(file_bytes, file_name)
+        return document_model.to_json()
+
     @staticmethod
     def import_companies(db: Session, files: List[Dict[str, Any]], current_user: str, current_role: str, ip: str) -> Dict[str, Any]:
         success_count = 0
@@ -28,6 +34,7 @@ class BulkImportService:
                     continue
                 
                 logger.info(f"Starting AI-assisted company import for file: {file_name}")
+                _ = BulkImportService._build_document_intelligence(file_bytes, file_name)
                 chunks = DocxSegmenterService.segment_docx(file_bytes, file_name)
                 
                 # Extract companies page by page to avoid mixing up data
@@ -118,6 +125,7 @@ class BulkImportService:
 
             try:
                 logger.info(f"Starting rebuilt page-segmented bill import for file: {file_name}")
+                _ = BulkImportService._build_document_intelligence(file_bytes, file_name)
                 chunks = DocxSegmenterService.segment_docx(file_bytes, file_name)
                 
                 # Parse and save page-by-page
@@ -219,6 +227,7 @@ class BulkImportService:
 
             try:
                 logger.info(f"AI parsing file for preview: {file_name}")
+                document_intelligence = BulkImportService._build_document_intelligence(file_bytes, file_name)
                 chunks = DocxSegmenterService.segment_docx(file_bytes, file_name)
 
                 for chunk in chunks:
@@ -228,6 +237,7 @@ class BulkImportService:
                         extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name, rag_context=rag_context)
                         bill_res = AiExtractionService.map_to_bill_response(extracted_dict, chunk.raw_text)
                         bill_res.originalDoc = chunk.html_representation
+                        bill_res.documentIntelligence = document_intelligence
                         
                         # Validate and attach warnings
                         warnings = ValidationService.validate_bill(db, bill_res)

@@ -11,16 +11,19 @@ import {
   FileText,
   Filter,
   Pencil,
+  Trash2,
   Plus
 } from "lucide-react";
 import api from "../services/api";
 import { format } from "date-fns";
 import { useNavigate, useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function BillsPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { role } = useAuth();
   const queryParams = new URLSearchParams(location.search);
   const initialCompany = queryParams.get("companyName") || "";
 
@@ -278,6 +281,50 @@ export default function BillsPage() {
     }
   };
 
+  const handleDeleteBill = async (bill) => {
+    const result = await Swal.fire({
+      title: "Delete this bill?",
+      text: `Bill ${bill.billNumber} will be permanently removed from history. This action cannot be undone.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, delete it",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#e11d48",
+      cancelButtonColor: "#000000",
+      background: "#ffffff",
+      customClass: {
+        popup: 'rounded-none border-[3px] border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]',
+        title: 'text-2xl font-black uppercase tracking-tight text-rose-600',
+        confirmButton: 'rounded-none font-bold uppercase tracking-widest text-xs px-8 py-3 bg-rose-600 text-white',
+        cancelButton: 'rounded-none font-bold uppercase tracking-widest text-xs px-8 py-3 bg-black text-white'
+      }
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      await api.delete(`/bills/${bill.id}`);
+      Swal.fire({
+        title: "Deleted!",
+        text: `Bill ${bill.billNumber} was removed successfully.`,
+        icon: "success",
+        confirmButtonColor: "#000"
+      });
+
+      const nextPage = bills.length === 1 && currentPage > 0 ? currentPage - 1 : currentPage;
+      fetchBills(nextPage, filters, isNlSearching ? nlQuery : null);
+    } catch (error) {
+      console.error("Failed to delete bill:", error);
+      const errMsg = error.response?.data?.detail || "You do not have permission to delete this bill.";
+      Swal.fire({
+        title: "Error",
+        text: errMsg,
+        icon: "error",
+        confirmButtonColor: "#000"
+      });
+    }
+  };
+
   return (
     <div className="p-6 bg-slate-50 min-h-screen text-black">
       <div className="max-w-7xl mx-auto">
@@ -486,6 +533,15 @@ export default function BillsPage() {
                           >
                             <Pencil className="w-5 h-5" />
                           </button>
+                          {role === "OWNER" && (
+                            <button
+                              onClick={() => handleDeleteBill(bill)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-none transition-all"
+                              title="Delete Bill"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
