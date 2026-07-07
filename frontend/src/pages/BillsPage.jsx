@@ -83,11 +83,13 @@ export default function BillsPage() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const queryCompany = params.get("companyName") || "";
+    const queryFromDate = params.get("fromDate") || "";
+    const queryToDate = params.get("toDate") || "";
     const activeFilters = {
       billNumber: "",
       companyName: queryCompany,
-      fromDate: "",
-      toDate: ""
+      fromDate: queryFromDate,
+      toDate: queryToDate
     };
     setFilters(activeFilters);
     fetchBills(0, activeFilters);
@@ -485,7 +487,7 @@ export default function BillsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-800">
                         <button
-                          onClick={() => navigate(`/bills?companyName=${encodeURIComponent(bill.companyName)}`)}
+                          onClick={() => navigate(`/bill-history?companyName=${encodeURIComponent(bill.companyName)}`)}
                           className="hover:text-cyan-600 transition-colors font-semibold text-left"
                         >
                           {bill.companyName}

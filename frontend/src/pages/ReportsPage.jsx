@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   BarChart, 
   Bar, 
@@ -25,6 +26,7 @@ import api from "../services/api";
 const COLORS = ["#0ea5e9", "#10b981", "#6366f1", "#f59e0b", "#ef4444"];
 
 const ReportsPage = () => {
+  const navigate = useNavigate();
   const [summary, setSummary] = useState(null);
   const [topCompanies, setTopCompanies] = useState([]);
   const [topVehicles, setTopVehicles] = useState([]);
@@ -68,14 +70,19 @@ const ReportsPage = () => {
     );
   }
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
   const cards = [
-    { label: "Today Bills", value: summary?.todayBillsCount, icon: FileText, color: "bg-blue-50 text-blue-600" },
-    { label: "Today Revenue", value: formatCurrency(summary?.todayRevenue), icon: DollarSign, color: "bg-emerald-50 text-emerald-600" },
-    { label: "Monthly Bills", value: summary?.monthlyBillsCount, icon: Calendar, color: "bg-cyan-50 text-cyan-600" },
-    { label: "Monthly Revenue", value: formatCurrency(summary?.monthlyRevenue), icon: TrendingUp, color: "bg-violet-50 text-violet-600" },
-    { label: "Total Bills", value: summary?.totalBills, icon: FileText, color: "bg-slate-100 text-slate-600" },
-    { label: "Total Companies", value: summary?.totalCompanies, icon: Users, color: "bg-amber-50 text-amber-600" },
-    { label: "Total Vehicles", value: summary?.totalVehicles, icon: Car, color: "bg-slate-100 text-slate-600" },
+    { label: "Today Bills", value: summary?.todayBillsCount, icon: FileText, color: "bg-blue-50 text-blue-600", path: `/bill-history?fromDate=${todayStr}&toDate=${todayStr}` },
+    { label: "Today Revenue", value: formatCurrency(summary?.todayRevenue), icon: DollarSign, color: "bg-emerald-50 text-emerald-600", path: `/bill-history?fromDate=${todayStr}&toDate=${todayStr}` },
+    { label: "Monthly Bills", value: summary?.monthlyBillsCount, icon: Calendar, color: "bg-cyan-50 text-cyan-600", path: `/bill-history?fromDate=${firstDay}&toDate=${lastDay}` },
+    { label: "Monthly Revenue", value: formatCurrency(summary?.monthlyRevenue), icon: TrendingUp, color: "bg-violet-50 text-violet-600", path: `/bill-history?fromDate=${firstDay}&toDate=${lastDay}` },
+    { label: "Total Bills", value: summary?.totalBills, icon: FileText, color: "bg-slate-100 text-slate-600", path: "/bill-history" },
+    { label: "Total Companies", value: summary?.totalCompanies, icon: Users, color: "bg-amber-50 text-amber-600", path: "/companies" },
+    { label: "Total Vehicles", value: summary?.totalVehicles, icon: Car, color: "bg-slate-100 text-slate-600", path: "/vehicles" },
   ];
 
   return (
@@ -91,7 +98,11 @@ const ReportsPage = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
           {cards.map((card, i) => (
-            <div key={i} className="bg-white p-6 rounded-none shadow-sm border border-slate-200 flex items-center gap-5 transition-all hover:shadow-md hover:-translate-y-1">
+            <button
+              key={i}
+              onClick={() => navigate(card.path)}
+              className="bg-white p-6 rounded-none shadow-sm border border-slate-200 flex items-center gap-5 transition-all hover:shadow-md hover:-translate-y-1 cursor-pointer text-left w-full"
+            >
               <div className={`p-4 rounded-none ${card.color}`}>
                 <card.icon size={28} />
               </div>
@@ -99,7 +110,7 @@ const ReportsPage = () => {
                 <p className="text-sm font-medium text-slate-500 mb-1 uppercase tracking-wider">{card.label}</p>
                 <p className="text-2xl font-bold text-black">{card.value}</p>
               </div>
-            </div>
+            </button>
           ))}
         </div>
 

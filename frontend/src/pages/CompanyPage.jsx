@@ -278,7 +278,7 @@ const CompanyPage = () => {
                             <Building2 size={16} />
                           </div>
                           <button
-                            onClick={() => navigate(`/bills?companyName=${encodeURIComponent(company.name)}`)}
+                            onClick={() => navigate(`/bill-history?companyName=${encodeURIComponent(company.name)}`)}
                             className="font-semibold text-slate-800 hover:text-cyan-600 transition-colors text-left"
                           >
                             {company.name}
