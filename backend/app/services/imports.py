@@ -149,6 +149,19 @@ class BulkImportService:
                             extracted_dict = FieldLabelingService.map_to_parser_dict(page_labeled_doc)
                             bill_res = AiExtractionService.map_to_bill_response(extracted_dict, chunk.raw_text)
                             bill_res.labeledDocument = page_labeled_doc.to_json()
+
+                            if settings.USE_ENTERPRISE_VALIDATION:
+                                from app.services.validation_engine import ValidationEngineService
+                                logger.info("USE_ENTERPRISE_VALIDATION is enabled. Running Validation Engine...")
+                                validation_doc = ValidationEngineService.validate_labeled_document(db, page_labeled_doc)
+                                bill_res.validationReport = validation_doc.to_json()
+
+                                # Propagate validation engine issues as warnings
+                                validation_warnings = [f"[{iss.severity}] {iss.message}" for iss in validation_doc.issues]
+                                if bill_res.warnings:
+                                    bill_res.warnings.extend(validation_warnings)
+                                else:
+                                    bill_res.warnings = validation_warnings
                         else:
                             rag_context = BulkImportService._index_and_retrieve_rag_context(chunk.raw_text, file_name, chunk.page_number)
                             extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name, rag_context=rag_context)
@@ -159,9 +172,13 @@ class BulkImportService:
                         
                         # Validate the bill
                         warnings = ValidationService.validate_bill(db, bill_res)
+                        if bill_res.warnings:
+                            for w in bill_res.warnings:
+                                if w not in warnings:
+                                    warnings.append(w)
                         
                         # Check critical validation issues (no slip number or no company name)
-                        has_critical_error = any("Missing mandatory field" in w or "missing or zero" in w for w in warnings)
+                        has_critical_error = any("Missing mandatory field" in w or "missing or zero" in w or "[ERROR]" in w for w in warnings)
                         is_duplicate = any("Duplicate bill warning" in w for w in warnings)
                         
                         if has_critical_error:
@@ -270,6 +287,19 @@ class BulkImportService:
                             extracted_dict = FieldLabelingService.map_to_parser_dict(page_labeled_doc)
                             bill_res = AiExtractionService.map_to_bill_response(extracted_dict, chunk.raw_text)
                             bill_res.labeledDocument = page_labeled_doc.to_json()
+
+                            if settings.USE_ENTERPRISE_VALIDATION:
+                                from app.services.validation_engine import ValidationEngineService
+                                logger.info("USE_ENTERPRISE_VALIDATION is enabled. Running Validation Engine for preview...")
+                                validation_doc = ValidationEngineService.validate_labeled_document(db, page_labeled_doc)
+                                bill_res.validationReport = validation_doc.to_json()
+
+                                # Propagate validation engine issues as warnings
+                                validation_warnings = [f"[{iss.severity}] {iss.message}" for iss in validation_doc.issues]
+                                if bill_res.warnings:
+                                    bill_res.warnings.extend(validation_warnings)
+                                else:
+                                    bill_res.warnings = validation_warnings
                         else:
                             rag_context = BulkImportService._index_and_retrieve_rag_context(chunk.raw_text, file_name, chunk.page_number)
                             extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name, rag_context=rag_context)
@@ -280,6 +310,10 @@ class BulkImportService:
                         
                         # Validate and attach warnings
                         warnings = ValidationService.validate_bill(db, bill_res)
+                        if bill_res.warnings:
+                            for w in bill_res.warnings:
+                                if w not in warnings:
+                                    warnings.append(w)
                         bill_res.warnings = warnings
                         
                         all_parsed.append(bill_res)

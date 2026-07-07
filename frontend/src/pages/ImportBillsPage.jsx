@@ -377,7 +377,37 @@ export default function ImportBillsPage() {
                     </div>
 
                     {/* RIGHT PANEL: Parsed Bill Preview (A4 Invoice Style) */}
-                    <div className="bg-slate-200 p-6 overflow-y-auto flex justify-center items-start">
+                    <div className="bg-slate-200 p-6 overflow-y-auto flex flex-col items-center justify-start gap-4">
+                        {bill && bill.validationReport && (
+                            <div className="bg-white shadow-md border border-slate-300 w-[780px] p-6 flex items-center justify-between text-xs font-sans">
+                                <div className="flex items-center gap-6">
+                                    <div>
+                                        <span className="font-bold text-slate-500 block uppercase text-[8px] tracking-wider mb-0.5">Quality Score</span>
+                                        <span className="text-xl font-black text-slate-800">{Math.round(bill.validationReport.validation_summary.overall_quality_score)}/100</span>
+                                    </div>
+                                    <div className="h-8 w-px bg-slate-200" />
+                                    <div>
+                                        <span className="font-bold text-slate-500 block uppercase text-[8px] tracking-wider mb-0.5">Avg Confidence</span>
+                                        <span className="text-xl font-black text-slate-800">{Math.round(bill.validationReport.validation_summary.average_confidence * 100)}%</span>
+                                    </div>
+                                    <div className="h-8 w-px bg-slate-200" />
+                                    <div>
+                                        <span className="font-bold text-slate-500 block uppercase text-[8px] tracking-wider mb-0.5">Issues Detected</span>
+                                        <span className="text-xl font-black text-rose-600">{bill.validationReport.issues.length}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="font-bold text-slate-500 block uppercase text-[8px] tracking-wider text-right mb-0.5">Recommendation</span>
+                                    <span className={`px-2.5 py-1.5 font-bold text-[9px] tracking-wider uppercase border rounded ${
+                                        bill.validationReport.validation_summary.recommendation === "PASS" ? "bg-emerald-50 text-emerald-700 border-emerald-300" :
+                                        bill.validationReport.validation_summary.recommendation === "PASS_WITH_WARNINGS" ? "bg-amber-50 text-amber-700 border-amber-300" :
+                                        "bg-rose-50 text-rose-700 border-rose-300"
+                                    }`}>
+                                        {bill.validationReport.validation_summary.recommendation.replace(/_/g, " ")}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                         {/* A4 Portrait Paper Layout */}
                         <div className="bg-white shadow-xl p-12 border border-slate-300 w-[780px] min-h-[1050px] flex flex-col justify-between font-serif text-black relative">
                             <div>
