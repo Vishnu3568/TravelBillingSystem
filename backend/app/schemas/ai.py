@@ -64,6 +64,7 @@ class AiBillResponse(BaseModel):
     rawValues: Optional[str] = None
     originalDoc: Optional[str] = None
     documentIntelligence: Optional[Dict[str, Any]] = None
+    labeledDocument: Optional[Dict[str, Any]] = None
 
 # AiInsightResponse
 class Insight(BaseModel):

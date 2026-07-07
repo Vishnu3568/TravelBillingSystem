@@ -12,3 +12,4 @@ from app.services.dashboard import DashboardService
 from app.services.analytics import AnalyticsService
 from app.services.imports import BulkImportService
 from app.services.document_intelligence import DocumentIntelligenceService
+from app.services.field_labeling import FieldLabelingService

@@ -360,7 +360,14 @@ export default function ImportBillsPage() {
                     {/* LEFT PANEL: Original Document Preview */}
                     <div className="border-r border-slate-200 bg-slate-50 flex flex-col p-6 overflow-y-auto">
                         <div className="mb-3 flex justify-between items-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
-                            <span>Original Document Pages</span>
+                            <span className="flex items-center gap-2">
+                                Original Document Pages
+                                {bill && bill.labeledDocument ? (
+                                    <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[8px] rounded font-mono font-bold normal-case">Enterprise Labeler</span>
+                                ) : (
+                                    <span className="px-1.5 py-0.5 bg-slate-200 text-slate-700 text-[8px] rounded font-mono font-bold normal-case">Legacy Parser</span>
+                                )}
+                            </span>
                             <span>Raw Word Segment Output</span>
                         </div>
                         <div 

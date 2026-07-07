@@ -20,6 +20,7 @@ class Settings:
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-1.5-pro")
     AI_SERVICE_URL: str = os.getenv("AI_SERVICE_URL", "http://localhost:9001/api/ai")
     INTERNAL_API_KEY: str = os.getenv("INTERNAL_API_KEY", "")
+    USE_ENTERPRISE_LABELER: bool = os.getenv("USE_ENTERPRISE_LABELER", "false").lower() in ("true", "1", "t", "yes")
 
     # Database
     DB_URL: str = os.getenv("DB_URL", "jdbc:mysql://localhost:3306/travelbillingdb?useSSL=false&serverTimezone=Asia/Kolkata&allowPublicKeyRetrieval=true")

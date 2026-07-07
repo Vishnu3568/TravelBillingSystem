@@ -125,17 +125,37 @@ class BulkImportService:
 
             try:
                 logger.info(f"Starting rebuilt page-segmented bill import for file: {file_name}")
-                _ = BulkImportService._build_document_intelligence(file_bytes, file_name)
+                doc_model = DocumentIntelligenceService.extract_document(file_bytes, file_name)
+                document_intelligence = doc_model.to_json()
+
+                labeled_doc = None
+                from app.config import settings
+                if settings.USE_ENTERPRISE_LABELER:
+                    from app.services.field_labeling import FieldLabelingService
+                    logger.info("USE_ENTERPRISE_LABELER is enabled. Running AI Field Labeling Engine...")
+                    labeled_doc = FieldLabelingService.label_document(doc_model)
+
                 chunks = DocxSegmenterService.segment_docx(file_bytes, file_name)
                 
                 # Parse and save page-by-page
                 for chunk in chunks:
                     try:
                         logger.info(f"Parsing page {chunk.page_number}/{len(chunks)} of {file_name}")
-                        rag_context = BulkImportService._index_and_retrieve_rag_context(chunk.raw_text, file_name, chunk.page_number)
-                        extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name, rag_context=rag_context)
-                        bill_res = AiExtractionService.map_to_bill_response(extracted_dict, chunk.raw_text)
+                        
+                        if settings.USE_ENTERPRISE_LABELER and labeled_doc:
+                            from app.services.field_labeling import LabeledDocument
+                            page_elements = [el for el in labeled_doc.elements if el.coordinates.get("page_number") == chunk.page_number]
+                            page_labeled_doc = LabeledDocument(metadata=labeled_doc.metadata, elements=page_elements)
+                            extracted_dict = FieldLabelingService.map_to_parser_dict(page_labeled_doc)
+                            bill_res = AiExtractionService.map_to_bill_response(extracted_dict, chunk.raw_text)
+                            bill_res.labeledDocument = page_labeled_doc.to_json()
+                        else:
+                            rag_context = BulkImportService._index_and_retrieve_rag_context(chunk.raw_text, file_name, chunk.page_number)
+                            extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name, rag_context=rag_context)
+                            bill_res = AiExtractionService.map_to_bill_response(extracted_dict, chunk.raw_text)
+
                         bill_res.originalDoc = chunk.html_representation
+                        bill_res.documentIntelligence = document_intelligence
                         
                         # Validate the bill
                         warnings = ValidationService.validate_bill(db, bill_res)
@@ -227,15 +247,34 @@ class BulkImportService:
 
             try:
                 logger.info(f"AI parsing file for preview: {file_name}")
-                document_intelligence = BulkImportService._build_document_intelligence(file_bytes, file_name)
+                doc_model = DocumentIntelligenceService.extract_document(file_bytes, file_name)
+                document_intelligence = doc_model.to_json()
+
+                labeled_doc = None
+                from app.config import settings
+                if settings.USE_ENTERPRISE_LABELER:
+                    from app.services.field_labeling import FieldLabelingService
+                    logger.info("USE_ENTERPRISE_LABELER is enabled. Running AI Field Labeling Engine for preview...")
+                    labeled_doc = FieldLabelingService.label_document(doc_model)
+
                 chunks = DocxSegmenterService.segment_docx(file_bytes, file_name)
 
                 for chunk in chunks:
                     try:
                         logger.info(f"Parsing preview for page {chunk.page_number}/{len(chunks)}")
-                        rag_context = BulkImportService._index_and_retrieve_rag_context(chunk.raw_text, file_name, chunk.page_number)
-                        extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name, rag_context=rag_context)
-                        bill_res = AiExtractionService.map_to_bill_response(extracted_dict, chunk.raw_text)
+                        
+                        if settings.USE_ENTERPRISE_LABELER and labeled_doc:
+                            from app.services.field_labeling import LabeledDocument
+                            page_elements = [el for el in labeled_doc.elements if el.coordinates.get("page_number") == chunk.page_number]
+                            page_labeled_doc = LabeledDocument(metadata=labeled_doc.metadata, elements=page_elements)
+                            extracted_dict = FieldLabelingService.map_to_parser_dict(page_labeled_doc)
+                            bill_res = AiExtractionService.map_to_bill_response(extracted_dict, chunk.raw_text)
+                            bill_res.labeledDocument = page_labeled_doc.to_json()
+                        else:
+                            rag_context = BulkImportService._index_and_retrieve_rag_context(chunk.raw_text, file_name, chunk.page_number)
+                            extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name, rag_context=rag_context)
+                            bill_res = AiExtractionService.map_to_bill_response(extracted_dict, chunk.raw_text)
+
                         bill_res.originalDoc = chunk.html_representation
                         bill_res.documentIntelligence = document_intelligence
                         
