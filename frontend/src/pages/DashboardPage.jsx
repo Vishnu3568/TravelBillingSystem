@@ -223,6 +223,8 @@ function OwnerDashboard({ username, logout }) {
   const [error, setError] = useState("");
   const [isSessionExpired, setIsSessionExpired] = useState(false);
 
+  const [predictive, setPredictive] = useState(null);
+
   useEffect(() => {
     let ignore = false;
 
@@ -251,7 +253,19 @@ function OwnerDashboard({ username, logout }) {
       }
     }
 
+    async function loadPredictive() {
+      try {
+        const response = await api.get("/predictive/dashboard");
+        if (!ignore) {
+          setPredictive(response.data);
+        }
+      } catch (err) {
+        console.error("Failed to load predictive metrics:", err);
+      }
+    }
+
     loadDashboard();
+    loadPredictive();
     return () => {
       ignore = true;
     };
@@ -323,6 +337,89 @@ function OwnerDashboard({ username, logout }) {
             <div className="mt-6">
               <RevenueChart revenueTrend={revenueTrend} />
             </div>
+
+            {/* Predictive Intelligence Section */}
+            {predictive && (
+              <div className="mt-8 rounded-none border-2 border-black bg-slate-950 p-6 text-white shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+                  <div>
+                    <h2 className="text-lg font-black uppercase tracking-wider text-cyan-400">Predictive Intelligence Dashboard</h2>
+                    <p className="text-xs text-slate-400">Seasonality-based forecasts, anomaly warnings, and pricing suggestions</p>
+                  </div>
+                  <span className="bg-cyan-500 text-black px-2.5 py-1 text-[10px] font-black uppercase tracking-wider">AI Platform Enabled</span>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                  {/* Revenue Forecast */}
+                  <div className="bg-slate-900 border border-slate-800 p-4 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Expected Monthly Revenue</span>
+                      <h3 className="text-xl font-black mt-2 text-white">{formatMoney(predictive.revenue_forecast?.monthly)}</h3>
+                    </div>
+                    <div className="mt-4 pt-2 border-t border-slate-800 text-[10px] text-slate-400 flex justify-between items-center">
+                      <span>Seasonality Ratio:</span>
+                      <span className="font-bold text-cyan-400">{predictive.revenue_forecast?.seasonality_multiplier}x</span>
+                    </div>
+                  </div>
+
+                  {/* Fleet Forecast */}
+                  <div className="bg-slate-900 border border-slate-800 p-4 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Fleet Utilization Forecast</span>
+                      <h3 className="text-xl font-black mt-2 text-white">{(predictive.fleet_utilization * 100).toFixed(0)}%</h3>
+                    </div>
+                    <div className="mt-4 pt-2 border-t border-slate-800 text-[10px] text-slate-400 flex justify-between items-center">
+                      <span>Learning Growth:</span>
+                      <span className="font-bold text-emerald-400">+{predictive.learning_growth_percent}%</span>
+                    </div>
+                  </div>
+
+                  {/* Recommendation Summary */}
+                  <div className="bg-slate-900 border border-slate-800 p-4 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Suggested Pricing Rate</span>
+                      <h3 className="text-xl font-black mt-2 text-white">₹{predictive.recommendations?.suggested_pricing_per_km}/km</h3>
+                    </div>
+                    <div className="mt-4 pt-2 border-t border-slate-800 text-[10px] text-slate-400 truncate">
+                      <span>Layout: {predictive.recommendations?.preferred_company_template}</span>
+                    </div>
+                  </div>
+
+                  {/* Anomaly Count */}
+                  <div className="bg-slate-900 border border-slate-800 p-4 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Active Anomalies Detected</span>
+                      <h3 className={`text-xl font-black mt-2 ${predictive.active_anomalies_count > 0 ? "text-amber-500" : "text-emerald-400"}`}>
+                        {predictive.active_anomalies_count} Flagged
+                      </h3>
+                    </div>
+                    <div className="mt-4 pt-2 border-t border-slate-800 text-[10px] text-slate-400">
+                      <span>System Health: {(predictive.extraction_health?.expected_validation_score * 100).toFixed(0)}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Flagged Anomaly List */}
+                {predictive.anomalies?.length > 0 && (
+                  <div className="mt-6 border-t border-slate-800 pt-6">
+                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest block mb-3">Critical Anomaly Risk Logs</span>
+                    <div className="space-y-2 max-h-36 overflow-y-auto">
+                      {predictive.anomalies.map((anom, idx) => (
+                        <div key={idx} className="bg-slate-900/60 border border-amber-500/20 p-2.5 flex items-center justify-between text-xs">
+                          <div>
+                            <span className="bg-amber-950 border border-amber-500/40 text-amber-400 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-none mr-2">
+                              {anom.type}
+                            </span>
+                            <span className="text-slate-200">{anom.description}</span>
+                          </div>
+                          <span className="text-[9px] text-slate-500 font-bold uppercase">{anom.severity} RISK</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_360px]">
               <div className="grid gap-6">

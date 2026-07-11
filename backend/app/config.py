@@ -25,6 +25,7 @@ class Settings:
     USE_ENTERPRISE_LEARNING: bool = os.getenv("USE_ENTERPRISE_LEARNING", "false").lower() in ("true", "1", "t", "yes")
     USE_ENTERPRISE_COPILOT: bool = os.getenv("USE_ENTERPRISE_COPILOT", "false").lower() in ("true", "1", "t", "yes")
     USE_ENTERPRISE_GRAPH: bool = os.getenv("USE_ENTERPRISE_GRAPH", "false").lower() in ("true", "1", "t", "yes")
+    USE_PREDICTIVE_ENGINE: bool = os.getenv("USE_PREDICTIVE_ENGINE", "false").lower() in ("true", "1", "t", "yes")
 
     # Database
     DB_URL: str = os.getenv("DB_URL", "jdbc:mysql://localhost:3306/travelbillingdb?useSSL=false&serverTimezone=Asia/Kolkata&allowPublicKeyRetrieval=true")

@@ -123,4 +123,19 @@ class ContextBuilder:
             my_bills_cnt = db.query(func.count(Bill.id)).filter(Bill.created_by == username).scalar() or 0
             context["analytics_facts"].append(f"Your Billed Trips Count: {my_bills_cnt}")
 
+        # 5. Gather Predictive Insights if enabled (RBAC: OWNER and MANAGER only)
+        if user_role in ("OWNER", "MANAGER") and getattr(settings, "USE_PREDICTIVE_ENGINE", False):
+            try:
+                from app.services.predictive_engine import PredictiveService
+                pred = PredictiveService.get_predictive_summary(db)
+                if pred and pred.revenue_forecast:
+                    context["analytics_facts"].append(
+                        f"Predictive Forecasts:\n"
+                        f"  * Expected Monthly Revenue: ₹{pred.revenue_forecast.monthly}\n"
+                        f"  * Expected Fleet Utilization: {pred.fleet_utilization * 100:.1f}%\n"
+                        f"  * Payment Collection Risk Ratios: {[p.model_dump() for p in pred.payment_risks[:3]]}\n"
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to load predictive insights for copilot: {e}")
+
         return context
