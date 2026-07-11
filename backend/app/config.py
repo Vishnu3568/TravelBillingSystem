@@ -23,6 +23,7 @@ class Settings:
     USE_ENTERPRISE_LABELER: bool = os.getenv("USE_ENTERPRISE_LABELER", "false").lower() in ("true", "1", "t", "yes")
     USE_ENTERPRISE_VALIDATION: bool = os.getenv("USE_ENTERPRISE_VALIDATION", "false").lower() in ("true", "1", "t", "yes")
     USE_ENTERPRISE_LEARNING: bool = os.getenv("USE_ENTERPRISE_LEARNING", "false").lower() in ("true", "1", "t", "yes")
+    USE_ENTERPRISE_COPILOT: bool = os.getenv("USE_ENTERPRISE_COPILOT", "false").lower() in ("true", "1", "t", "yes")
 
     # Database
     DB_URL: str = os.getenv("DB_URL", "jdbc:mysql://localhost:3306/travelbillingdb?useSSL=false&serverTimezone=Asia/Kolkata&allowPublicKeyRetrieval=true")
