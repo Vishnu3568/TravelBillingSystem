@@ -155,6 +155,13 @@ class BillService:
         except Exception as e:
             logger.warning(f"Failed to index bill #{bill.id} on create: {e}")
 
+        # Trigger Knowledge Graph update
+        try:
+            from app.services.knowledge_graph import GraphService
+            GraphService.register_bill_save(db, bill)
+        except Exception as e:
+            logger.error(f"Failed to update knowledge graph on create_bill: {e}")
+
         return bill
 
     @staticmethod
@@ -256,6 +263,19 @@ class BillService:
                 if getattr(settings, "USE_ENTERPRISE_LEARNING", False):
                     from app.services.learning_engine.learning_service import LearningService
                     LearningService.process_bill_save(db, ai, created_by)
+
+                # Trigger Knowledge Graph validation save
+                if ai.validationReport and getattr(settings, "USE_ENTERPRISE_GRAPH", False):
+                    from app.services.knowledge_graph import GraphService
+                    report_dict = ai.validationReport
+                    import json
+                    if isinstance(report_dict, str):
+                        try:
+                            report_dict = json.loads(report_dict)
+                        except Exception:
+                            report_dict = {}
+                    if isinstance(report_dict, dict) and saved_bills:
+                        GraphService.register_validation_save(db, saved_bills[-1].id, report_dict)
             except Exception as e:
                 logger.error(f"Failed to save individual AI bill: {getattr(ai, 'dutySlipNo', 'N/A')}. Error: {e}")
 
@@ -314,6 +334,13 @@ class BillService:
             gemini_service.index_bill(bill.id, BillService._format_bill_text(bill))
         except Exception as e:
             logger.warning(f"Failed to index bill #{bill.id} on update: {e}")
+
+        # Trigger Knowledge Graph update
+        try:
+            from app.services.knowledge_graph import GraphService
+            GraphService.register_bill_save(db, bill)
+        except Exception as e:
+            logger.error(f"Failed to update knowledge graph on update_bill: {e}")
 
         return bill
 

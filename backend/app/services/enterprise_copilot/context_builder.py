@@ -57,6 +57,14 @@ class ContextBuilder:
                         f"- Total Billed: ₹{bill.grand_total}\n"
                         f"- Warnings/Issues: {bill.notes or 'None'}\n"
                     )
+                    
+                    # Query Knowledge Graph Subgraph Context
+                    from app.config import settings
+                    if getattr(settings, "USE_ENTERPRISE_GRAPH", False):
+                        from app.services.knowledge_graph import GraphService
+                        graph_ctx = GraphService.query_copilot_context(db, bill.id)
+                        if graph_ctx:
+                            context["bill_info"] += "\n" + graph_ctx + "\n"
 
         # 2. Gather Knowledge Store facts (Templates, preferred coordinates)
         if user_role in ("OWNER", "MANAGER"):

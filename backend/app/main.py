@@ -17,6 +17,7 @@ from app.routers.imports import router as imports_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.learning import router as learning_router
 from app.services.enterprise_copilot.copilot_router import router as copilot_router
+from app.routers.graph import router as graph_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -50,6 +51,7 @@ app.include_router(imports_router)
 app.include_router(dashboard_router)
 app.include_router(learning_router)
 app.include_router(copilot_router)
+app.include_router(graph_router)
 
 @app.on_event("startup")
 def on_startup():

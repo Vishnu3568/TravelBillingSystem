@@ -74,5 +74,13 @@ class CorrectionStore:
         db.add(db_correction)
         db.commit()
         db.refresh(db_correction)
+        
+        # Trigger Knowledge Graph update
+        try:
+            from app.services.knowledge_graph import GraphService
+            GraphService.register_correction_save(db, db_correction)
+        except Exception as e:
+            logger.error(f"Failed to update knowledge graph on save_correction: {e}")
+
         logger.info(f"Correction stored: Field '{record.field_type}' ({record.original_value} -> {record.corrected_value}) ver={max_ver+1}")
         return db_correction
