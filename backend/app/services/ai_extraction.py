@@ -129,28 +129,6 @@ class AiExtractionService:
                     logger.warning(f"Gemini attempt {attempt + 1} failed: {e}")
                     time.sleep(1)
         
-        # 2. Try Ollama Fallover (Port 11434)
-        try:
-            logger.info("Attempting Ollama failover on http://localhost:11434/api/generate...")
-            ollama_url = "http://localhost:11434/api/generate"
-            ollama_payload = {
-                "model": "gemma",
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.1
-                }
-            }
-            res = requests.post(ollama_url, json=ollama_payload, timeout=90)
-            if res.status_code == 200:
-                text_out = res.json().get("response", "").strip()
-                parsed = AiExtractionService._clean_and_parse_json(text_out)
-                if parsed:
-                    logger.info("Successfully extracted bill data using Ollama.")
-                    return parsed
-        except Exception as e:
-            logger.warning(f"Ollama failover failed: {e}")
-            
         # 3. Local Python Regex Parsing Fallback
         logger.info("All LLM methods failed. Executing local regex parsing fallback.")
         return AiExtractionService._local_regex_parse(raw_text, filename=filename)

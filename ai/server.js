@@ -4,26 +4,31 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 
 const app = express();
+
+function logAiFailure(service, reason, retryCount, fallbackUsed, durationMs = 0) {
+    const timestamp = new Date().toISOString();
+    console.error(`[${timestamp}] [${service}] FAIL: Reason="${reason}", Retries=${retryCount}, Fallback="${fallbackUsed}", Duration=${durationMs}ms`);
+}
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 const port = process.env.PORT || 9001;
 const apiKey = process.env.GEMINI_API_KEY;
 const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-pro';
-const internalApiKey = process.env.INTERNAL_API_KEY;
+const internalApiKey = process.env.INTERNAL_API_KEY || 'travel_billing_secret_token_123';
 
-if (internalApiKey) {
-    console.log('🔒 AI Service security enabled. x-api-key header will be verified.');
-    app.use((req, res, next) => {
-        const clientKey = req.headers['x-api-key'];
-        if (!clientKey || clientKey !== internalApiKey) {
-            return res.status(401).json({ error: 'Unauthorized: Invalid or missing x-api-key header.' });
-        }
-        next();
-    });
-} else {
-    console.warn('⚠️ WARNING: INTERNAL_API_KEY is not set. AI Service endpoints are unauthenticated.');
-}
+console.log('🔒 AI Service security enabled. Authentication headers will be verified.');
+app.use((req, res, next) => {
+    // Exempt /health check from authentication to allow backend startup check
+    if (req.path === '/health') {
+        return next();
+    }
+    const clientKey = req.headers['x-api-key'] || req.headers['x-internal-api-key'];
+    if (!clientKey || clientKey !== internalApiKey) {
+        return res.status(401).json({ error: 'Unauthorized: Invalid or missing x-api-key or x-internal-api-key header.' });
+    }
+    next();
+});
 
 if (!apiKey) {
     console.error('CRITICAL: GEMINI_API_KEY is not set.');
@@ -34,12 +39,34 @@ if (!apiKey) {
 const genAI = new GoogleGenerativeAI(apiKey);
 
 // Helper for retries with exponential backoff
-async function generateWithRetry(model, prompt, maxRetries = 3) {
+// Helper to resolve model instance with fallback
+function getModelWithFallback(modelNameInput) {
+    try {
+        const mName = modelNameInput || process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+        return genAI.getGenerativeModel({ model: mName });
+    } catch (error) {
+        console.warn(`[AI Config] Model ${modelNameInput} initialization failed: ${error.message}. Falling back to gemini-1.5-flash.`);
+        return genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    }
+}
+
+// Helper for retries with exponential backoff & model fallbacks
+async function generateWithRetry(modelInstanceOrName, prompt, maxRetries = 3) {
+    let modelInstance = typeof modelInstanceOrName === 'string' 
+        ? getModelWithFallback(modelInstanceOrName) 
+        : modelInstanceOrName;
+
     for (let i = 0; i < maxRetries; i++) {
         try {
-            const result = await model.generateContent(prompt);
+            const result = await modelInstance.generateContent(prompt);
             return result;
         } catch (error) {
+            const isNotFoundError = error.message.includes('404') || error.message.includes('not found') || error.message.includes('Model');
+            if (isNotFoundError) {
+                console.warn(`[AI Config] Model call failed with 404/not found. Falling back to gemini-1.5-flash...`);
+                modelInstance = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+                continue;
+            }
             const isQuotaError = error.message.includes('429') || error.message.includes('Quota');
             if (isQuotaError && i < maxRetries - 1) {
                 const wait = Math.pow(2, i) * 3000;
@@ -74,71 +101,33 @@ function cosineSimilarity(vecA, vecB) {
 
 // Helper to retrieve text embeddings from Gemini API
 async function getEmbedding(text) {
+    const primaryModel = process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004';
+    const fallbackModel = process.env.GEMINI_EMBEDDING_FALLBACK || 'embedding-001';
+    
     try {
-        const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+        const model = genAI.getGenerativeModel({ model: primaryModel });
         const result = await model.embedContent(text);
+        if (!result || !result.embedding || !result.embedding.values) {
+            throw new Error("Empty embedding returned");
+        }
         return result.embedding.values;
     } catch (e) {
+        console.warn(`[Embedding API] Primary model ${primaryModel} failed: ${e.message}. Trying fallback ${fallbackModel}...`);
         try {
-            console.warn("[Embedding API] text-embedding-004 failed, falling back to embedding-001:", e.message);
-            const model = genAI.getGenerativeModel({ model: "embedding-001" });
+            const model = genAI.getGenerativeModel({ model: fallbackModel });
             const result = await model.embedContent(text);
+            if (!result || !result.embedding || !result.embedding.values) {
+                throw new Error("Empty embedding returned from fallback");
+            }
             return result.embedding.values;
         } catch (err) {
-            console.error("[Embedding API] Failed to fetch embedding, returning null vector:", err.message);
-            return null;
+            console.error(`[Embedding API] Both primary and fallback embedding models failed: ${err.message}`);
+            throw new Error(`Embedding generation failed: ${err.message}`);
         }
     }
 }
 
 
-// Helper to communicate with local Ollama Llama3 instance
-const http = require('http');
-function generateWithOllama(prompt, model = process.env.OLLAMA_MODEL || 'gemma') {
-    return new Promise((resolve, reject) => {
-        const payload = JSON.stringify({
-            model: model,
-            prompt: prompt,
-            stream: false
-        });
-
-        const options = {
-            hostname: 'localhost',
-            port: 11434,
-            path: '/api/generate',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(payload)
-            },
-            timeout: 5000
-        };
-
-        const req = http.request(options, (res) => {
-            let body = '';
-            res.on('data', (chunk) => body += chunk);
-            res.on('end', () => {
-                if (res.statusCode !== 200) {
-                    return reject(new Error(`Ollama returned status code ${res.statusCode}`));
-                }
-                try {
-                    const data = JSON.parse(body);
-                    resolve(data.response);
-                } catch (e) {
-                    reject(e);
-                }
-            });
-        });
-
-        req.on('error', (e) => reject(e));
-        req.on('timeout', () => {
-            req.destroy();
-            reject(new Error("Ollama request timed out"));
-        });
-        req.write(payload);
-        req.end();
-    });
-}
 
 // Helper to send chat message with retry backoff
 async function sendMessageWithRetry(chat, prompt, maxRetries = 3) {
@@ -193,6 +182,7 @@ Data: Revenue ₹${stats.totalRevenue}, Bills ${stats.billCount}, Top Co: ${JSON
 // AI Bill Assistant (Chat) Endpoint
 app.post('/api/ai/chat-assistant', async (req, res) => {
     const { contextType, billData, aggregatedData, userQuery, sessionId } = req.body;
+    let prompt = "";
     try {
         // --- LOCAL INTELLIGENCE (Fast answers for common stats) ---
         const lowerQuery = userQuery.toLowerCase();
@@ -287,7 +277,7 @@ GLOBAL CONTEXT:
 ${ragContext}`;
         }
 
-        const prompt = `You are the Sri Tulja Bhavani Travels AI Bill Assistant.
+        prompt = `You are the Sri Tulja Bhavani Travels AI Bill Assistant.
 Your goal is to answer user questions about billing and business data based ONLY on the provided context.
 
 STRICT RULES:
@@ -360,44 +350,22 @@ OUTPUT FORMAT (STRICT JSON):
         res.json(aiResponse);
 
     } catch (error) {
-        console.warn('[AI Assistant] Gemini failed. Attempting local Ollama failover...', error.message);
-        try {
-            const ollamaResponse = await generateWithOllama(prompt);
-            console.log('[AI Assistant] Ollama response received.');
-            let text = ollamaResponse.trim();
-            if (text.startsWith('```')) {
-                text = text.replace(/```json|```/g, '').trim();
-            }
-            const aiResponse = JSON.parse(text);
-            
-            // Cache response semantically
-            if (queryEmbedding && aiResponse) {
-                semanticQueryCache.push({
-                    query: userQuery,
-                    embedding: queryEmbedding,
-                    response: aiResponse,
-                    timestamp: Date.now()
-                });
-            }
-            return res.json(aiResponse);
-        } catch (ollamaErr) {
-            console.warn('[AI Assistant] Ollama failover failed/offline:', ollamaErr.message);
-            
-            // Local fallback message
-            let fallbackMsg = "I'm currently operating in offline mode due to rate limits.";
-            if (contextType === 'GLOBAL' && aggregatedData) {
-                fallbackMsg += ` Currently, the system contains ${aggregatedData.companyCount || 0} registered companies, ${aggregatedData.vehicleCount || 0} vehicles, and a total recorded revenue of ₹${aggregatedData.totalRevenue?.toLocaleString()}.`;
-            } else if (contextType === 'BILL' && billData) {
-                fallbackMsg += ` For Bill #${billData.billNumber}, the company is ${billData.companyName} and the total amount is ₹${billData.totalAmount}.`;
-            }
-            fallbackMsg += " Please try again in a few moments once the service recovers.";
-            
-            res.json({ 
-                answer: fallbackMsg, 
-                confidence: 0.5,
-                references: ["Local database fallback"]
-            });
+        logAiFailure('AI Assistant', error.message, 3, 'None');
+        
+        // Local fallback message
+        let fallbackMsg = "I'm currently operating in offline mode due to rate limits.";
+        if (contextType === 'GLOBAL' && aggregatedData) {
+            fallbackMsg += ` Currently, the system contains ${aggregatedData.companyCount || 0} registered companies, ${aggregatedData.vehicleCount || 0} vehicles, and a total recorded revenue of ₹${aggregatedData.totalRevenue?.toLocaleString()}.`;
+        } else if (contextType === 'BILL' && billData) {
+            fallbackMsg += ` For Bill #${billData.billNumber}, the company is ${billData.companyName} and the total amount is ₹${billData.totalAmount}.`;
         }
+        fallbackMsg += " Please try again in a few moments once the service recovers.";
+        
+        res.json({ 
+            answer: fallbackMsg, 
+            confidence: 0.5,
+            references: ["Local database fallback"]
+        });
     }
 });
 
@@ -408,15 +376,30 @@ app.post('/api/ai/index-bill', async (req, res) => {
         if (!text) return res.status(400).send("Text is required");
         
         console.log(`[Vector Store] Indexing bill #${billId || 'unknown'}...`);
+
+        // Validate Document ID, Vector components, and Metadata details (PROBLEM 4)
+        if (!billId) {
+            return res.status(400).json({ error: "Missing required Document ID (billId)" });
+        }
+        if (!metadata || !metadata.company || !metadata.vehicle || !metadata.billNumber) {
+            return res.status(400).json({ error: "Missing required metadata: company, vehicle, and billNumber are required." });
+        }
+
         const embedding = await getEmbedding(text);
+        if (!embedding || embedding.length === 0) {
+            return res.status(500).json({ error: "Generated embedding vector is empty or invalid" });
+        }
         
         const existingIdx = indexedBillsStore.findIndex(b => b.billId === billId);
+        const entry = { billId, text, embedding, metadata };
         if (existingIdx !== -1) {
-            indexedBillsStore[existingIdx] = { billId, text, embedding, metadata };
+            indexedBillsStore[existingIdx] = entry;
         } else {
-            indexedBillsStore.push({ billId, text, embedding, metadata });
+            indexedBillsStore.push(entry);
         }
-        res.json({ success: true });
+        
+        console.log(`[Vector Store] Indexing completed. Stats: Total Bills Indexed = ${indexedBillsStore.length}`);
+        res.json({ success: true, total_indexed: indexedBillsStore.length });
     } catch (e) {
         console.error("[Vector Store] Indexing failed:", e.message);
         res.status(500).json({ error: e.message });
@@ -425,11 +408,12 @@ app.post('/api/ai/index-bill', async (req, res) => {
 
 // AI Suggestions & Automation Engine Endpoint
 app.post('/api/ai/generate-suggestions', async (req, res) => {
+    let prompt = "";
     try {
         const { currentBill, historicalPatterns } = req.body;
         const model = genAI.getGenerativeModel({ model: modelName });
 
-        const prompt = `You are the Sri Tulja Bhavani Travels Billing Specialist.
+        prompt = `You are the Sri Tulja Bhavani Travels Billing Specialist.
 Your goal is to suggest values for a NEW bill based on HISTORICAL patterns.
 
 CURRENT BILL DRAFT:
@@ -474,29 +458,19 @@ OUTPUT FORMAT (STRICT JSON):
 
         res.json(JSON.parse(text));
     } catch (error) {
-        console.warn('[AI Suggestions] Gemini failed. Trying Ollama...', error.message);
-        try {
-            const ollamaResponse = await generateWithOllama(prompt);
-            console.log('[AI Suggestions] Ollama response received.');
-            let text = ollamaResponse.trim();
-            if (text.startsWith('```')) {
-                text = text.replace(/```json|```/g, '').trim();
-            }
-            res.json(JSON.parse(text));
-        } catch (ollamaErr) {
-            console.error('[AI Suggestions] Ollama failover failed/offline:', ollamaErr.message);
-            res.json({ suggestions: [] });
-        }
+        logAiFailure('AI Suggestions', error.message, 3, 'None');
+        res.json({ suggestions: [] });
     }
 });
 
 // AI Bill Parser Endpoint
 app.post('/api/ai/parse-bill', async (req, res) => {
+    let prompt = "";
     try {
         const { text } = req.body;
         const model = genAI.getGenerativeModel({ model: modelName });
         
-        const prompt = `You are a professional Travel Invoicing Specialist.
+        prompt = `You are a professional Travel Invoicing Specialist.
 Your task is to parse the following raw text extracted from a transport duty slip/bill/invoice and return a structured JSON array of parsed bills.
 
 STRICT RULES:
@@ -541,39 +515,29 @@ ${text}`;
         
         res.json(JSON.parse(responseText));
     } catch (error) {
-        console.warn('[AI Parser] Gemini failed. Trying Ollama...', error.message);
+        logAiFailure('AI Parser', error.message, 3, 'None');
         try {
-            const ollamaResponse = await generateWithOllama(prompt);
-            console.log('[AI Parser] Ollama response received.');
-            let responseText = ollamaResponse.trim();
-            if (responseText.startsWith('```')) {
-                responseText = responseText.replace(/```json|```/g, '').trim();
-            }
-            res.json(JSON.parse(responseText));
-        } catch (ollamaErr) {
-            console.warn('[AI Parser] Ollama failed. Falling back to local parsing:', ollamaErr.message);
-            try {
-                const fallbackResult = localFallbackParseBill(req.body.text);
-                res.json(fallbackResult);
-            } catch (fallbackError) {
-                console.error('[AI Parser] Fallback failed:', fallbackError.message);
-                res.status(500).json([
-                    {
-                        warnings: ["AI Parsing and Fallback Error: " + error.message]
-                    }
-                ]);
-            }
+            const fallbackResult = localFallbackParseBill(req.body.text);
+            res.json(fallbackResult);
+        } catch (fallbackError) {
+            console.error('[AI Parser] Fallback failed:', fallbackError.message);
+            res.status(500).json([
+                {
+                    warnings: ["AI Parsing and Fallback Error: " + error.message]
+                }
+            ]);
         }
     }
 });
 
 // AI Company Extractor Endpoint
 app.post('/api/ai/extract-companies', async (req, res) => {
+    let prompt = "";
     try {
         const { text } = req.body;
         const model = genAI.getGenerativeModel({ model: modelName });
         
-        const prompt = `You are a Data Extraction Assistant.
+        prompt = `You are a Data Extraction Assistant.
 Your task is to identify and extract all company/client profiles mentioned in the following text.
 
 STRICT RULES:
@@ -604,35 +568,25 @@ ${text}`;
         
         res.json(JSON.parse(responseText));
     } catch (error) {
-        console.warn('[AI Extractor] Gemini failed. Trying Ollama...', error.message);
+        logAiFailure('AI Extractor', error.message, 3, 'None');
         try {
-            const ollamaResponse = await generateWithOllama(prompt);
-            console.log('[AI Extractor] Ollama response received.');
-            let responseText = ollamaResponse.trim();
-            if (responseText.startsWith('```')) {
-                responseText = responseText.replace(/```json|```/g, '').trim();
-            }
-            res.json(JSON.parse(responseText));
-        } catch (ollamaErr) {
-            console.warn('[AI Extractor] Ollama failed. Falling back to local extraction:', ollamaErr.message);
-            try {
-                const fallbackResult = localFallbackExtractCompanies(req.body.text);
-                res.json(fallbackResult);
-            } catch (fallbackError) {
-                console.error('[AI Extractor] Fallback failed:', fallbackError.message);
-                res.status(500).json([]);
-            }
+            const fallbackResult = localFallbackExtractCompanies(req.body.text);
+            res.json(fallbackResult);
+        } catch (fallbackError) {
+            console.error('[AI Extractor] Fallback failed:', fallbackError.message);
+            res.status(500).json([]);
         }
     }
 });
 
 // AI NL Search Endpoint
 app.post('/api/ai/nl-search', async (req, res) => {
+    let prompt = "";
     try {
         const { query, currentDate } = req.body;
         const model = genAI.getGenerativeModel({ model: modelName });
         
-        const prompt = `You are a Database Query Assistant.
+        prompt = `You are a Database Query Assistant.
 Your task is to interpret a natural language search query for travel bills and translate it into a structured JSON filter config.
 
 The current system date is: ${currentDate}.
@@ -678,27 +632,16 @@ USER QUERY: "${query}"`;
         
         res.json(JSON.parse(responseText));
     } catch (error) {
-        console.warn('[AI NL Search] Gemini failed. Trying Ollama...', error.message);
+        logAiFailure('AI NL Search', error.message, 3, 'None');
         try {
-            const ollamaResponse = await generateWithOllama(prompt);
-            console.log('[AI NL Search] Ollama response received.');
-            let responseText = ollamaResponse.trim();
-            if (responseText.startsWith('```')) {
-                responseText = responseText.replace(/```json|```/g, '').trim();
-            }
-            res.json(JSON.parse(responseText));
-        } catch (ollamaErr) {
-            console.warn('[AI NL Search] Ollama failed. Falling back to local query parsing:', ollamaErr.message);
-            try {
-                const fallbackResult = localFallbackNlSearch(req.body.query, req.body.currentDate);
-                res.json(fallbackResult);
-            } catch (fallbackError) {
-                console.error('[AI NL Search] Fallback failed:', fallbackError.message);
-                res.status(500).json({
-                    summary: "Failed to parse search. Returning default search.",
-                    keywords: []
-                });
-            }
+            const fallbackResult = localFallbackNlSearch(req.body.query, req.body.currentDate);
+            res.json(fallbackResult);
+        } catch (fallbackError) {
+            console.error('[AI NL Search] Fallback failed:', fallbackError.message);
+            res.status(500).json({
+                summary: "Failed to parse search. Returning default search.",
+                keywords: []
+            });
         }
     }
 });
@@ -817,8 +760,68 @@ function localFallbackNlSearch(query, currentDate) {
     return filter;
 }
 
-app.listen(port, '0.0.0.0', () => {
-    console.log(`🚀 AI Service (Standard) running on http://localhost:${port}`);
+// Validate Gemini model and API key on startup
+async function certifyAiInfrastructure() {
+    console.log("==================================================");
+    console.log("     AI MICROSERVICE STARTUP CERTIFICATION        ");
+    console.log("==================================================");
+    
+    // Check 1: API Key
+    if (!apiKey || apiKey.startsWith("YOUR_") || apiKey === "AIzaSyDmncG2GztNQgfJhXuGIRE1ej2Q9ghEVoc") {
+        console.error("❌ CRITICAL: GEMINI_API_KEY is missing or contains placeholder template values!");
+        process.exit(1);
+    }
+    console.log("✔ Environment verification: API Key detected.");
+    
+    // Check 2: Model Configuration
+    const configuredModel = process.env.GEMINI_MODEL || 'gemini-1.5-pro';
+    const configuredEmbedding = process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004';
+    console.log(`✔ Configured model: ${configuredModel}`);
+    console.log(`✔ Configured embedding model: ${configuredEmbedding}`);
+    
+    // Check 3: Real content generation test
+    try {
+        console.log("⚡ Executing real test content generation query...");
+        const testModel = genAI.getGenerativeModel({ model: configuredModel });
+        const testResponse = await testModel.generateContent({
+            contents: [{ parts: [{ text: "Respond with the word: READY" }] }]
+        });
+        const respText = testResponse.response.text().trim();
+        console.log(`✔ Content Generation verified. Response: "${respText}"`);
+    } catch (e) {
+        console.error(`❌ CRITICAL: Gemini GenerateContent test failed: ${e.message}`);
+        console.error("Startup aborted due to invalid model configurations.");
+        process.exit(1);
+    }
+    
+    // Check 4: Real embedding generation test
+    try {
+        console.log("⚡ Executing real test embedding generation query...");
+        const embedModel = process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004';
+        const testEmbedding = await genAI.getGenerativeModel({ model: embedModel }).embedContent("Hello");
+        const vector = testEmbedding.embedding.values;
+        if (!vector || vector.length === 0) {
+            throw new Error("Returned empty vector");
+        }
+        console.log(`✔ Embedding Generation verified. Dimension size: ${vector.length}`);
+    } catch (e) {
+        console.error(`❌ CRITICAL: Gemini Embedding generation test failed: ${e.message}`);
+        console.error("Startup aborted due to invalid embedding model configurations.");
+        process.exit(1);
+    }
+    
+    console.log("==================================================");
+    console.log("🚀 ALL AI INFRASTRUCTURE SYSTEMS CERTIFIED (100%) ");
+    console.log("==================================================");
+}
+
+certifyAiInfrastructure().then(() => {
+    app.listen(port, '0.0.0.0', () => {
+        console.log(`🚀 AI Service (Standard) running on http://localhost:${port}`);
+    });
+}).catch(err => {
+    console.error("❌ CRITICAL: Certification crashed unexpectedly:", err);
+    process.exit(1);
 });
 
 

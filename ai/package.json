@@ -4,8 +4,8 @@
   "description": "Standalone AI Service for Travel Billing System",
   "main": "server.js",
   "scripts": {
-    "start": "concurrently \"node server.js\" \"../backend/.venv/Scripts/python -m uvicorn main:app --app-dir agents/rag --port 9002\"",
-    "dev": "concurrently \"nodemon server.js\" \"../backend/.venv/Scripts/python -m uvicorn main:app --app-dir agents/rag --port 9002 --reload\""
+    "start": "concurrently \"node server.js\" \"..\\backend\\.venv\\Scripts\\python -m uvicorn main:app --app-dir agents/rag --port 9002\"",
+    "dev": "concurrently \"nodemon server.js\" \"..\\backend\\.venv\\Scripts\\python -m uvicorn main:app --app-dir agents/rag --port 9002 --reload\""
   },
   "dependencies": {
     "@google-cloud/vertexai": "^1.12.0",

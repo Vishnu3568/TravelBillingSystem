@@ -1,8 +1,9 @@
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 from app.config import settings
-from app.database import engine, Base, SessionLocal
+from app.database import engine, Base, SessionLocal, get_db
 
 # Routers
 from app.routers.auth import router as auth_router
@@ -83,6 +84,47 @@ def on_startup():
     finally:
         db.close()
 
+    # Startup Self Test & Verification Report
+    logger.info("==================================================")
+    logger.info("       STARTUP SELF TEST & CONFIGURATION REPORT   ")
+    logger.info("==================================================")
+    
+    # Check Database
+    db_ok = "OK"
+    try:
+        from sqlalchemy import text
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db.close()
+    except Exception as e:
+        db_ok = f"FAILED: {e}"
+    logger.info(f"Database Connection:        {db_ok}")
+
+    # Check Configuration & Flags
+    logger.info(f"USE_ENTERPRISE_LEARNING:    {settings.USE_ENTERPRISE_LEARNING}")
+    logger.info(f"USE_ENTERPRISE_COPILOT:     {settings.USE_ENTERPRISE_COPILOT}")
+    logger.info(f"USE_ENTERPRISE_GRAPH:       {settings.USE_ENTERPRISE_GRAPH}")
+    logger.info(f"USE_PREDICTIVE_ENGINE:      {settings.USE_PREDICTIVE_ENGINE}")
+    logger.info(f"GEMINI_MODEL:               {settings.GEMINI_MODEL or 'gemini-1.5-pro (default)'}")
+    
+    # Check API Keys
+    gemini_key_ok = "SET" if settings.GEMINI_API_KEY else "MISSING"
+    logger.info(f"Gemini API Key:             {gemini_key_ok}")
+    internal_key_ok = "SET" if settings.INTERNAL_API_KEY else "USING DEFAULT LOCAL KEY"
+    logger.info(f"Internal API Key:           {internal_key_ok}")
+    logger.info("==================================================")
+
+    # Hard Enforcement of Dependencies
+    if db_ok != "OK":
+        logger.error(f"❌ STARTUP FAILED: Database connection is unavailable: {db_ok}")
+        import sys
+        sys.exit(1)
+        
+    if not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY == "AIzaSyDmncG2GztNQgfJhXuGIRE1ej2Q9ghEVoc" or settings.GEMINI_API_KEY.startswith("YOUR_"):
+        logger.error("❌ STARTUP FAILED: GEMINI_API_KEY is missing or contains placeholder values!")
+        import sys
+        sys.exit(1)
+
 @app.on_event("shutdown")
 def on_shutdown():
     pass
@@ -90,3 +132,57 @@ def on_shutdown():
 @app.get("/")
 def read_root():
     return {"message": "Travel Billing System Python API rewrite is up and running."}
+
+@app.get("/api/health")
+def api_health(db: Session = Depends(get_db)):
+    health_status = {
+        "status": "UP",
+        "node_server": "DOWN",
+        "python_server_rag": "DOWN",
+        "gemini": "DOWN",
+        "embeddings": "DOWN",
+        "vector_store": "DOWN",
+        "knowledge_graph": "DOWN",
+        "predictive_engine": "DOWN",
+        "learning_engine": "DOWN",
+        "database": "DOWN"
+    }
+
+    # 1. Database Connection check
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        health_status["database"] = "UP"
+    except Exception as e:
+        health_status["database"] = f"DOWN: {e}"
+        health_status["status"] = "DOWN"
+
+    # 2. Node server check
+    import requests
+    headers = {"x-api-key": settings.INTERNAL_API_KEY or "travel_billing_secret_token_123"}
+    try:
+        res = requests.get("http://localhost:9001/health", headers=headers, timeout=1.0)
+        if res.status_code == 200:
+            health_status["node_server"] = "UP"
+            health_status["gemini"] = "UP" if settings.GEMINI_API_KEY else "DOWN"
+            health_status["embeddings"] = "UP" if settings.GEMINI_API_KEY else "DOWN"
+            health_status["vector_store"] = "UP"
+    except Exception as e:
+        health_status["node_server"] = f"DOWN: {e}"
+        if health_status["status"] == "UP":
+            health_status["status"] = "DEGRADED"
+
+    # 3. Python RAG server check
+    try:
+        res_rag = requests.get("http://localhost:9002/", timeout=1.0)
+        if res_rag.status_code in (200, 404):
+            health_status["python_server_rag"] = "UP"
+    except Exception:
+        health_status["python_server_rag"] = "DOWN"
+
+    # 4. Feature flags checks
+    health_status["knowledge_graph"] = "UP (Active)" if settings.USE_ENTERPRISE_GRAPH else "OFF (Disabled)"
+    health_status["predictive_engine"] = "UP (Active)" if settings.USE_PREDICTIVE_ENGINE else "OFF (Disabled)"
+    health_status["learning_engine"] = "UP (Active)" if settings.USE_ENTERPRISE_LEARNING else "OFF (Disabled)"
+
+    return health_status

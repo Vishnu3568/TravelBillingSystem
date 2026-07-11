@@ -66,27 +66,6 @@ class FieldClassifier:
                     logger.warning(f"Gemini classification attempt {attempt + 1} failed: {e}")
                     time.sleep(1)
 
-        # 2. Try Ollama Fallback
-        try:
-            logger.info("Attempting Ollama field classification failover...")
-            ollama_url = "http://localhost:11434/api/generate"
-            ollama_payload = {
-                "model": "gemma",
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.1
-                }
-            }
-            res = requests.post(ollama_url, json=ollama_payload, timeout=90)
-            if res.status_code == 200:
-                text_out = res.json().get("response", "").strip()
-                parsed = FieldClassifier._clean_and_parse_json(text_out)
-                if parsed and "classifications" in parsed:
-                    logger.info("Successfully classified elements using Ollama.")
-                    return parsed["classifications"]
-        except Exception as e:
-            logger.warning(f"Ollama failover failed: {e}")
 
         # 3. Rule-based local fallback classifier
         logger.info("All LLM methods failed. Executing local rule-based classifier fallback.")

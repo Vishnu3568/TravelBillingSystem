@@ -2,6 +2,7 @@ import logging
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import Dict, Any, List, Optional
+from app.config import settings
 from app.models.bill import Bill
 from app.models.learning import CorrectionHistory, CompanyPatterns, VehiclePatterns
 from app.services.enterprise_copilot.conversation_memory import ConversationMemory
@@ -58,8 +59,6 @@ class ContextBuilder:
                         f"- Warnings/Issues: {bill.notes or 'None'}\n"
                     )
                     
-                    # Query Knowledge Graph Subgraph Context
-                    from app.config import settings
                     if getattr(settings, "USE_ENTERPRISE_GRAPH", False):
                         from app.services.knowledge_graph import GraphService
                         graph_ctx = GraphService.query_copilot_context(db, bill.id)

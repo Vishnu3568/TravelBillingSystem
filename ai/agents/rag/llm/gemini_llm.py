@@ -13,12 +13,9 @@ class GeminiLlmClient(BaseLlmClient):
         self.api_key = settings.GEMINI_API_KEY
 
     def generate_response(self, system_instruction: str, prompt: str) -> str:
-        # Check if the API key is not configured or is the default mock placeholder
         if not self.api_key or self.api_key == "AIzaSyDmncG2GztNQgfJhXuGIRE1ej2Q9ghEVoc" or self.api_key.startswith("YOUR_"):
-            logger.warning("Gemini API key is missing or is placeholder. Falling back to local Ollama...")
-            return self._generate_ollama(prompt, system_instruction)
+            raise ValueError("Gemini API key is missing or is the default mock placeholder. Cannot execute LLM queries.")
 
-            
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}:generateContent?key={self.api_key}"
         headers = {"Content-Type": "application/json"}
         
@@ -46,26 +43,5 @@ class GeminiLlmClient(BaseLlmClient):
             text = res.json()["candidates"][0]["content"]["parts"][0]["text"]
             return text.strip()
         except Exception as e:
-            logger.error(f"Gemini API invocation failed: {e}. Falling back to local Ollama...")
-            return self._generate_ollama(prompt, system_instruction)
-
-    def _generate_ollama(self, prompt: str, system_instruction: str) -> str:
-        url = "http://localhost:11434/api/generate"
-        full_prompt = f"{system_instruction}\n\n{prompt}" if system_instruction else prompt
-        payload = {
-            "model": "gemma",
-            "prompt": full_prompt,
-            "stream": False,
-            "format": "json"
-        }
-        try:
-            res = requests.post(url, json=payload, timeout=15)
-            res.raise_for_status()
-            return res.json().get("response", "").strip()
-        except Exception as err:
-            logger.error(f"Ollama local fallback failed: {err}")
-            return json.dumps({
-                "answer": "Failed to connect to both Gemini API and local Ollama instance.",
-                "confidence": 0.0,
-                "citations": []
-            })
+            logger.error(f"Gemini API invocation failed: {e}")
+            raise e
