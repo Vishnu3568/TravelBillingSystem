@@ -14,7 +14,7 @@ logger = logging.getLogger("field_classifier")
 
 class FieldClassifier:
     @staticmethod
-    def classify_elements(elements: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def classify_elements(elements: List[Dict[str, Any]], learned_context: str = "") -> List[Dict[str, Any]]:
         """
         Classifies elements by invoking Gemini API, failing over to Ollama,
         and finally falling back to a deterministic local rule-based classifier.
@@ -24,7 +24,13 @@ class FieldClassifier:
 
         elements_json = json.dumps(elements, indent=2)
         user_prompt = USER_PROMPT_TEMPLATE.format(elements_json=elements_json)
-        prompt = f"{SYSTEM_PROMPT}\n\n{user_prompt}"
+        
+        prompt_parts = []
+        if learned_context:
+            prompt_parts.append(learned_context)
+        prompt_parts.append(SYSTEM_PROMPT)
+        prompt_parts.append(user_prompt)
+        prompt = "\n\n".join(prompt_parts)
 
         # 1. Try Gemini API
         if settings.GEMINI_API_KEY:

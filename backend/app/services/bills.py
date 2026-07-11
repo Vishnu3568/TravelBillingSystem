@@ -250,6 +250,12 @@ class BillService:
                 
                 request_obj = BillRequest(**req_data)
                 saved_bills.append(BillService.create_bill(db, request_obj, created_by, ip))
+
+                # Trigger Learning Engine save
+                from app.config import settings
+                if getattr(settings, "USE_ENTERPRISE_LEARNING", False):
+                    from app.services.learning_engine.learning_service import LearningService
+                    LearningService.process_bill_save(db, ai, created_by)
             except Exception as e:
                 logger.error(f"Failed to save individual AI bill: {getattr(ai, 'dutySlipNo', 'N/A')}. Error: {e}")
 

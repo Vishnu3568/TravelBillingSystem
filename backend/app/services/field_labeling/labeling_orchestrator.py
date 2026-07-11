@@ -12,7 +12,7 @@ logger = logging.getLogger("labeling_orchestrator")
 
 class LabelingOrchestrator:
     @staticmethod
-    def orchestrate_labeling(doc: EnterpriseDocument) -> LabeledDocument:
+    def orchestrate_labeling(doc: EnterpriseDocument, learned_context: str = "") -> LabeledDocument:
         """
         Orchestrates the classification pipeline:
         1. Prepares spatial/neighboring context for cells and paragraphs.
@@ -35,7 +35,7 @@ class LabelingOrchestrator:
             batch = prepared_elements[i:i + batch_size]
             logger.info("Processing classification batch %d/%d", i // batch_size + 1, (len(prepared_elements) + batch_size - 1) // batch_size)
             try:
-                batch_classifications = FieldClassifier.classify_elements(batch)
+                batch_classifications = FieldClassifier.classify_elements(batch, learned_context)
                 classifications.extend(batch_classifications)
             except Exception as e:
                 logger.error("Batch classification failed: %s", e)

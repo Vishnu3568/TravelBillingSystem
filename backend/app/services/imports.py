@@ -132,8 +132,27 @@ class BulkImportService:
                 from app.config import settings
                 if settings.USE_ENTERPRISE_LABELER:
                     from app.services.field_labeling import FieldLabelingService
+                    
+                    # Heuristic to detect company name from first page paragraphs or filename
+                    company_name = None
+                    first_page_text = ""
+                    if doc_model.pages:
+                        first_page_text = " ".join([p.text for p in doc_model.pages[0].paragraphs[:10] if p.text])
+                    
+                    from app.models.company import Company
+                    companies = db.query(Company.name).all()
+                    for (c_name,) in companies:
+                        if c_name.lower() in first_page_text.lower() or c_name.lower() in file_name.lower():
+                            company_name = c_name
+                            break
+                    
+                    learned_context = ""
+                    if getattr(settings, "USE_ENTERPRISE_LEARNING", False):
+                        from app.services.learning_engine.learning_service import LearningService
+                        learned_context = LearningService.get_learned_context(db, company_name)
+                    
                     logger.info("USE_ENTERPRISE_LABELER is enabled. Running AI Field Labeling Engine...")
-                    labeled_doc = FieldLabelingService.label_document(doc_model)
+                    labeled_doc = FieldLabelingService.label_document(doc_model, learned_context=learned_context)
 
                 chunks = DocxSegmenterService.segment_docx(file_bytes, file_name)
                 
@@ -271,8 +290,27 @@ class BulkImportService:
                 from app.config import settings
                 if settings.USE_ENTERPRISE_LABELER:
                     from app.services.field_labeling import FieldLabelingService
+                    
+                    # Heuristic to detect company name from first page paragraphs or filename
+                    company_name = None
+                    first_page_text = ""
+                    if doc_model.pages:
+                        first_page_text = " ".join([p.text for p in doc_model.pages[0].paragraphs[:10] if p.text])
+                    
+                    from app.models.company import Company
+                    companies = db.query(Company.name).all()
+                    for (c_name,) in companies:
+                        if c_name.lower() in first_page_text.lower() or c_name.lower() in file_name.lower():
+                            company_name = c_name
+                            break
+                    
+                    learned_context = ""
+                    if getattr(settings, "USE_ENTERPRISE_LEARNING", False):
+                        from app.services.learning_engine.learning_service import LearningService
+                        learned_context = LearningService.get_learned_context(db, company_name)
+                    
                     logger.info("USE_ENTERPRISE_LABELER is enabled. Running AI Field Labeling Engine for preview...")
-                    labeled_doc = FieldLabelingService.label_document(doc_model)
+                    labeled_doc = FieldLabelingService.label_document(doc_model, learned_context=learned_context)
 
                 chunks = DocxSegmenterService.segment_docx(file_bytes, file_name)
 
