@@ -30,17 +30,32 @@ app.use((req, res, next) => {
     next();
 });
 
-if (!apiKey) {
-    console.error('CRITICAL: GEMINI_API_KEY is not set.');
-    process.exit(1);
-}
+const KNOWN_PLACEHOLDERS = [
+    "",
+    "your_gemini_api_key_here",
+    "AIzaSyDmncG2GztNQgfJhXuGIRE1ej2Q9ghEVoc"
+];
+const geminiKeyValid = (
+    apiKey &&
+    !apiKey.startsWith("YOUR_") &&
+    !KNOWN_PLACEHOLDERS.includes(apiKey)
+);
 
 // Initialize Standard SDK with explicit v1 API
-const genAI = new GoogleGenerativeAI(apiKey);
+let genAI = null;
+if (geminiKeyValid) {
+    genAI = new GoogleGenerativeAI(apiKey);
+} else {
+    console.warn("⚠ AI Service starting in degraded mode (no valid GEMINI_API_KEY).");
+    console.warn("   AI endpoints will return fallback responses.");
+}
 
 // Helper for retries with exponential backoff
 // Helper to resolve model instance with fallback
 function getModelWithFallback(modelNameInput) {
+    if (!geminiKeyValid) {
+        throw new Error("Gemini API key not configured");
+    }
     try {
         const mName = modelNameInput || process.env.GEMINI_MODEL || 'gemini-1.5-flash';
         return genAI.getGenerativeModel({ model: mName });
@@ -767,9 +782,22 @@ async function certifyAiInfrastructure() {
     console.log("==================================================");
     
     // Check 1: API Key
-    if (!apiKey || apiKey.startsWith("YOUR_") || apiKey === "AIzaSyDmncG2GztNQgfJhXuGIRE1ej2Q9ghEVoc") {
-        console.error("❌ CRITICAL: GEMINI_API_KEY is missing or contains placeholder template values!");
-        process.exit(1);
+    const KNOWN_PLACEHOLDERS = [
+        "",
+        "your_gemini_api_key_here",
+        "AIzaSyDmncG2GztNQgfJhXuGIRE1ej2Q9ghEVoc"
+    ];
+    const geminiKeyValid = (
+        apiKey &&
+        !apiKey.startsWith("YOUR_") &&
+        !KNOWN_PLACEHOLDERS.includes(apiKey)
+    );
+
+    if (!geminiKeyValid) {
+        console.warn("⚠ WARNING: GEMINI_API_KEY is missing or is a placeholder.");
+        console.warn("   AI features will be disabled. Set a valid key in ai/.env to enable.");
+        console.warn("==================================================");
+        return;
     }
     console.log("✔ Environment verification: API Key detected.");
     
@@ -818,6 +846,9 @@ async function certifyAiInfrastructure() {
 certifyAiInfrastructure().then(() => {
     app.listen(port, '0.0.0.0', () => {
         console.log(`🚀 AI Service (Standard) running on http://localhost:${port}`);
+        if (!geminiKeyValid) {
+            console.warn("⚠ Running in DEGRADED MODE — AI features disabled. Set GEMINI_API_KEY in ai/.env");
+        }
     });
 }).catch(err => {
     console.error("❌ CRITICAL: Certification crashed unexpectedly:", err);

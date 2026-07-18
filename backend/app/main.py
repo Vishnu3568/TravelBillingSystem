@@ -1,4 +1,5 @@
 import logging
+import sys
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -88,7 +89,7 @@ def on_startup():
     logger.info("==================================================")
     logger.info("       STARTUP SELF TEST & CONFIGURATION REPORT   ")
     logger.info("==================================================")
-    
+
     # Check Database
     db_ok = "OK"
     try:
@@ -106,24 +107,68 @@ def on_startup():
     logger.info(f"USE_ENTERPRISE_GRAPH:       {settings.USE_ENTERPRISE_GRAPH}")
     logger.info(f"USE_PREDICTIVE_ENGINE:      {settings.USE_PREDICTIVE_ENGINE}")
     logger.info(f"GEMINI_MODEL:               {settings.GEMINI_MODEL or 'gemini-1.5-pro (default)'}")
-    
-    # Check API Keys
-    gemini_key_ok = "SET" if settings.GEMINI_API_KEY else "MISSING"
+
+    # ----------------------------------------------------------------
+    # Gemini API Key validation
+    # In DEVELOPMENT: missing / placeholder key -> warn and disable AI
+    # features gracefully. Server ALWAYS boots.
+    # ----------------------------------------------------------------
+    _KNOWN_PLACEHOLDERS = {
+        "",
+        "AIzaSyDmncG2GztNQgfJhXuGIRE1ej2Q9ghEVoc",
+    }
+    gemini_key_valid = (
+        bool(settings.GEMINI_API_KEY)
+        and settings.GEMINI_API_KEY not in _KNOWN_PLACEHOLDERS
+        and not settings.GEMINI_API_KEY.startswith("YOUR_")
+        and not settings.GEMINI_API_KEY.startswith("your_")
+    )
+
+    if gemini_key_valid:
+        gemini_key_ok = "SET (valid)"
+    else:
+        gemini_key_ok = "MISSING or PLACEHOLDER — AI features disabled"
+        # Disable every AI-dependent feature flag at runtime so endpoints
+        # return descriptive errors instead of crashing at startup.
+        settings.USE_ENTERPRISE_LEARNING = False
+        settings.USE_ENTERPRISE_COPILOT = False
+        settings.USE_ENTERPRISE_GRAPH = False
+        settings.USE_PREDICTIVE_ENGINE = False
+        settings.USE_ENTERPRISE_LABELER = False
+        settings.USE_ENTERPRISE_VALIDATION = False
+
     logger.info(f"Gemini API Key:             {gemini_key_ok}")
     internal_key_ok = "SET" if settings.INTERNAL_API_KEY else "USING DEFAULT LOCAL KEY"
     logger.info(f"Internal API Key:           {internal_key_ok}")
     logger.info("==================================================")
 
-    # Hard Enforcement of Dependencies
+    # ----------------------------------------------------------------
+    # Database enforcement
+    # In PRODUCTION (ENV != dev): hard exit if DB is unreachable.
+    # In DEVELOPMENT: log an error and continue (avoids blocking local
+    # development when MySQL is not yet running).
+    # ----------------------------------------------------------------
     if db_ok != "OK":
-        logger.error(f"❌ STARTUP FAILED: Database connection is unavailable: {db_ok}")
-        import sys
-        sys.exit(1)
-        
-    if not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY == "AIzaSyDmncG2GztNQgfJhXuGIRE1ej2Q9ghEVoc" or settings.GEMINI_API_KEY.startswith("YOUR_"):
-        logger.error("❌ STARTUP FAILED: GEMINI_API_KEY is missing or contains placeholder values!")
-        import sys
-        sys.exit(1)
+        if not settings.is_dev:
+            logger.error(f"STARTUP FAILED: Database unavailable in production: {db_ok}")
+            sys.exit(1)
+        else:
+            logger.error(
+                f"Database connection FAILED: {db_ok}\n"
+                "  Running in DEV mode — server will start but DB-dependent"
+                " endpoints will return errors. Start MySQL to resolve."
+            )
+
+    if not gemini_key_valid:
+        logger.warning(
+            "\n"
+            "  ====================================================\n"
+            "  WARNING: GEMINI_API_KEY is missing or is a placeholder.\n"
+            "  AI-dependent features (Learning, Copilot, Graph,\n"
+            "  Predictive, Labeler, Validation) are DISABLED.\n"
+            "  Set a valid GEMINI_API_KEY in backend/.env to enable.\n"
+            "  ===================================================="
+        )
 
 @app.on_event("shutdown")
 def on_shutdown():
