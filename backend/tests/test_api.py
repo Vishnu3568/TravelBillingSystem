@@ -325,9 +325,23 @@ def test_ai_search_nl_explain(mock_post):
 
 @patch("app.services.imports.DocxSegmenterService.segment_docx")
 @patch("app.services.imports.AiExtractionService.extract_page_data")
-def test_ai_parse_endpoint(mock_extract, mock_segment):
+@patch("app.services.imports.DocumentIntelligenceService.extract_document")
+@patch("app.config.settings")
+def test_ai_parse_endpoint(mock_settings, mock_doc_intel, mock_extract, mock_segment):
     owner_headers = get_auth_headers("owner_test", "OWNER")
-    
+
+    # Force feature flags so the test exercises the AiExtractionService path
+    # (not the USE_ENTERPRISE_LABELER branch which bypasses extract_page_data)
+    mock_settings.USE_ENTERPRISE_LABELER = False
+    mock_settings.USE_ENTERPRISE_VALIDATION = False
+    mock_settings.USE_ENTERPRISE_LEARNING = False
+
+    # Mock a minimal valid DocumentIntelligenceService result
+    mock_doc = MagicMock()
+    mock_doc.to_json.return_value = {"metadata": {"file_name": "test.docx"}, "pages": [], "tables": [], "paragraphs": []}
+    mock_doc.pages = []
+    mock_doc_intel.return_value = mock_doc
+
     mock_segment.return_value = [
         BillChunk(
             page_number=1,
@@ -352,7 +366,7 @@ def test_ai_parse_endpoint(mock_extract, mock_segment):
         "driverBata": 300.0,
         "totalAmount": 3300.0
     }
-    
+
     files = {"files": ("test.docx", b"dummy file content", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
     response = client.post("/api/import/ai-parse", files=files, headers=owner_headers)
     assert response.status_code == 200
