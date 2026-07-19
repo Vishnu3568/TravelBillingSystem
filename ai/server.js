@@ -43,8 +43,7 @@ app.use((req, res, next) => {
 const KNOWN_PLACEHOLDERS = [
     '',
     'your_gemini_api_key_here',
-    'your_api_key_here',
-    'AIzaSyDmncG2GztNQgfJhXuGIRE1ej2Q9ghEVoc'
+    'your_api_key_here'
 ];
 const geminiKeyValid = Boolean(
     apiKey &&

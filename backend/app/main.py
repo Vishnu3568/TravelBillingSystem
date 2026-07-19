@@ -115,7 +115,6 @@ def on_startup():
     # ----------------------------------------------------------------
     _KNOWN_PLACEHOLDERS = {
         "",
-        "AIzaSyDmncG2GztNQgfJhXuGIRE1ej2Q9ghEVoc",
     }
     gemini_key_valid = (
         bool(settings.GEMINI_API_KEY)
