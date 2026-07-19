@@ -7,7 +7,7 @@ from app.models.bill import Bill
 from app.services.docx_segmenter import DocxSegmenterService
 from app.services.ai_extraction import AiExtractionService
 from app.services.document_intelligence import DocumentIntelligenceService
-from app.services.validation_service import ValidationService
+from app.services.business_validation_service import ValidationService
 from app.services.bills import BillService
 from app.services.audit_log import AuditLogService
 from app.schemas.ai import AiBillResponse

@@ -401,7 +401,7 @@ def test_document_intelligence_service_parses_docx_structure():
     assert payload["paragraphs"][0]["text"] == "Header line"
 
 def test_validation_service_checks():
-    from app.services.validation_service import ValidationService
+    from app.services.business_validation_service import ValidationService
     from app.schemas.ai import AiBillResponse, AiBillCharge
     from sqlalchemy.orm import Session
     
