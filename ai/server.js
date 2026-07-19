@@ -1,28 +1,37 @@
+'use strict';
 const express = require('express');
 const cors = require('cors');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 
+// ============================================================
+//  AI MICROSERVICE — Travel Billing System
+//  Uses ONLY Google Gemini (@google/generative-ai)
+//  No Ollama. No Vertex AI. Gemini only.
+// ============================================================
+
 const app = express();
 
+// ---- Logging helper ----
 function logAiFailure(service, reason, retryCount, fallbackUsed, durationMs = 0) {
     const timestamp = new Date().toISOString();
     console.error(`[${timestamp}] [${service}] FAIL: Reason="${reason}", Retries=${retryCount}, Fallback="${fallbackUsed}", Duration=${durationMs}ms`);
 }
+
+// ---- Middleware ----
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-const port = process.env.PORT || 9001;
-const apiKey = process.env.GEMINI_API_KEY;
+// ---- Configuration ----
+const PORT = parseInt(process.env.PORT || '9001', 10);
+const apiKey = process.env.GEMINI_API_KEY || '';
 const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-pro';
 const internalApiKey = process.env.INTERNAL_API_KEY || 'travel_billing_secret_token_123';
 
-console.log('🔒 AI Service security enabled. Authentication headers will be verified.');
+// ---- Authentication middleware ----
+console.log('AI Service security enabled. x-api-key / x-internal-api-key header required.');
 app.use((req, res, next) => {
-    // Exempt /health check from authentication to allow backend startup check
-    if (req.path === '/health') {
-        return next();
-    }
+    if (req.path === '/health') return next(); // exempt health check
     const clientKey = req.headers['x-api-key'] || req.headers['x-internal-api-key'];
     if (!clientKey || clientKey !== internalApiKey) {
         return res.status(401).json({ error: 'Unauthorized: Invalid or missing x-api-key or x-internal-api-key header.' });
@@ -30,261 +39,323 @@ app.use((req, res, next) => {
     next();
 });
 
+// ---- Gemini Key Validation ----
 const KNOWN_PLACEHOLDERS = [
-    "",
-    "your_gemini_api_key_here",
-    "AIzaSyDmncG2GztNQgfJhXuGIRE1ej2Q9ghEVoc"
+    '',
+    'your_gemini_api_key_here',
+    'your_api_key_here',
+    'AIzaSyDmncG2GztNQgfJhXuGIRE1ej2Q9ghEVoc'
 ];
-const geminiKeyValid = (
+const geminiKeyValid = Boolean(
     apiKey &&
-    !apiKey.startsWith("YOUR_") &&
+    !apiKey.startsWith('YOUR_') &&
+    !apiKey.startsWith('your_') &&
     !KNOWN_PLACEHOLDERS.includes(apiKey)
 );
 
-// Initialize Standard SDK with explicit v1 API
+// ---- Gemini SDK Initialization ----
 let genAI = null;
 if (geminiKeyValid) {
     genAI = new GoogleGenerativeAI(apiKey);
+    console.log(`[AI Config] Gemini SDK initialized. Model: ${modelName}`);
 } else {
-    console.warn("⚠ AI Service starting in degraded mode (no valid GEMINI_API_KEY).");
-    console.warn("   AI endpoints will return fallback responses.");
+    console.warn('[AI Config] WARNING: GEMINI_API_KEY is missing or is a placeholder.');
+    console.warn('[AI Config] AI endpoints will return graceful fallback responses.');
+    console.warn('[AI Config] Set a valid GEMINI_API_KEY in ai/.env to enable AI features.');
 }
 
-// Helper for retries with exponential backoff
-// Helper to resolve model instance with fallback
-function getModelWithFallback(modelNameInput) {
-    if (!geminiKeyValid) {
-        throw new Error("Gemini API key not configured");
+// ============================================================
+//  HELPER: Resolve a Gemini model instance
+// ============================================================
+function getModel(name) {
+    if (!geminiKeyValid || !genAI) {
+        throw new Error('Gemini API key not configured. Set GEMINI_API_KEY in ai/.env');
     }
-    try {
-        const mName = modelNameInput || process.env.GEMINI_MODEL || 'gemini-1.5-flash';
-        return genAI.getGenerativeModel({ model: mName });
-    } catch (error) {
-        console.warn(`[AI Config] Model ${modelNameInput} initialization failed: ${error.message}. Falling back to gemini-1.5-flash.`);
-        return genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    }
+    return genAI.getGenerativeModel({ model: name || modelName });
 }
 
-// Helper for retries with exponential backoff & model fallbacks
-async function generateWithRetry(modelInstanceOrName, prompt, maxRetries = 3) {
-    let modelInstance = typeof modelInstanceOrName === 'string' 
-        ? getModelWithFallback(modelInstanceOrName) 
-        : modelInstanceOrName;
+// ============================================================
+//  HELPER: generateContent with retry + model fallback
+// ============================================================
+async function generateWithRetry(modelNameOrInstance, prompt, maxRetries = 3) {
+    if (!geminiKeyValid || !genAI) {
+        throw new Error('Gemini API key not configured');
+    }
+    let model = (typeof modelNameOrInstance === 'string')
+        ? getModel(modelNameOrInstance)
+        : modelNameOrInstance;
 
-    for (let i = 0; i < maxRetries; i++) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
-            const result = await modelInstance.generateContent(prompt);
+            const result = await model.generateContent(prompt);
             return result;
         } catch (error) {
-            const isNotFoundError = error.message.includes('404') || error.message.includes('not found') || error.message.includes('Model');
-            if (isNotFoundError) {
-                console.warn(`[AI Config] Model call failed with 404/not found. Falling back to gemini-1.5-flash...`);
-                modelInstance = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+            const isNotFound = error.message.includes('404') ||
+                               error.message.toLowerCase().includes('not found') ||
+                               error.message.toLowerCase().includes('model');
+            if (isNotFound && attempt < maxRetries - 1) {
+                console.warn(`[AI Config] Model "${modelName}" returned 404. Falling back to gemini-1.5-flash...`);
+                model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
                 continue;
             }
-            const isQuotaError = error.message.includes('429') || error.message.includes('Quota');
-            if (isQuotaError && i < maxRetries - 1) {
-                const wait = Math.pow(2, i) * 3000;
-                console.log(`[AI] Quota hit, retrying in ${wait}ms... (Attempt ${i + 1}/${maxRetries})`);
+            const isQuota = error.message.includes('429') || error.message.toLowerCase().includes('quota');
+            if (isQuota && attempt < maxRetries - 1) {
+                const wait = Math.pow(2, attempt) * 3000;
+                console.log(`[AI] Quota hit, retrying in ${wait}ms... (attempt ${attempt + 1}/${maxRetries})`);
                 await new Promise(r => setTimeout(r, wait));
                 continue;
             }
             throw error;
         }
     }
+    throw new Error('All retry attempts exhausted');
 }
 
-// --- STATEFUL MEMORY & SEMANTIC CACHE DATASTORES ---
-const chatSessions = new Map();
-const semanticQueryCache = []; // [{ query, embedding, response, timestamp }]
-const indexedBillsStore = []; // [{ billId, text, embedding, metadata }]
-
-// Helper to compute Cosine Similarity between two vector arrays
+// ============================================================
+//  HELPER: Cosine Similarity
+// ============================================================
 function cosineSimilarity(vecA, vecB) {
     if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
-    let dotProduct = 0.0;
-    let normA = 0.0;
-    let normB = 0.0;
+    let dot = 0, normA = 0, normB = 0;
     for (let i = 0; i < vecA.length; i++) {
-        dotProduct += vecA[i] * vecB[i];
+        dot   += vecA[i] * vecB[i];
         normA += vecA[i] * vecA[i];
         normB += vecB[i] * vecB[i];
     }
     if (normA === 0 || normB === 0) return 0;
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-// Helper to retrieve text embeddings from Gemini API
+// ============================================================
+//  HELPER: Get text embedding from Gemini API
+// ============================================================
 async function getEmbedding(text) {
+    if (!geminiKeyValid || !genAI) {
+        throw new Error('Gemini API key not configured — embeddings unavailable');
+    }
     const primaryModel = process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004';
     const fallbackModel = process.env.GEMINI_EMBEDDING_FALLBACK || 'embedding-001';
-    
+
     try {
         const model = genAI.getGenerativeModel({ model: primaryModel });
         const result = await model.embedContent(text);
-        if (!result || !result.embedding || !result.embedding.values) {
-            throw new Error("Empty embedding returned");
+        if (!result || !result.embedding || !result.embedding.values || result.embedding.values.length === 0) {
+            throw new Error('Empty embedding returned from primary model');
         }
         return result.embedding.values;
-    } catch (e) {
-        console.warn(`[Embedding API] Primary model ${primaryModel} failed: ${e.message}. Trying fallback ${fallbackModel}...`);
+    } catch (primaryErr) {
+        console.warn(`[Embedding] Primary model "${primaryModel}" failed: ${primaryErr.message}. Trying fallback "${fallbackModel}"...`);
         try {
             const model = genAI.getGenerativeModel({ model: fallbackModel });
             const result = await model.embedContent(text);
-            if (!result || !result.embedding || !result.embedding.values) {
-                throw new Error("Empty embedding returned from fallback");
+            if (!result || !result.embedding || !result.embedding.values || result.embedding.values.length === 0) {
+                throw new Error('Empty embedding returned from fallback model');
             }
             return result.embedding.values;
-        } catch (err) {
-            console.error(`[Embedding API] Both primary and fallback embedding models failed: ${err.message}`);
-            throw new Error(`Embedding generation failed: ${err.message}`);
+        } catch (fallbackErr) {
+            console.error(`[Embedding] Both primary and fallback failed: ${fallbackErr.message}`);
+            throw new Error(`Embedding generation failed: ${fallbackErr.message}`);
         }
     }
 }
 
-
-
-// Helper to send chat message with retry backoff
+// ============================================================
+//  HELPER: sendMessage with retry and quota backoff
+// ============================================================
 async function sendMessageWithRetry(chat, prompt, maxRetries = 3) {
-    for (let i = 0; i < maxRetries; i++) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
-            const result = await chat.sendMessage(prompt);
-            return result;
+            return await chat.sendMessage(prompt);
         } catch (error) {
-            const isQuotaError = error.message.includes('429') || error.message.includes('Quota');
-            if (isQuotaError && i < maxRetries - 1) {
-                const wait = Math.pow(2, i) * 3000;
-                console.log(`[AI] Quota hit, retrying chat in ${wait}ms... (Attempt ${i + 1}/${maxRetries})`);
+            const isQuota = error.message.includes('429') || error.message.toLowerCase().includes('quota');
+            if (isQuota && attempt < maxRetries - 1) {
+                const wait = Math.pow(2, attempt) * 3000;
+                console.log(`[AI Chat] Quota hit, retrying in ${wait}ms... (attempt ${attempt + 1}/${maxRetries})`);
                 await new Promise(r => setTimeout(r, wait));
                 continue;
             }
             throw error;
         }
     }
+    throw new Error('Chat retry attempts exhausted');
 }
 
-// Health Check
+// ============================================================
+//  HELPER: Parse JSON from Gemini response (strips markdown)
+// ============================================================
+function parseGeminiJson(text) {
+    let cleaned = text.trim();
+    if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```(?:json)?/i, '').replace(/```\s*$/, '').trim();
+    }
+    return JSON.parse(cleaned);
+}
+
+// ============================================================
+//  IN-MEMORY DATASTORES
+//  WARNING: All stores are ephemeral — lost on server restart.
+//  For production, replace with a persistent vector DB.
+// ============================================================
+const chatSessions    = new Map();    // sessionId -> message history
+const semanticCache   = [];           // [{ query, embedding, response, timestamp }]
+const indexedBillsStore = [];         // [{ billId, text, embedding, metadata }]
+const CACHE_TTL_MS    = 10 * 60 * 1000; // 10 minutes
+const CACHE_HIT_THRESHOLD = 0.88;
+const RAG_RELEVANCE_THRESHOLD = 0.60;
+const SESSION_HISTORY_LIMIT = 10;
+
+// ============================================================
+//  ROUTE: Health Check (no auth required)
+// ============================================================
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', model: modelName });
+    res.json({
+        status: 'ok',
+        model: modelName,
+        gemini: geminiKeyValid ? 'configured' : 'not configured (degraded mode)',
+        indexed_bills: indexedBillsStore.length,
+        cached_queries: semanticCache.length
+    });
 });
 
-// AI Insights & Analytics Endpoint
+// ============================================================
+//  ROUTE: Generate Dashboard Insights
+//  POST /api/ai/generate-insights
+// ============================================================
 app.post('/api/ai/generate-insights', async (req, res) => {
-    try {
-        const { stats } = req.body;
-        const model = genAI.getGenerativeModel({ model: modelName });
-        
-        const prompt = `Analyze this data for 'Sri Tulja Bhavani Travels' and return ONLY JSON:
-{ "insights": [{"type": "INFO|WARNING|TREND", "message": "Short insight", "confidence": 0.9}] }
-Data: Revenue ₹${stats.totalRevenue}, Bills ${stats.billCount}, Top Co: ${JSON.stringify(stats.companyStats?.slice(0,3))}`;
+    const { stats } = req.body;
+    if (!stats) {
+        return res.status(400).json({ error: 'Request body must include "stats"' });
+    }
 
-        console.log(`[AI] Generating Insights...`);
-        const result = await generateWithRetry(model, prompt);
+    if (!geminiKeyValid) {
+        return res.json({
+            insights: [
+                { type: 'WARNING', message: 'AI insights unavailable — GEMINI_API_KEY not configured.', confidence: 1.0 }
+            ]
+        });
+    }
+
+    try {
+        const prompt = `Analyze this data for 'Sri Tulja Bhavani Travels' and return ONLY valid JSON (no markdown):
+{ "insights": [{"type": "INFO|WARNING|TREND", "message": "Short insight", "confidence": 0.9}] }
+Data: Revenue \u20b9${stats.totalRevenue}, Bills ${stats.billCount}, Top Co: ${JSON.stringify(stats.companyStats?.slice(0, 3))}`;
+
+        console.log('[AI Insights] Generating insights...');
+        const result = await generateWithRetry(modelName, prompt);
         const responseText = result.response.text();
-        res.json(JSON.parse(responseText.replace(/```json|```/g, '')));
+        res.json(parseGeminiJson(responseText));
     } catch (error) {
-        console.error('[AI] Insights Error:', error.message);
-        // Return friendly mock insights while waiting for quota reset
+        logAiFailure('generate-insights', error.message, 3, 'static-fallback');
         res.json({
             insights: [
-                { type: "INFO", message: "Revenue is being analyzed. Check back in a minute!", confidence: 1.0 },
-                { type: "TREND", message: "Top companies are loading...", confidence: 1.0 }
+                { type: 'INFO',  message: 'Revenue analysis is processing. Check back shortly.', confidence: 1.0 },
+                { type: 'TREND', message: 'Top company data is loading.', confidence: 1.0 }
             ]
         });
     }
 });
 
-// AI Bill Assistant (Chat) Endpoint
+// ============================================================
+//  ROUTE: Chat Assistant
+//  POST /api/ai/chat-assistant
+// ============================================================
 app.post('/api/ai/chat-assistant', async (req, res) => {
     const { contextType, billData, aggregatedData, userQuery, sessionId } = req.body;
-    let prompt = "";
-    try {
-        // --- LOCAL INTELLIGENCE (Fast answers for common stats) ---
-        const lowerQuery = userQuery.toLowerCase();
-        if (contextType === 'GLOBAL' && aggregatedData) {
-            if (lowerQuery.includes('how many') && (lowerQuery.includes('company') || lowerQuery.includes('companies'))) {
-                return res.json({ answer: `You have a total of ${aggregatedData.companyCount || 0} companies registered.`, confidence: 1.0, references: ["Database company count"] });
-            }
-            if (lowerQuery.includes('how many') && (lowerQuery.includes('vehicle') || lowerQuery.includes('car'))) {
-                return res.json({ answer: `You currently have ${aggregatedData.vehicleCount || 0} vehicles in your fleet.`, confidence: 1.0, references: ["Database vehicle count"] });
-            }
-            if (lowerQuery.includes('revenue')) {
-                return res.json({ answer: `Your total business revenue is ₹${aggregatedData.totalRevenue?.toLocaleString()}.`, confidence: 1.0, references: ["Total revenue sum"] });
-            }
-            if (lowerQuery.includes('since') || lowerQuery.includes('how many months') || (lowerQuery.includes('which month') && (lowerQuery.includes('saving') || lowerQuery.includes('saved') || lowerQuery.includes('start') || lowerQuery.includes('first')))) {
-                return res.json({ answer: `You have been saving bills in the system since May 2017 (approximately 109 months ago).`, confidence: 1.0, references: ["Database records (May 2017)"] });
-            }
-            if (lowerQuery.includes('what year') || lowerQuery.includes('which year')) {
-                return res.json({ answer: `The oldest bills in the system are from the year 2017 (specifically starting May 2017).`, confidence: 1.0, references: ["Database records (May 2017)"] });
-            }
-            if (lowerQuery.includes('recover') || lowerQuery.includes('service') || lowerQuery.includes('quota') || lowerQuery.includes('rate limit')) {
-                return res.json({ answer: `The Gemini API free-tier service quota typically resets every minute (for Requests Per Minute limits) or daily at midnight Pacific Time (for Requests Per Day limits). You can also configure a paid/production API key in the environment variables to avoid rate limits entirely.`, confidence: 1.0, references: ["Gemini API Quota Specs"] });
-            }
-        }
 
-        // 1. Generate query embedding for Semantic Cache & RAG
+    if (!userQuery || typeof userQuery !== 'string') {
+        return res.status(400).json({ error: 'Request body must include "userQuery" (string)' });
+    }
+
+    // ---- Fast local intelligence (no API call needed) ----
+    const lowerQuery = userQuery.toLowerCase();
+    if (contextType === 'GLOBAL' && aggregatedData) {
+        if (lowerQuery.includes('how many') && (lowerQuery.includes('company') || lowerQuery.includes('companies'))) {
+            return res.json({ answer: `You have ${aggregatedData.companyCount || 0} companies registered.`, confidence: 1.0, references: ['Database company count'] });
+        }
+        if (lowerQuery.includes('how many') && (lowerQuery.includes('vehicle') || lowerQuery.includes('car'))) {
+            return res.json({ answer: `You have ${aggregatedData.vehicleCount || 0} vehicles in your fleet.`, confidence: 1.0, references: ['Database vehicle count'] });
+        }
+        if (lowerQuery.includes('revenue') && !lowerQuery.includes('forecast')) {
+            return res.json({ answer: `Total business revenue is \u20b9${aggregatedData.totalRevenue?.toLocaleString()}.`, confidence: 1.0, references: ['Total revenue sum'] });
+        }
+        if (lowerQuery.includes('since') || lowerQuery.includes('how many months') ||
+            (lowerQuery.includes('which month') && (lowerQuery.includes('start') || lowerQuery.includes('first')))) {
+            return res.json({ answer: 'Bills have been saved in the system since May 2017 (approximately 109 months ago).', confidence: 1.0, references: ['Database records (May 2017)'] });
+        }
+        if (lowerQuery.includes('what year') || lowerQuery.includes('which year')) {
+            return res.json({ answer: 'The oldest bills are from 2017 (starting May 2017).', confidence: 1.0, references: ['Database records (May 2017)'] });
+        }
+        if (lowerQuery.includes('quota') || lowerQuery.includes('rate limit')) {
+            return res.json({ answer: 'Gemini free-tier quota resets every minute (RPM) or daily at midnight Pacific Time. Upgrade to a paid key to avoid limits.', confidence: 1.0, references: ['Gemini API Quota Specs'] });
+        }
+    }
+
+    // ---- Degraded mode: no Gemini key ----
+    if (!geminiKeyValid) {
+        let fallbackMsg = 'AI assistant is operating in offline mode (GEMINI_API_KEY not configured).';
+        if (contextType === 'GLOBAL' && aggregatedData) {
+            fallbackMsg += ` System has ${aggregatedData.companyCount || 0} companies, ${aggregatedData.vehicleCount || 0} vehicles, revenue \u20b9${aggregatedData.totalRevenue?.toLocaleString()}.`;
+        } else if (contextType === 'BILL' && billData) {
+            fallbackMsg += ` Bill #${billData.billNumber} for ${billData.companyName}, total \u20b9${billData.totalAmount}.`;
+        }
+        return res.json({ answer: fallbackMsg, confidence: 0.5, references: ['Local fallback — no API key'] });
+    }
+
+    try {
+        // ---- Semantic cache check ----
         let queryEmbedding = null;
         try {
             queryEmbedding = await getEmbedding(userQuery);
         } catch (embErr) {
-            console.warn("[Embedding API] Failed to fetch query embedding:", embErr.message);
+            console.warn('[Chat] Embedding failed (cache/RAG skipped):', embErr.message);
         }
 
-        // 2. Check Semantic Cache
         if (queryEmbedding) {
-            let bestMatch = null;
-            let maxScore = -1;
             const now = Date.now();
-            for (const item of semanticQueryCache) {
-                if (now - item.timestamp < 600000) { // 10 minutes cache TTL
-                    const score = cosineSimilarity(queryEmbedding, item.embedding);
-                    if (score > maxScore) {
-                        maxScore = score;
-                        bestMatch = item;
-                    }
+            let best = null, bestScore = -1;
+            for (const cached of semanticCache) {
+                if (now - cached.timestamp < CACHE_TTL_MS) {
+                    const score = cosineSimilarity(queryEmbedding, cached.embedding);
+                    if (score > bestScore) { bestScore = score; best = cached; }
                 }
             }
-            if (maxScore > 0.88 && bestMatch) {
-                console.log(`[Semantic Cache HIT] score: ${maxScore.toFixed(3)} for query: "${bestMatch.query}"`);
-                return res.json(bestMatch.response);
+            if (bestScore > CACHE_HIT_THRESHOLD && best) {
+                console.log(`[Cache HIT] score=${bestScore.toFixed(3)} query="${best.query}"`);
+                return res.json(best.response);
             }
         }
 
-        // 3. Retrieve RAG Context (semantic matching against indexed bills)
-        let ragContext = "";
+        // ---- RAG context retrieval ----
+        let ragContext = '';
         if (contextType === 'GLOBAL' && queryEmbedding && indexedBillsStore.length > 0) {
             try {
-                const scoredBills = indexedBillsStore.map(b => ({
-                    bill: b,
-                    score: cosineSimilarity(queryEmbedding, b.embedding)
-                })).sort((a, b) => b.score - a.score);
-                
-                const topBills = scoredBills.filter(b => b.score > 0.6).slice(0, 3);
-                if (topBills.length > 0) {
-                    ragContext = "\nRETRIEVED RELEVANT BILLS (RAG CONTEXT):\n" + 
-                        topBills.map(b => `- Bill #${b.bill.billId}: ${b.bill.text}`).join("\n") + "\n";
+                const scored = indexedBillsStore
+                    .map(b => ({ bill: b, score: cosineSimilarity(queryEmbedding, b.embedding) }))
+                    .sort((a, b) => b.score - a.score)
+                    .filter(b => b.score > RAG_RELEVANCE_THRESHOLD)
+                    .slice(0, 3);
+                if (scored.length > 0) {
+                    ragContext = '\nRETRIEVED RELEVANT BILLS (RAG):\n' +
+                        scored.map(b => `- Bill #${b.bill.billId}: ${b.bill.text}`).join('\n') + '\n';
                 }
             } catch (ragErr) {
-                console.warn("[RAG Retrieval] Failed to retrieve context:", ragErr.message);
+                console.warn('[RAG] Retrieval failed:', ragErr.message);
             }
         }
 
-        // 4. Construct detailed context string
-        let contextInfo = "";
+        // ---- Build context string ----
+        let contextInfo = '';
         if (contextType === 'BILL' && billData) {
-            contextInfo = `
-BILL CONTEXT:
+            contextInfo = `BILL CONTEXT:
 - Bill Number: ${billData.billNumber}
 - Company: ${billData.companyName}
 - Distance: ${billData.totalKm} KM
 - Time: ${billData.totalHours} Hours
 - Charges: ${JSON.stringify(billData.charges)}
-- Total Amount: ₹${billData.totalAmount}
-`;
+- Total Amount: \u20b9${billData.totalAmount}`;
         } else if (contextType === 'GLOBAL' && aggregatedData) {
-            contextInfo = `
-GLOBAL CONTEXT:
-- Total Revenue: ₹${aggregatedData.totalRevenue}
+            contextInfo = `GLOBAL CONTEXT:
+- Total Revenue: \u20b9${aggregatedData.totalRevenue}
 - Total Companies: ${aggregatedData.companyCount}
 - Total Vehicles: ${aggregatedData.vehicleCount}
 - Top Companies: ${JSON.stringify(aggregatedData.topCompanies)}
@@ -292,16 +363,10 @@ GLOBAL CONTEXT:
 ${ragContext}`;
         }
 
-        prompt = `You are the Sri Tulja Bhavani Travels AI Bill Assistant.
-Your goal is to answer user questions about billing and business data based ONLY on the provided context.
-
-STRICT RULES:
-1. Answer ONLY from the provided context.
-2. DO NOT hallucinate or make up data.
-3. If the data is insufficient to answer the question, respond exactly with: "Insufficient data to answer"
-4. Keep answers short and clear (max 3-4 lines).
-5. No assumptions beyond what is explicitly stated in the data.
-6. Do not modify or suggest modifications to the data.
+        const prompt = `You are the Sri Tulja Bhavani Travels AI Bill Assistant.
+Answer ONLY from the provided context below. Do NOT hallucinate or invent data.
+If context is insufficient, respond exactly: "Insufficient data to answer"
+Keep answers short (max 3-4 lines). Output ONLY valid JSON.
 
 CONTEXT:
 ${contextInfo}
@@ -310,126 +375,116 @@ USER QUERY: "${userQuery}"
 
 OUTPUT FORMAT (STRICT JSON):
 {
-  "answer": "Your clear, concise answer",
-  "confidence": 0.0 to 1.0,
-  "references": ["briefly mention data points used, e.g., 'totalAmount', 'charge list'"]
+  "answer": "clear concise answer",
+  "confidence": 0.0,
+  "references": ["data points used"]
 }`;
 
-        console.log(`[AI Assistant] Query: "${userQuery}" [Context: ${contextType}]`);
+        console.log(`[Chat] Query: "${userQuery.substring(0, 60)}" [${contextType}]`);
 
-        // 5. Stateful Session Memory Chat Execution
-        const activeSessionId = sessionId || 'default_session';
-        let sessionHistory = chatSessions.get(activeSessionId) || [];
-        if (sessionHistory.length > 10) {
-            sessionHistory = sessionHistory.slice(sessionHistory.length - 10);
+        // ---- Stateful chat session ----
+        const sid = sessionId || 'default_session';
+        let history = chatSessions.get(sid) || [];
+        if (history.length > SESSION_HISTORY_LIMIT) {
+            history = history.slice(history.length - SESSION_HISTORY_LIMIT);
         }
 
-        const model = genAI.getGenerativeModel({ model: modelName });
-        const chat = model.startChat({
-            history: sessionHistory
-        });
-
+        const model = getModel(modelName);
+        const chat = model.startChat({ history });
         const result = await sendMessageWithRetry(chat, prompt);
-        let text = result.response.text().trim();
-        
-        if (text.startsWith('```')) {
-            text = text.replace(/```json|```/g, '').trim();
-        }
+        const raw = result.response.text().trim();
 
         let aiResponse;
         try {
-            aiResponse = JSON.parse(text);
-        } catch (parseError) {
-            console.error('[AI Assistant] JSON Parse Error:', text);
-            aiResponse = { 
-                answer: text, 
-                confidence: 0.5,
-                references: ["Raw AI response"]
-            };
+            aiResponse = parseGeminiJson(raw);
+        } catch (parseErr) {
+            console.warn('[Chat] JSON parse error, wrapping raw text:', parseErr.message);
+            aiResponse = { answer: raw, confidence: 0.5, references: ['Raw AI response'] };
         }
 
-        // Save session history back to Map
-        chatSessions.set(activeSessionId, await chat.getHistory());
-
-        // Cache response semantically
+        // Update session + cache
+        chatSessions.set(sid, await chat.getHistory());
         if (queryEmbedding && aiResponse) {
-            semanticQueryCache.push({
-                query: userQuery,
-                embedding: queryEmbedding,
-                response: aiResponse,
-                timestamp: Date.now()
-            });
+            semanticCache.push({ query: userQuery, embedding: queryEmbedding, response: aiResponse, timestamp: Date.now() });
         }
 
-        console.log(`[AI Assistant] Response: "${aiResponse.answer.substring(0, 50)}..." [Confidence: ${aiResponse.confidence}]`);
+        console.log(`[Chat] Response: "${String(aiResponse.answer).substring(0, 50)}..." [confidence=${aiResponse.confidence}]`);
         res.json(aiResponse);
 
     } catch (error) {
-        logAiFailure('AI Assistant', error.message, 3, 'None');
-        
-        // Local fallback message
-        let fallbackMsg = "I'm currently operating in offline mode due to rate limits.";
+        logAiFailure('chat-assistant', error.message, 3, 'offline-fallback');
+        let fallbackMsg = 'AI assistant is temporarily offline. ';
         if (contextType === 'GLOBAL' && aggregatedData) {
-            fallbackMsg += ` Currently, the system contains ${aggregatedData.companyCount || 0} registered companies, ${aggregatedData.vehicleCount || 0} vehicles, and a total recorded revenue of ₹${aggregatedData.totalRevenue?.toLocaleString()}.`;
+            fallbackMsg += `System: ${aggregatedData.companyCount || 0} companies, ${aggregatedData.vehicleCount || 0} vehicles, \u20b9${aggregatedData.totalRevenue?.toLocaleString()} revenue.`;
         } else if (contextType === 'BILL' && billData) {
-            fallbackMsg += ` For Bill #${billData.billNumber}, the company is ${billData.companyName} and the total amount is ₹${billData.totalAmount}.`;
+            fallbackMsg += `Bill #${billData.billNumber} — ${billData.companyName}, \u20b9${billData.totalAmount}.`;
         }
-        fallbackMsg += " Please try again in a few moments once the service recovers.";
-        
-        res.json({ 
-            answer: fallbackMsg, 
-            confidence: 0.5,
-            references: ["Local database fallback"]
-        });
+        fallbackMsg += ' Please try again shortly.';
+        res.json({ answer: fallbackMsg, confidence: 0.5, references: ['Local fallback'] });
     }
 });
 
-// AI Vector Store Indexing Endpoint
+// ============================================================
+//  ROUTE: Index Bill into Vector Store
+//  POST /api/ai/index-bill
+// ============================================================
 app.post('/api/ai/index-bill', async (req, res) => {
+    const { billId, text, metadata } = req.body;
+
+    if (!billId) return res.status(400).json({ error: 'Missing required field: billId' });
+    if (!text)   return res.status(400).json({ error: 'Missing required field: text' });
+    if (!metadata || !metadata.company || !metadata.vehicle || !metadata.billNumber) {
+        return res.status(400).json({ error: 'Missing required metadata fields: company, vehicle, billNumber' });
+    }
+
+    if (!geminiKeyValid) {
+        console.warn(`[Vector Store] Skipping indexing for bill #${billId} — Gemini key not configured`);
+        return res.json({ success: false, reason: 'Gemini not configured — bill not indexed', total_indexed: indexedBillsStore.length });
+    }
+
     try {
-        const { billId, text, metadata } = req.body;
-        if (!text) return res.status(400).send("Text is required");
-        
-        console.log(`[Vector Store] Indexing bill #${billId || 'unknown'}...`);
-
-        // Validate Document ID, Vector components, and Metadata details (PROBLEM 4)
-        if (!billId) {
-            return res.status(400).json({ error: "Missing required Document ID (billId)" });
-        }
-        if (!metadata || !metadata.company || !metadata.vehicle || !metadata.billNumber) {
-            return res.status(400).json({ error: "Missing required metadata: company, vehicle, and billNumber are required." });
-        }
-
+        console.log(`[Vector Store] Indexing bill #${billId}...`);
         const embedding = await getEmbedding(text);
         if (!embedding || embedding.length === 0) {
-            return res.status(500).json({ error: "Generated embedding vector is empty or invalid" });
+            return res.status(500).json({ error: 'Embedding returned empty vector' });
         }
-        
-        const existingIdx = indexedBillsStore.findIndex(b => b.billId === billId);
+
         const entry = { billId, text, embedding, metadata };
+        const existingIdx = indexedBillsStore.findIndex(b => b.billId === billId);
         if (existingIdx !== -1) {
             indexedBillsStore[existingIdx] = entry;
         } else {
             indexedBillsStore.push(entry);
         }
-        
-        console.log(`[Vector Store] Indexing completed. Stats: Total Bills Indexed = ${indexedBillsStore.length}`);
+
+        console.log(`[Vector Store] Indexed. Total bills: ${indexedBillsStore.length}`);
         res.json({ success: true, total_indexed: indexedBillsStore.length });
-    } catch (e) {
-        console.error("[Vector Store] Indexing failed:", e.message);
-        res.status(500).json({ error: e.message });
+    } catch (err) {
+        console.error('[Vector Store] Indexing error:', err.message);
+        res.status(500).json({ error: err.message });
     }
 });
 
-// AI Suggestions & Automation Engine Endpoint
+// ============================================================
+//  ROUTE: Generate Billing Suggestions
+//  POST /api/ai/generate-suggestions
+// ============================================================
 app.post('/api/ai/generate-suggestions', async (req, res) => {
-    let prompt = "";
-    try {
-        const { currentBill, historicalPatterns } = req.body;
-        const model = genAI.getGenerativeModel({ model: modelName });
+    const { currentBill, historicalPatterns } = req.body;
+    if (!currentBill) {
+        return res.status(400).json({ error: 'Request body must include "currentBill"' });
+    }
+    if (!historicalPatterns) {
+        return res.status(400).json({ error: 'Request body must include "historicalPatterns"' });
+    }
 
-        prompt = `You are the Sri Tulja Bhavani Travels Billing Specialist.
-Your goal is to suggest values for a NEW bill based on HISTORICAL patterns.
+    if (!geminiKeyValid) {
+        return res.json({ suggestions: [] });
+    }
+
+    try {
+        const prompt = `You are the Sri Tulja Bhavani Travels Billing Specialist.
+Suggest values for a NEW bill based on HISTORICAL patterns. Output ONLY valid JSON (no markdown).
 
 CURRENT BILL DRAFT:
 - Company: ${currentBill.companyName}
@@ -438,421 +493,376 @@ CURRENT BILL DRAFT:
 - Time: ${currentBill.totalHours} Hours
 
 HISTORICAL PATTERNS:
-- Average Driver Bata: ₹${historicalPatterns.averageDriverBata}
-- Average Toll: ₹${historicalPatterns.averageToll}
-- Average Parking: ₹${historicalPatterns.averageParking}
+- Average Driver Bata: \u20b9${historicalPatterns.averageDriverBata}
+- Average Toll: \u20b9${historicalPatterns.averageToll}
+- Average Parking: \u20b9${historicalPatterns.averageParking}
 - Common Charges: ${JSON.stringify(historicalPatterns.commonCharges)}
 - Recent Similar Bills: ${JSON.stringify(historicalPatterns.recentSimilarBills)}
 
 STRICT RULES:
-1. Suggest values ONLY if confidence is high (above 0.7).
-2. DO NOT hallucinate or guess if data is missing.
-3. If no clear pattern exists, return an empty "suggestions" array.
-4. Keep reasons extremely concise (max 10 words).
-5. Output MUST be valid JSON.
+1. Suggest ONLY if confidence > 0.7.
+2. Do NOT hallucinate — if no clear pattern, return empty "suggestions" array.
+3. Reasons must be ≤10 words.
 
 OUTPUT FORMAT (STRICT JSON):
 {
   "suggestions": [
     {
       "field": "driverBata | toll | parking | otherCharges",
-      "suggestedValue": "numeric or text value",
+      "suggestedValue": "numeric or text",
       "reason": "short explanation",
-      "confidence": 0.0 to 1.0
+      "confidence": 0.0
     }
   ]
 }`;
 
         console.log(`[AI Suggestions] Analyzing patterns for ${currentBill.companyName}...`);
-        const result = await generateWithRetry(model, prompt);
-        let text = result.response.text().trim();
-        
-        if (text.startsWith('```')) {
-            text = text.replace(/```json|```/g, '').trim();
-        }
-
-        res.json(JSON.parse(text));
+        const result = await generateWithRetry(modelName, prompt);
+        res.json(parseGeminiJson(result.response.text()));
     } catch (error) {
-        logAiFailure('AI Suggestions', error.message, 3, 'None');
+        logAiFailure('generate-suggestions', error.message, 3, 'empty-suggestions');
         res.json({ suggestions: [] });
     }
 });
 
-// AI Bill Parser Endpoint
+// ============================================================
+//  ROUTE: Parse Bill Text
+//  POST /api/ai/parse-bill
+// ============================================================
 app.post('/api/ai/parse-bill', async (req, res) => {
-    let prompt = "";
+    const { text } = req.body;
+    if (!text || typeof text !== 'string') {
+        return res.status(400).json({ error: 'Request body must include "text" (string)' });
+    }
+
+    if (!geminiKeyValid) {
+        return res.json(localFallbackParseBill(text));
+    }
+
     try {
-        const { text } = req.body;
-        const model = genAI.getGenerativeModel({ model: modelName });
-        
-        prompt = `You are a professional Travel Invoicing Specialist.
-Your task is to parse the following raw text extracted from a transport duty slip/bill/invoice and return a structured JSON array of parsed bills.
+        const prompt = `You are a professional Travel Invoicing Specialist.
+Parse the raw text from a transport duty slip/bill/invoice and return a structured JSON array.
+Return ONLY valid JSON (no markdown).
 
 STRICT RULES:
 1. Extract all bills/duty slips found in the text.
-2. Return a JSON array matching the specified format.
-3. For dates, format as "YYYY-MM-DD". If only day/month is provided, assume current year or logical context.
-4. Extract all line item charges (e.g., driver bata, toll, parking, night charges, extra km charges, extra hour charges, base fare) into the "dynamicCharges" array.
-5. "dynamicCharges" must be a list of objects containing "name" (string) and "amount" (numeric).
-6. Convert all numeric values (totalKms, totalHours, totalAmount, amounts in dynamicCharges) to standard numbers.
-7. If data is missing for a field, use null or empty array/list.
-8. If there are any ambiguities, discrepancies, or missing mandatory values, add a warning message in the "warnings" array.
-9. Return ONLY valid JSON, no markdown formatting blocks.
+2. Format dates as "YYYY-MM-DD".
+3. Extract all line item charges into "dynamicCharges" array: [{name, amount}].
+4. Convert all numeric values to standard numbers.
+5. Use null for missing fields.
+6. Add warnings for ambiguities or missing mandatory values.
 
 OUTPUT FORMAT (STRICT JSON ARRAY):
 [
   {
-    "dutySlipNo": "duty slip or bill number (string)",
-    "billDate": "YYYY-MM-DD (string)",
-    "companyName": "name of client company (string)",
-    "vehicleNumber": "registration plate number (string)",
-    "vehicleType": "car type e.g., Sedan, SUV, Bus, Indica (string)",
+    "dutySlipNo": "string",
+    "billDate": "YYYY-MM-DD",
+    "companyName": "string",
+    "vehicleNumber": "string",
+    "vehicleType": "Sedan | SUV | Indica | Bus | etc.",
     "totalKms": 0.0,
     "totalHours": 0.0,
-    "dynamicCharges": [
-      { "name": "charge name", "amount": 0.0 }
-    ],
+    "dynamicCharges": [{ "name": "string", "amount": 0.0 }],
     "totalAmount": 0.0,
-    "warnings": ["warning messages if any"]
+    "warnings": ["string"]
   }
 ]
 
 RAW TEXT:
 ${text}`;
 
-        console.log(`[AI Parser] Parsing bill text...`);
-        const result = await generateWithRetry(model, prompt);
-        let responseText = result.response.text().trim();
-        
-        if (responseText.startsWith('```')) {
-            responseText = responseText.replace(/```json|```/g, '').trim();
-        }
-        
-        res.json(JSON.parse(responseText));
+        console.log('[AI Parser] Parsing bill text...');
+        const result = await generateWithRetry(modelName, prompt);
+        res.json(parseGeminiJson(result.response.text()));
     } catch (error) {
-        logAiFailure('AI Parser', error.message, 3, 'None');
+        logAiFailure('parse-bill', error.message, 3, 'local-regex-fallback');
         try {
-            const fallbackResult = localFallbackParseBill(req.body.text);
-            res.json(fallbackResult);
-        } catch (fallbackError) {
-            console.error('[AI Parser] Fallback failed:', fallbackError.message);
-            res.status(500).json([
-                {
-                    warnings: ["AI Parsing and Fallback Error: " + error.message]
-                }
-            ]);
+            res.json(localFallbackParseBill(text));
+        } catch (fbErr) {
+            console.error('[AI Parser] Fallback also failed:', fbErr.message);
+            res.status(500).json([{ warnings: ['AI Parsing failed: ' + error.message] }]);
         }
     }
 });
 
-// AI Company Extractor Endpoint
+// ============================================================
+//  ROUTE: Extract Company Profiles
+//  POST /api/ai/extract-companies
+// ============================================================
 app.post('/api/ai/extract-companies', async (req, res) => {
-    let prompt = "";
+    const { text } = req.body;
+    if (!text || typeof text !== 'string') {
+        return res.status(400).json({ error: 'Request body must include "text" (string)' });
+    }
+
+    if (!geminiKeyValid) {
+        return res.json(localFallbackExtractCompanies(text));
+    }
+
     try {
-        const { text } = req.body;
-        const model = genAI.getGenerativeModel({ model: modelName });
-        
-        prompt = `You are a Data Extraction Assistant.
-Your task is to identify and extract all company/client profiles mentioned in the following text.
+        const prompt = `You are a Data Extraction Assistant.
+Identify and extract all company/client profiles from the text below.
+Return ONLY valid JSON (no markdown).
 
 STRICT RULES:
-1. Extract the name, address (if mentioned), and GST/Tax number (if mentioned) for each company.
-2. Return a JSON array matching the specified format.
-3. Clean and format the name, address, and GST number (remove extra spaces or noise).
-4. Return ONLY valid JSON, no markdown formatting blocks.
+1. Extract name, address (if present), GST/Tax number (if present) for each company.
+2. Clean names, addresses, and GST numbers.
 
 OUTPUT FORMAT (STRICT JSON ARRAY):
 [
   {
-    "name": "Full Company Name (string, required)",
-    "address": "Company Address (string, optional/null)",
-    "gstNumber": "GSTIN / Tax Registration Number (string, optional/null)"
+    "name": "Full Company Name (required)",
+    "address": "Company Address or null",
+    "gstNumber": "GSTIN or null"
   }
 ]
 
 TEXT:
 ${text}`;
 
-        console.log(`[AI Extractor] Extracting companies...`);
-        const result = await generateWithRetry(model, prompt);
-        let responseText = result.response.text().trim();
-        
-        if (responseText.startsWith('```')) {
-            responseText = responseText.replace(/```json|```/g, '').trim();
-        }
-        
-        res.json(JSON.parse(responseText));
+        console.log('[AI Extractor] Extracting companies...');
+        const result = await generateWithRetry(modelName, prompt);
+        res.json(parseGeminiJson(result.response.text()));
     } catch (error) {
-        logAiFailure('AI Extractor', error.message, 3, 'None');
+        logAiFailure('extract-companies', error.message, 3, 'local-regex-fallback');
         try {
-            const fallbackResult = localFallbackExtractCompanies(req.body.text);
-            res.json(fallbackResult);
-        } catch (fallbackError) {
-            console.error('[AI Extractor] Fallback failed:', fallbackError.message);
+            res.json(localFallbackExtractCompanies(text));
+        } catch (fbErr) {
+            console.error('[AI Extractor] Fallback failed:', fbErr.message);
             res.status(500).json([]);
         }
     }
 });
 
-// AI NL Search Endpoint
+// ============================================================
+//  ROUTE: Natural Language Search
+//  POST /api/ai/nl-search
+// ============================================================
 app.post('/api/ai/nl-search', async (req, res) => {
-    let prompt = "";
-    try {
-        const { query, currentDate } = req.body;
-        const model = genAI.getGenerativeModel({ model: modelName });
-        
-        prompt = `You are a Database Query Assistant.
-Your task is to interpret a natural language search query for travel bills and translate it into a structured JSON filter config.
+    const { query, currentDate } = req.body;
+    if (!query || typeof query !== 'string') {
+        return res.status(400).json({ error: 'Request body must include "query" (string)' });
+    }
 
-The current system date is: ${currentDate}.
+    if (!geminiKeyValid) {
+        return res.json(localFallbackNlSearch(query, currentDate));
+    }
+
+    try {
+        const prompt = `You are a Database Query Assistant.
+Translate the natural language search query for travel bills into a structured JSON filter.
+The current system date is: ${currentDate || new Date().toISOString().split('T')[0]}.
+Return ONLY valid JSON (no markdown).
 
 STRICT RULES:
-1. Interpret time-related expressions relative to the current date: ${currentDate}.
-   - "this month": from the first day of the current month to the current date or end of month.
-   - "last month": from the first to last day of the previous month.
+1. Interpret time expressions relative to current date.
+   - "this month": first day of current month to today.
+   - "last month": previous full calendar month.
    - "this year": from January 1st of current year.
-   - "yesterday": date of the day before current date.
-   - "last week": 7 days preceding current date, or the previous calendar week.
-2. Identify company name or vehicle type if explicitly or implicitly mentioned (e.g., "Indica bills", "Ashapura bills").
-3. Identify price constraints: "more than 5000" -> minAmount: 5000, "between 2000 and 4000" -> minAmount: 2000, maxAmount: 4000.
-4. Identify distance constraints: "kms over 500" -> minKm: 500.
-5. Capture any other searchable terms as "keywords".
-6. Populate the "summary" field with a clear, user-friendly description of what was understood.
-7. Return ONLY valid JSON, no markdown formatting blocks.
+   - "yesterday": the day before current date.
+   - "last week": the 7 preceding days or previous calendar week.
+2. Extract company name or vehicle type if mentioned.
+3. Extract price constraints: "more than 5000" → minAmount: 5000.
+4. Extract distance constraints: "kms over 500" → minKm: 500.
+5. Populate "summary" with a user-friendly description of the parsed criteria.
 
 OUTPUT FORMAT (STRICT JSON):
 {
-  "companyName": "extracted company name or null",
-  "vehicleType": "extracted vehicle type (e.g., Sedan, SUV, Bus) or null",
-  "minAmount": null or numeric,
-  "maxAmount": null or numeric,
-  "minKm": null or numeric,
-  "maxKm": null or numeric,
+  "companyName": "string or null",
+  "vehicleType": "Sedan | SUV | Indica | Bus | null",
+  "minAmount": null,
+  "maxAmount": null,
+  "minKm": null,
+  "maxKm": null,
   "dateFrom": "YYYY-MM-DD or null",
   "dateTo": "YYYY-MM-DD or null",
-  "status": "extracted payment status or null",
-  "keywords": ["array of extra keywords/terms to search for"],
-  "summary": "Short user-friendly summary of the parsed criteria (e.g., 'Bills for Ashapura from June 2026 above ₹5,000')"
+  "status": "string or null",
+  "keywords": [],
+  "summary": "Short user-friendly description"
 }
 
 USER QUERY: "${query}"`;
 
-        console.log(`[AI NL Search] Parsing query: "${query}" relative to date: ${currentDate}`);
-        const result = await generateWithRetry(model, prompt);
-        let responseText = result.response.text().trim();
-        
-        if (responseText.startsWith('```')) {
-            responseText = responseText.replace(/```json|```/g, '').trim();
-        }
-        
-        res.json(JSON.parse(responseText));
+        console.log(`[AI NL Search] Parsing: "${query}" (date: ${currentDate})`);
+        const result = await generateWithRetry(modelName, prompt);
+        res.json(parseGeminiJson(result.response.text()));
     } catch (error) {
-        logAiFailure('AI NL Search', error.message, 3, 'None');
+        logAiFailure('nl-search', error.message, 3, 'local-keyword-fallback');
         try {
-            const fallbackResult = localFallbackNlSearch(req.body.query, req.body.currentDate);
-            res.json(fallbackResult);
-        } catch (fallbackError) {
-            console.error('[AI NL Search] Fallback failed:', fallbackError.message);
-            res.status(500).json({
-                summary: "Failed to parse search. Returning default search.",
-                keywords: []
-            });
+            res.json(localFallbackNlSearch(query, currentDate));
+        } catch (fbErr) {
+            console.error('[AI NL Search] Fallback failed:', fbErr.message);
+            res.status(500).json({ summary: 'Failed to parse search. Using default.', keywords: [] });
         }
     }
 });
 
-// --- LOCAL INTELLIGENCE FALLBACKS ---
+// ============================================================
+//  LOCAL FALLBACK FUNCTIONS (regex-based, no Gemini needed)
+// ============================================================
 
 function localFallbackParseBill(text) {
-    const cleanText = text || "";
-    // Regex matches
-    const dutySlipMatch = cleanText.match(/(?:duty\s*slip\s*no|slip\s*no|bill\s*no)[:\s]+([a-z0-9-]+)/i);
-    const dateMatch = cleanText.match(/(?:date)[:\s]+([\d]{2}-[\d]{2}-[\d]{4}|[\d]{4}-[\d]{2}-[\d]{2})/i);
-    const companyMatch = cleanText.match(/(?:to|company|client)[:\s]+([^\n\r]+)/i);
-    const vehicleNoMatch = cleanText.match(/(?:vehicle|car|reg)[:\s]+([a-z]{2}[-\s]*\d{2}[-\s]*[a-z0-9-\s]+)/i);
-    const kmsMatch = cleanText.match(/(?:kms|km|distance)[:\s]+(\d+)/i);
-    const hoursMatch = cleanText.match(/(?:hours|hrs|time)[:\s]+(\d+)/i);
-    
-    // Charges extraction
-    const charges = [];
-    const bataMatch = cleanText.match(/(?:driver\s*bata|bata)[:\s]+(\d+)/i);
-    if (bataMatch) charges.push({ name: "Driver Bata", amount: parseFloat(bataMatch[1]) });
-    const tollMatch = cleanText.match(/(?:toll|tolls)[:\s]+(\d+)/i);
-    if (tollMatch) charges.push({ name: "Toll", amount: parseFloat(tollMatch[1]) });
-    const parkingMatch = cleanText.match(/(?:parking)[:\s]+(\d+)/i);
-    if (parkingMatch) charges.push({ name: "Parking", amount: parseFloat(parkingMatch[1]) });
-    
-    const amountMatch = cleanText.match(/(?:total\s*amount|amount|total)[:\s]+(\d+)/i);
-    const totalAmount = amountMatch ? parseFloat(amountMatch[1]) : (charges.reduce((acc, c) => acc + c.amount, 0) || 1500.0);
+    const t = text || '';
+    const dutySlipMatch = t.match(/(?:duty\s*slip\s*no|slip\s*no|bill\s*no)[:\s]+([a-z0-9-]+)/i);
+    const dateMatch     = t.match(/(?:date)[:\s]+([\d]{2}-[\d]{2}-[\d]{4}|[\d]{4}-[\d]{2}-[\d]{2})/i);
+    const companyMatch  = t.match(/(?:to|company|client)[:\s]+([^\n\r]+)/i);
+    const vehicleNoMatch = t.match(/(?:vehicle|car|reg)[:\s]+([a-z]{2}[-\s]*\d{2}[-\s]*[a-z0-9-\s]+)/i);
+    const kmsMatch      = t.match(/(?:kms|km|distance)[:\s]+(\d+)/i);
+    const hoursMatch    = t.match(/(?:hours|hrs|time)[:\s]+(\d+)/i);
 
-    // Format date as YYYY-MM-DD
+    const charges = [];
+    const bataMatch    = t.match(/(?:driver\s*bata|bata)[:\s]+(\d+)/i);
+    const tollMatch    = t.match(/(?:toll|tolls)[:\s]+(\d+)/i);
+    const parkingMatch = t.match(/(?:parking)[:\s]+(\d+)/i);
+    if (bataMatch)    charges.push({ name: 'Driver Bata', amount: parseFloat(bataMatch[1]) });
+    if (tollMatch)    charges.push({ name: 'Toll',        amount: parseFloat(tollMatch[1]) });
+    if (parkingMatch) charges.push({ name: 'Parking',     amount: parseFloat(parkingMatch[1]) });
+
+    const amountMatch = t.match(/(?:total\s*amount|amount|total)[:\s]+(\d+)/i);
+    const totalAmount = amountMatch
+        ? parseFloat(amountMatch[1])
+        : (charges.reduce((acc, c) => acc + c.amount, 0) || 1500.0);
+
     let formattedDate = new Date().toISOString().split('T')[0];
     if (dateMatch) {
         const dStr = dateMatch[1].trim();
         if (dStr.includes('-')) {
             const parts = dStr.split('-');
-            if (parts[0].length === 2) {
-                // DD-MM-YYYY -> YYYY-MM-DD
-                formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-            } else {
-                formattedDate = dStr;
-            }
+            formattedDate = parts[0].length === 2
+                ? `${parts[2]}-${parts[1]}-${parts[0]}` // DD-MM-YYYY -> YYYY-MM-DD
+                : dStr;
         }
     }
 
-    return [
-        {
-            dutySlipNo: dutySlipMatch ? dutySlipMatch[1].trim().toUpperCase() : "MOCK-DS-" + Math.floor(Math.random() * 10000),
-            billDate: formattedDate,
-            companyName: companyMatch ? companyMatch[1].trim() : "Mock Transport Client Ltd",
-            vehicleNumber: vehicleNoMatch ? vehicleNoMatch[1].trim().toUpperCase() : "KA-01-MC-9999",
-            vehicleType: cleanText.toLowerCase().includes("indica") ? "Indica" : (cleanText.toLowerCase().includes("suv") ? "SUV" : "Sedan"),
-            totalKms: kmsMatch ? parseFloat(kmsMatch[1]) : 120.0,
-            totalHours: hoursMatch ? parseFloat(hoursMatch[1]) : 8.0,
-            dynamicCharges: charges.length > 0 ? charges : [ { name: "Base Amount", amount: totalAmount } ],
-            totalAmount: totalAmount,
-            warnings: ["Local Parsing Fallback (Gemini API Quota Exceeded/Rate Limited)"]
-        }
-    ];
+    return [{
+        dutySlipNo:    dutySlipMatch ? dutySlipMatch[1].trim().toUpperCase() : `FALLBACK-${Date.now()}`,
+        billDate:      formattedDate,
+        companyName:   companyMatch ? companyMatch[1].trim() : 'Unknown Client',
+        vehicleNumber: vehicleNoMatch ? vehicleNoMatch[1].trim().toUpperCase() : 'UNKNOWN',
+        vehicleType:   t.toLowerCase().includes('indica') ? 'Indica' : (t.toLowerCase().includes('suv') ? 'SUV' : 'Sedan'),
+        totalKms:      kmsMatch ? parseFloat(kmsMatch[1]) : 0,
+        totalHours:    hoursMatch ? parseFloat(hoursMatch[1]) : 0,
+        dynamicCharges: charges.length > 0 ? charges : [{ name: 'Base Amount', amount: totalAmount }],
+        totalAmount,
+        warnings: ['[Local regex fallback — Gemini API unavailable]']
+    }];
 }
 
 function localFallbackExtractCompanies(text) {
-    const cleanText = text || "";
-    const companies = [];
-    
-    const companyMatch = cleanText.match(/(?:to|company|client)[:\s]+([^\n\r]+)/i);
-    const gstMatch = cleanText.match(/(?:gst|gstin)[:\s]+([a-z0-9]{15})/i);
-    
-    companies.push({
-        name: companyMatch ? companyMatch[1].trim() : "Mock Company Ltd",
-        address: "Extracted via local fallback address scanner",
-        gstNumber: gstMatch ? gstMatch[1].toUpperCase() : "24MOCKGST1234F1Z"
-    });
-    
-    return companies;
+    const t = text || '';
+    const companyMatch = t.match(/(?:to|company|client)[:\s]+([^\n\r]+)/i);
+    const gstMatch     = t.match(/(?:gst|gstin)[:\s]+([a-z0-9]{15})/i);
+    return [{
+        name:      companyMatch ? companyMatch[1].trim() : 'Unknown Company',
+        address:   null,
+        gstNumber: gstMatch ? gstMatch[1].toUpperCase() : null
+    }];
 }
 
 function localFallbackNlSearch(query, currentDate) {
-    const lowerQuery = query.toLowerCase();
+    const q = (query || '').toLowerCase();
     const filter = {
-        companyName: null,
-        vehicleType: null,
-        minAmount: null,
-        maxAmount: null,
-        minKm: null,
-        maxKm: null,
-        dateFrom: null,
-        dateTo: null,
-        status: null,
-        keywords: [],
-        summary: `Local search fallback: "${query}"`
+        companyName: null, vehicleType: null,
+        minAmount: null, maxAmount: null,
+        minKm: null, maxKm: null,
+        dateFrom: null, dateTo: null,
+        status: null, keywords: [],
+        summary: `Local keyword fallback: "${query}"`
     };
 
-    if (lowerQuery.includes("ashapura")) filter.companyName = "Ashapura";
-    else if (lowerQuery.includes("bhavani")) filter.companyName = "Sri Tulja Bhavani Travels";
-    
-    if (lowerQuery.includes("indica")) filter.vehicleType = "Indica";
-    else if (lowerQuery.includes("sedan")) filter.vehicleType = "Sedan";
-    else if (lowerQuery.includes("suv")) filter.vehicleType = "SUV";
+    if (q.includes('ashapura'))  filter.companyName = 'Ashapura';
+    else if (q.includes('bhavani')) filter.companyName = 'Sri Tulja Bhavani Travels';
 
-    const aboveMatch = lowerQuery.match(/(?:above|greater\s*than|over|\>\s*)\s*(\d+)/);
+    if (q.includes('indica'))    filter.vehicleType = 'Indica';
+    else if (q.includes('sedan')) filter.vehicleType = 'Sedan';
+    else if (q.includes('suv'))   filter.vehicleType = 'SUV';
+
+    const aboveMatch = q.match(/(?:above|greater\s*than|over|>\s*)\s*(\d+)/);
     if (aboveMatch) filter.minAmount = parseFloat(aboveMatch[1]);
-    
-    const belowMatch = lowerQuery.match(/(?:below|less\s*than|under|\<\s*)\s*(\d+)/);
+    const belowMatch = q.match(/(?:below|less\s*than|under|<\s*)\s*(\d+)/);
     if (belowMatch) filter.maxAmount = parseFloat(belowMatch[1]);
 
-    const sysDate = new Date(currentDate || new Date().toISOString().split('T')[0]);
-    if (lowerQuery.includes("this month")) {
-        filter.dateFrom = `${sysDate.getFullYear()}-${String(sysDate.getMonth() + 1).padStart(2, '0')}-01`;
-        filter.dateTo = sysDate.toISOString().split('T')[0];
-    } else if (lowerQuery.includes("last month")) {
-        const prevMonth = new Date(sysDate.getFullYear(), sysDate.getMonth() - 1, 1);
-        const lastDayOfPrevMonth = new Date(sysDate.getFullYear(), sysDate.getMonth(), 0);
-        filter.dateFrom = prevMonth.toISOString().split('T')[0];
-        filter.dateTo = lastDayOfPrevMonth.toISOString().split('T')[0];
+    const d = new Date(currentDate || new Date().toISOString().split('T')[0]);
+    if (q.includes('this month')) {
+        filter.dateFrom = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+        filter.dateTo   = d.toISOString().split('T')[0];
+    } else if (q.includes('last month')) {
+        const prev     = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+        const lastDay  = new Date(d.getFullYear(), d.getMonth(), 0);
+        filter.dateFrom = prev.toISOString().split('T')[0];
+        filter.dateTo   = lastDay.toISOString().split('T')[0];
     }
 
     return filter;
 }
 
-// Validate Gemini model and API key on startup
+// ============================================================
+//  STARTUP CERTIFICATION
+//  Verifies Gemini connectivity on boot.
+//  Does NOT crash the server on transient network errors —
+//  the server starts in degraded mode instead.
+// ============================================================
 async function certifyAiInfrastructure() {
-    console.log("==================================================");
-    console.log("     AI MICROSERVICE STARTUP CERTIFICATION        ");
-    console.log("==================================================");
-    
-    // Check 1: API Key
-    const KNOWN_PLACEHOLDERS = [
-        "",
-        "your_gemini_api_key_here",
-        "AIzaSyDmncG2GztNQgfJhXuGIRE1ej2Q9ghEVoc"
-    ];
-    const geminiKeyValid = (
-        apiKey &&
-        !apiKey.startsWith("YOUR_") &&
-        !KNOWN_PLACEHOLDERS.includes(apiKey)
-    );
+    console.log('==================================================');
+    console.log('     AI MICROSERVICE STARTUP CERTIFICATION        ');
+    console.log('==================================================');
 
     if (!geminiKeyValid) {
-        console.warn("⚠ WARNING: GEMINI_API_KEY is missing or is a placeholder.");
-        console.warn("   AI features will be disabled. Set a valid key in ai/.env to enable.");
-        console.warn("==================================================");
+        console.warn('[Cert] WARNING: GEMINI_API_KEY missing or placeholder.');
+        console.warn('[Cert] Server starting in DEGRADED MODE — AI endpoints use local fallbacks.');
+        console.warn('==================================================');
         return;
     }
-    console.log("✔ Environment verification: API Key detected.");
-    
-    // Check 2: Model Configuration
-    const configuredModel = process.env.GEMINI_MODEL || 'gemini-1.5-pro';
-    const configuredEmbedding = process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004';
-    console.log(`✔ Configured model: ${configuredModel}`);
-    console.log(`✔ Configured embedding model: ${configuredEmbedding}`);
-    
-    // Check 3: Real content generation test
+
+    console.log(`[Cert] API Key detected.`);
+    console.log(`[Cert] Configured model:     ${process.env.GEMINI_MODEL || 'gemini-1.5-pro'}`);
+    console.log(`[Cert] Configured embedding: ${process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004'}`);
+
+    // Content generation test
     try {
-        console.log("⚡ Executing real test content generation query...");
-        const testModel = genAI.getGenerativeModel({ model: configuredModel });
-        const testResponse = await testModel.generateContent({
-            contents: [{ parts: [{ text: "Respond with the word: READY" }] }]
+        console.log('[Cert] Testing content generation...');
+        const testModel = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-1.5-pro' });
+        const testResult = await testModel.generateContent({
+            contents: [{ parts: [{ text: 'Respond with the single word: READY' }] }]
         });
-        const respText = testResponse.response.text().trim();
-        console.log(`✔ Content Generation verified. Response: "${respText}"`);
-    } catch (e) {
-        console.error(`❌ CRITICAL: Gemini GenerateContent test failed: ${e.message}`);
-        console.error("Startup aborted due to invalid model configurations.");
-        process.exit(1);
+        const respText = testResult.response.text().trim();
+        console.log(`[Cert] Content generation OK. Response: "${respText}"`);
+    } catch (err) {
+        // Non-fatal in degraded mode — could be transient network issue
+        console.warn(`[Cert] Content generation test failed: ${err.message}`);
+        console.warn('[Cert] Server will still start — verify API key and network.');
     }
-    
-    // Check 4: Real embedding generation test
+
+    // Embedding test
     try {
-        console.log("⚡ Executing real test embedding generation query...");
-        const embedModel = process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004';
-        const testEmbedding = await genAI.getGenerativeModel({ model: embedModel }).embedContent("Hello");
-        const vector = testEmbedding.embedding.values;
-        if (!vector || vector.length === 0) {
-            throw new Error("Returned empty vector");
-        }
-        console.log(`✔ Embedding Generation verified. Dimension size: ${vector.length}`);
-    } catch (e) {
-        console.error(`❌ CRITICAL: Gemini Embedding generation test failed: ${e.message}`);
-        console.error("Startup aborted due to invalid embedding model configurations.");
-        process.exit(1);
+        console.log('[Cert] Testing embedding generation...');
+        const embedModelName = process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004';
+        const embedModel = genAI.getGenerativeModel({ model: embedModelName });
+        const embedResult = await embedModel.embedContent('Hello');
+        const vector = embedResult.embedding.values;
+        if (!vector || vector.length === 0) throw new Error('Empty vector returned');
+        console.log(`[Cert] Embedding OK. Dimensions: ${vector.length}`);
+    } catch (err) {
+        console.warn(`[Cert] Embedding test failed: ${err.message}`);
+        console.warn('[Cert] Embedding features (RAG, cache) may be unavailable.');
     }
-    
-    console.log("==================================================");
-    console.log("🚀 ALL AI INFRASTRUCTURE SYSTEMS CERTIFIED (100%) ");
-    console.log("==================================================");
+
+    console.log('==================================================');
+    console.log('  AI INFRASTRUCTURE CERTIFICATION COMPLETE        ');
+    console.log('==================================================');
 }
 
+// ============================================================
+//  START SERVER
+// ============================================================
 certifyAiInfrastructure().then(() => {
-    app.listen(port, '0.0.0.0', () => {
-        console.log(`🚀 AI Service (Standard) running on http://localhost:${port}`);
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`AI Service running on http://localhost:${PORT}`);
         if (!geminiKeyValid) {
-            console.warn("⚠ Running in DEGRADED MODE — AI features disabled. Set GEMINI_API_KEY in ai/.env");
+            console.warn('[DEGRADED MODE] Set GEMINI_API_KEY in ai/.env to enable AI features.');
         }
     });
 }).catch(err => {
-    console.error("❌ CRITICAL: Certification crashed unexpectedly:", err);
+    console.error('[FATAL] Certification crashed unexpectedly:', err);
     process.exit(1);
 });
-
-
