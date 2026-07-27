@@ -1,6 +1,6 @@
 """
 AMIP Platform Enumerations.
-Defines core statuses, priority levels, task types, and execution modes.
+Defines core statuses, priority levels, task types, execution modes, and decision policies.
 """
 from __future__ import annotations
 from enum import Enum
@@ -51,3 +51,20 @@ class AgentStatus(str, Enum):
     WARNING = "WARNING"
     FAILURE = "FAILURE"
     SKIPPED = "SKIPPED"
+
+
+class DecisionStatus(str, Enum):
+    """Status of an AMIP decision evaluation process."""
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    REVIEW_REQUIRED = "REVIEW_REQUIRED"
+
+
+class DecisionPolicy(str, Enum):
+    """Policy resolution rule for AMIP consensus decision making."""
+    AUTO_APPROVE = "AUTO_APPROVE"
+    AUTO_REVIEW = "AUTO_REVIEW"
+    MANUAL_REVIEW = "MANUAL_REVIEW"
+    AUTO_REJECT = "AUTO_REJECT"

@@ -1,6 +1,6 @@
 """
 AMIP Platform Exception Definitions.
-Defines core exceptions for AMIP context operations.
+Defines core exceptions for AMIP context operations and decision calculations.
 """
 from __future__ import annotations
 
@@ -30,3 +30,27 @@ class ContextCorrupted(AmipBaseException):
         self.context_id = context_id
         self.reason = reason
         super().__init__(f"AMIP Execution Context '{context_id}' is corrupted: {reason}")
+
+
+class DecisionConflict(AmipBaseException):
+    """Raised when agent votes conflict below confidence resolution threshold."""
+    def __init__(self, decision_id: str, details: str):
+        self.decision_id = decision_id
+        self.details = details
+        super().__init__(f"AMIP Decision '{decision_id}' failed due to unresolvable conflict: {details}")
+
+
+class DecisionFailed(AmipBaseException):
+    """Raised when decision evaluation algorithm encounters a fatal processing error."""
+    def __init__(self, decision_id: str, reason: str):
+        self.decision_id = decision_id
+        self.reason = reason
+        super().__init__(f"AMIP Decision '{decision_id}' evaluation failed: {reason}")
+
+
+class DecisionTimeout(AmipBaseException):
+    """Raised when decision evaluation exceeds deadline threshold."""
+    def __init__(self, decision_id: str, timeout_ms: float):
+        self.decision_id = decision_id
+        self.timeout_ms = timeout_ms
+        super().__init__(f"AMIP Decision '{decision_id}' timed out after {timeout_ms:.2f}ms.")
