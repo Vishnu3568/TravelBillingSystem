@@ -1,6 +1,6 @@
 """
 AMIP Exceptions Package.
-Exports platform and decision exception classes.
+Exports platform, decision, planner, and supervisor exception classes.
 """
 from app.services.amip.exceptions.exceptions import (
     AmipBaseException,
@@ -10,6 +10,13 @@ from app.services.amip.exceptions.exceptions import (
     DecisionConflict,
     DecisionFailed,
     DecisionTimeout,
+    InvalidExecutionPlan,
+    DependencyCycleDetected,
+    TaskDependencyMissing,
+    TaskExecutionFailed,
+    UnsupportedTask,
+    ExecutionCancelled,
+    WorkflowTimeout,
 )
 
 __all__ = [
@@ -20,4 +27,11 @@ __all__ = [
     "DecisionConflict",
     "DecisionFailed",
     "DecisionTimeout",
+    "InvalidExecutionPlan",
+    "DependencyCycleDetected",
+    "TaskDependencyMissing",
+    "TaskExecutionFailed",
+    "UnsupportedTask",
+    "ExecutionCancelled",
+    "WorkflowTimeout",
 ]

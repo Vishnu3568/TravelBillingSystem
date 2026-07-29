@@ -1,6 +1,6 @@
 """
 AMIP Platform Enumerations.
-Defines core statuses, priority levels, task types, execution modes, and decision policies.
+Defines core statuses, priority levels, task types, execution modes, decision policies, and planning strategies.
 """
 from __future__ import annotations
 from enum import Enum
@@ -68,3 +68,10 @@ class DecisionPolicy(str, Enum):
     AUTO_REVIEW = "AUTO_REVIEW"
     MANUAL_REVIEW = "MANUAL_REVIEW"
     AUTO_REJECT = "AUTO_REJECT"
+
+
+class PlanningStrategy(str, Enum):
+    """Execution strategy for scheduling and sequencing plan tasks."""
+    SEQUENTIAL = "SEQUENTIAL"
+    PARALLEL = "PARALLEL"
+    HYBRID = "HYBRID"
