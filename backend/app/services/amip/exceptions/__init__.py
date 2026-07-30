@@ -1,6 +1,6 @@
 """
 AMIP Exceptions Package.
-Exports platform, decision, planner, and supervisor exception classes.
+Exports platform, decision, planner, supervisor, and explainability exception classes.
 """
 from app.services.amip.exceptions.exceptions import (
     AmipBaseException,
@@ -17,6 +17,9 @@ from app.services.amip.exceptions.exceptions import (
     UnsupportedTask,
     ExecutionCancelled,
     WorkflowTimeout,
+    ExplainabilityError,
+    NarrativeGenerationError,
+    TimelineGenerationError,
 )
 
 __all__ = [
@@ -34,4 +37,7 @@ __all__ = [
     "UnsupportedTask",
     "ExecutionCancelled",
     "WorkflowTimeout",
+    "ExplainabilityError",
+    "NarrativeGenerationError",
+    "TimelineGenerationError",
 ]

@@ -1,6 +1,6 @@
 """
 AMIP Platform Exception Definitions.
-Defines core exceptions for AMIP context operations, decision calculations, execution planning, and supervisor orchestrations.
+Defines core exceptions for AMIP context operations, decision calculations, execution planning, supervisor orchestrations, and explainability reporting.
 """
 from __future__ import annotations
 
@@ -113,3 +113,23 @@ class WorkflowTimeout(AmipBaseException):
         self.workflow_id = workflow_id
         self.timeout_ms = timeout_ms
         super().__init__(f"Workflow execution '{workflow_id}' timed out after {timeout_ms:.2f}ms.")
+
+
+class ExplainabilityError(AmipBaseException):
+    """Base exception for explainability engine processing failures."""
+    def __init__(self, report_id_or_wf: str, reason: str):
+        self.report_id_or_wf = report_id_or_wf
+        self.reason = reason
+        super().__init__(f"Explainability processing failed for '{report_id_or_wf}': {reason}")
+
+
+class NarrativeGenerationError(ExplainabilityError):
+    """Raised when human narrative generation fails."""
+    def __init__(self, workflow_id: str, reason: str):
+        super().__init__(workflow_id, f"Narrative generation failed: {reason}")
+
+
+class TimelineGenerationError(ExplainabilityError):
+    """Raised when timeline rendering fails."""
+    def __init__(self, workflow_id: str, reason: str):
+        super().__init__(workflow_id, f"Timeline generation failed: {reason}")
