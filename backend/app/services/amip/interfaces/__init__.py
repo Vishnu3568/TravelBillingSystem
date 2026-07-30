@@ -1,6 +1,6 @@
 """
 AMIP Interfaces Package.
-Exports abstract base interface contracts for context, decision, planner, and supervisor components.
+Exports abstract base interface contracts for context, decision, planner, supervisor, and explainability components.
 """
 from app.services.amip.interfaces.context_interfaces import (
     IExecutionContext,
@@ -22,6 +22,11 @@ from app.services.amip.interfaces.supervisor_interfaces import (
     IExecutionEngine,
     ISupervisor,
 )
+from app.services.amip.interfaces.explainability_interfaces import (
+    ITimelineRenderer,
+    IExecutionNarrator,
+    IExplainabilityEngine,
+)
 
 __all__ = [
     "IExecutionContext",
@@ -36,4 +41,7 @@ __all__ = [
     "ITaskExecutor",
     "IExecutionEngine",
     "ISupervisor",
+    "ITimelineRenderer",
+    "IExecutionNarrator",
+    "IExplainabilityEngine",
 ]
