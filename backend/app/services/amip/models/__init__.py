@@ -1,7 +1,8 @@
 """
 AMIP Models Package.
 Exports core enums, execution contexts, evidence contexts, timeline models, agent records,
-agent votes, decision evidence, decision results, execution tasks, planning policies, and execution plans.
+agent votes, decision evidence, decision results, execution tasks, planning policies, execution plans,
+agent explanations, evidence chains, decision explanations, and explainability reports.
 """
 from app.services.amip.models.enums import (
     ExecutionStatus,
@@ -23,6 +24,10 @@ from app.services.amip.models.decision_result import DecisionResult, generate_de
 from app.services.amip.models.execution_task import ExecutionTask, generate_task_id
 from app.services.amip.models.planning_policy import PlanningPolicy
 from app.services.amip.models.execution_plan import ExecutionPlan, generate_plan_id
+from app.services.amip.models.agent_explanation import AgentExplanation
+from app.services.amip.models.evidence_chain import EvidenceChain
+from app.services.amip.models.decision_explanation import DecisionExplanation
+from app.services.amip.models.explainability_report import ExplainabilityReport, generate_report_id
 
 __all__ = [
     "ExecutionStatus",
@@ -46,4 +51,9 @@ __all__ = [
     "PlanningPolicy",
     "ExecutionPlan",
     "generate_plan_id",
+    "AgentExplanation",
+    "EvidenceChain",
+    "DecisionExplanation",
+    "ExplainabilityReport",
+    "generate_report_id",
 ]
