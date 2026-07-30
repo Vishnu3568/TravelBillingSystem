@@ -1,6 +1,6 @@
 """
 AMIP Platform Enumerations.
-Defines core statuses, priority levels, task types, execution modes, decision policies, and planning strategies.
+Defines core statuses, priority levels, task types, execution modes, decision policies, planning strategies, and circuit states.
 """
 from __future__ import annotations
 from enum import Enum
@@ -75,3 +75,10 @@ class PlanningStrategy(str, Enum):
     SEQUENTIAL = "SEQUENTIAL"
     PARALLEL = "PARALLEL"
     HYBRID = "HYBRID"
+
+
+class CircuitState(str, Enum):
+    """Operational states for CircuitBreaker fault protection."""
+    CLOSED = "CLOSED"
+    OPEN = "OPEN"
+    HALF_OPEN = "HALF_OPEN"

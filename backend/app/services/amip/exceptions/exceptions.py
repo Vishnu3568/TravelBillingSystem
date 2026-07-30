@@ -1,6 +1,7 @@
 """
 AMIP Platform Exception Definitions.
-Defines core exceptions for AMIP context operations, decision calculations, execution planning, supervisor orchestrations, and explainability reporting.
+Defines core exceptions for AMIP context operations, decision calculations, execution planning,
+supervisor orchestrations, explainability reporting, and runtime/resilience failures.
 """
 from __future__ import annotations
 
@@ -133,3 +134,36 @@ class TimelineGenerationError(ExplainabilityError):
     """Raised when timeline rendering fails."""
     def __init__(self, workflow_id: str, reason: str):
         super().__init__(workflow_id, f"Timeline generation failed: {reason}")
+
+
+class RetryLimitExceeded(AmipBaseException):
+    """Raised when task or workflow retries exceed maximum allowed limit."""
+    def __init__(self, task_id_or_wf: str, max_retries: int, last_error: str = ""):
+        self.task_id_or_wf = task_id_or_wf
+        self.max_retries = max_retries
+        self.last_error = last_error
+        super().__init__(f"Retry limit ({max_retries}) exceeded for '{task_id_or_wf}': {last_error}")
+
+
+class CircuitBreakerOpen(AmipBaseException):
+    """Raised when circuit breaker blocks execution due to high failure rate."""
+    def __init__(self, circuit_name: str, state: str = "OPEN"):
+        self.circuit_name = circuit_name
+        self.state = state
+        super().__init__(f"Circuit Breaker '{circuit_name}' is currently {state}. Execution rejected.")
+
+
+class WorkflowCancelled(AmipBaseException):
+    """Raised when a workflow execution is cancelled by CancellationToken."""
+    def __init__(self, workflow_id: str, reason: str = "User cancellation"):
+        self.workflow_id = workflow_id
+        self.reason = reason
+        super().__init__(f"Workflow '{workflow_id}' was cancelled: {reason}")
+
+
+class ExecutionTimeout(AmipBaseException):
+    """Raised when task runtime execution exceeds configured deadline."""
+    def __init__(self, entity_id: str, timeout_ms: float):
+        self.entity_id = entity_id
+        self.timeout_ms = timeout_ms
+        super().__init__(f"Execution for '{entity_id}' timed out after {timeout_ms:.2f}ms.")
