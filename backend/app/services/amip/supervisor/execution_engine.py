@@ -1,25 +1,22 @@
 """
 AMIP Execution Engine.
-Manages sequential and parallel execution of plan tasks using registered ITaskExecutors.
-Pure orchestrator - Handles dispatch, timing, timeouts, and timeline updates.
+Manages sequential and parallel execution of plan tasks using AdapterRegistry or registered ITaskExecutors.
+Pure orchestrator - Handles dispatch, timing, timeouts, timeline updates, and adapter delegation.
 """
 from __future__ import annotations
 import threading
 import time
 from typing import Dict, Any, List, Optional, Tuple
 from app.services.amip.interfaces.supervisor_interfaces import IExecutionEngine, ITaskExecutor
+from app.services.amip.adapters.adapter_registry import AdapterRegistry
 from app.services.amip.models.execution_plan import ExecutionPlan
 from app.services.amip.models.execution_task import ExecutionTask
 from app.services.amip.models.agent_record import AgentExecutionRecord
 from app.services.amip.models.agent_vote import AgentVote
-from app.services.amip.models.enums import AgentStatus, ExecutionStatus, PlanningStrategy
+from app.services.amip.models.enums import AgentStatus, ExecutionStatus
 from app.services.amip.supervisor.events import (
     WorkflowStarted,
     WorkflowCompleted,
-    TaskStarted,
-    TaskCompleted,
-    TaskFailed,
-    TaskCancelled,
 )
 from app.services.amip.supervisor.supervisor_state import SupervisorState, SupervisorMetrics
 from app.services.amip.exceptions import (
@@ -33,12 +30,23 @@ from app.services.amip.utils.time_utils import current_utc_timestamp, calculate_
 
 class ExecutionEngine(IExecutionEngine):
     """
-    Executes tasks in an ExecutionPlan by delegating to registered ITaskExecutors.
-    Supports sequential execution, dependency topological ordering, and timeout handling.
+    Executes tasks in an ExecutionPlan by delegating to production adapters via AdapterRegistry
+    or falling back to registered ITaskExecutors.
     """
 
-    def __init__(self, executors: Optional[List[ITaskExecutor]] = None):
-        self._executors: List[ITaskExecutor] = list(executors) if executors else []
+    def __init__(
+        self,
+        executors: Optional[List[ITaskExecutor]] = None,
+        adapter_registry: Optional[AdapterRegistry] = None,
+    ):
+        self._executors: List[ITaskExecutor] = list(executors) if executors is not None else []
+        if adapter_registry is not None:
+            self.adapter_registry = adapter_registry
+        elif executors is not None:
+            self.adapter_registry = AdapterRegistry(register_defaults=False)
+        else:
+            self.adapter_registry = AdapterRegistry(register_defaults=True)
+
         self._cancelled_workflows: Dict[str, bool] = {}
         self._lock: threading.RLock = threading.RLock()
 
@@ -75,6 +83,7 @@ class ExecutionEngine(IExecutionEngine):
     ) -> Tuple[List[AgentVote], SupervisorState, SupervisorMetrics]:
         """
         Executes plan tasks in dependency order, updating timeline, blackboard, and supervisor state.
+        Delegates task execution to AdapterRegistry production adapters or fallback ITaskExecutors.
         Returns Tuple[List[AgentVote], SupervisorState, SupervisorMetrics].
         """
         if not plan:
@@ -103,7 +112,7 @@ class ExecutionEngine(IExecutionEngine):
         )
         blackboard.put(f"event_{event_start.event_type}", event_start.to_dict())
 
-        # 2. Execute tasks sequentially or in parallel depending on strategy
+        # 2. Execute tasks sequentially or in parallel
         for task in ordered_tasks:
             # Check cancellation
             if self.is_cancelled(workflow_id):
@@ -117,41 +126,60 @@ class ExecutionEngine(IExecutionEngine):
                     state.overall_status = ExecutionStatus.FAILED
                     raise WorkflowTimeout(workflow_id, timeout_ms)
 
-            # Find matching executor
-            executor = self.find_executor(task)
-            if not executor:
-                state.failed_tasks.append(task.task_id)
-                state.overall_status = ExecutionStatus.FAILED
-                raise UnsupportedTask(task.task_id, task.task_type.value if hasattr(task.task_type, "value") else str(task.task_type))
-
-            # Update State & Timeline
+            # Update State
             state.current_task = task.task_id
             state.running_tasks.append(task.task_id)
             task_start_ts = current_utc_timestamp()
 
-            rec = AgentExecutionRecord(
-                agent_name=task.required_agents[0] if task.required_agents else "UnknownAgent",
-                start_time=task_start_ts,
-                input_summary=f"Executing task '{task.task_name}' ({task.task_id})",
-            )
-            context.timeline.append(rec)
+            agent_key = task.required_agents[0] if task.required_agents else task.task_type.value
+            adapter = self.adapter_registry.resolve(agent_key) or self.adapter_registry.resolve(task.task_type.value)
 
             try:
-                # Dispatch execution to adapter
-                vote, artifacts = executor.execute(task, context, blackboard)
+                if adapter:
+                    # Execute via AdapterRegistry Production Adapter
+                    res_dict = adapter.execute(task, context)
+                    task_end_ts = current_utc_timestamp()
+                    dur_ms = res_dict.get("duration_ms", calculate_duration_ms(task_start_ts, task_end_ts))
+                    durations.append(dur_ms)
 
-                task_end_ts = current_utc_timestamp()
-                dur_ms = calculate_duration_ms(task_start_ts, task_end_ts)
-                durations.append(dur_ms)
+                    conf = float(res_dict.get("confidence", 0.90))
+                    summary_text = res_dict.get("output_summary", "Adapter executed successfully")
+                    rec_action = "APPROVE" if res_dict.get("status") == "SUCCESS" else "REVIEW"
 
-                rec.complete(
-                    status=AgentStatus.SUCCESS,
-                    confidence=vote.confidence,
-                    output_summary=vote.reason,
-                    warnings=vote.warnings,
-                )
+                    vote = AgentVote(
+                        agent_name=res_dict.get("agent_name", agent_key),
+                        confidence=conf,
+                        vote=rec_action,
+                        reason=summary_text,
+                        warnings=res_dict.get("warnings", []),
+                    )
+                    artifacts = {"result": res_dict}
 
-                # Store vote and artifacts on blackboard
+                else:
+                    # Fallback to registered ITaskExecutor (e.g. Mock Executor)
+                    executor = self.find_executor(task)
+                    if not executor:
+                        state.failed_tasks.append(task.task_id)
+                        state.overall_status = ExecutionStatus.FAILED
+                        raise UnsupportedTask(task.task_id, str(task.task_type))
+
+                    vote, artifacts = executor.execute(task, context, blackboard)
+                    task_end_ts = current_utc_timestamp()
+                    dur_ms = calculate_duration_ms(task_start_ts, task_end_ts)
+                    durations.append(dur_ms)
+
+                    rec = AgentExecutionRecord(
+                        agent_name=task.required_agents[0] if task.required_agents else "UnknownAgent",
+                        start_time=task_start_ts,
+                        end_time=task_end_ts,
+                        duration_ms=dur_ms,
+                        status=AgentStatus.SUCCESS,
+                        input_summary=f"Executing task '{task.task_name}' ({task.task_id})",
+                        output_summary=vote.reason,
+                    )
+                    context.timeline.append(rec)
+
+                # Store vote & artifacts on blackboard
                 collected_votes.append(vote)
                 blackboard.put(f"vote_{vote.agent_name}", vote.to_dict())
                 for k, v in artifacts.items():
@@ -162,17 +190,12 @@ class ExecutionEngine(IExecutionEngine):
                 state.completed_tasks.append(task.task_id)
                 state.update_progress(total_tasks)
 
+            except (UnsupportedTask, ExecutionCancelled, WorkflowTimeout):
+                raise
             except Exception as task_err:
                 task_end_ts = current_utc_timestamp()
                 dur_ms = calculate_duration_ms(task_start_ts, task_end_ts)
                 durations.append(dur_ms)
-
-                rec.complete(
-                    status=AgentStatus.FAILURE,
-                    confidence=0.0,
-                    output_summary=f"Task error: {str(task_err)}",
-                    errors=[str(task_err)],
-                )
 
                 state.running_tasks.remove(task.task_id)
                 state.failed_tasks.append(task.task_id)
@@ -181,7 +204,7 @@ class ExecutionEngine(IExecutionEngine):
 
                 if plan.policy.strict_order:
                     state.overall_status = ExecutionStatus.FAILED
-                    raise TaskExecutionFailed(task.task_id, rec.agent_name, str(task_err))
+                    raise TaskExecutionFailed(task.task_id, agent_key, str(task_err))
 
         # 3. Complete Workflow Execution
         state.current_task = None
@@ -203,9 +226,11 @@ class ExecutionEngine(IExecutionEngine):
         return collected_votes, state, metrics
 
     def get_stats(self) -> Dict[str, Any]:
-        """Returns statistics on registered executors (thread-safe)."""
+        """Returns statistics on registered adapters and executors (thread-safe)."""
         with self._lock:
+            adapters_list = list(self.adapter_registry.list_adapters().keys())
             return {
+                "registered_adapters_count": len(adapters_list),
+                "registered_adapters": adapters_list,
                 "registered_executors_count": len(self._executors),
-                "executor_names": [getattr(ex, "agent_name", ex.__class__.__name__) for ex in self._executors],
             }
