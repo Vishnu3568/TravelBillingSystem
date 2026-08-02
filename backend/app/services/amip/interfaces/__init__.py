@@ -1,7 +1,7 @@
 """
 AMIP Interfaces Package.
 Exports abstract base interface contracts for context, decision, planner, supervisor, explainability,
-resilience/runtime, and adapter components.
+resilience/runtime, adapter, and observability components.
 """
 from app.services.amip.interfaces.context_interfaces import (
     IExecutionContext,
@@ -39,6 +39,13 @@ from app.services.amip.interfaces.adapter_interfaces import (
     IAdapter,
     IAdapterRegistry,
 )
+from app.services.amip.interfaces.observability_interfaces import (
+    IStructuredLogger,
+    ITraceManager,
+    IMetricsCollector,
+    IPerformanceProfiler,
+    IDiagnosticsEngine,
+)
 
 __all__ = [
     "IExecutionContext",
@@ -62,4 +69,9 @@ __all__ = [
     "IRuntimeMonitor",
     "IAdapter",
     "IAdapterRegistry",
+    "IStructuredLogger",
+    "ITraceManager",
+    "IMetricsCollector",
+    "IPerformanceProfiler",
+    "IDiagnosticsEngine",
 ]
