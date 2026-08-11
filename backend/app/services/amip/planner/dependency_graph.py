@@ -1,6 +1,5 @@
 """
-AMIP Task Dependency Graph.
-Directed Acyclic Graph (DAG) for task dependency tracking, topological sorting, and cycle detection.
+Task dependency graph implementation using DAG algorithms for topological sorting and cycle detection.
 """
 from __future__ import annotations
 import threading
@@ -11,10 +10,7 @@ from app.services.amip.exceptions import DependencyCycleDetected, TaskDependency
 
 
 class TaskDependencyGraph:
-    """
-    DAG data structure managing tasks and dependency constraints.
-    Thread-safe implementation backed by RLock.
-    """
+    """DAG data structure for scheduling tasks and enforcing dependency order."""
 
     def __init__(self, tasks: Optional[List[ExecutionTask]] = None):
         self._nodes: Dict[str, ExecutionTask] = {}
@@ -25,14 +21,22 @@ class TaskDependencyGraph:
                 self.add_node(t)
 
     def add_node(self, task: ExecutionTask) -> None:
-        """Adds a task node to the graph (thread-safe)."""
+        """Adds a task node to the graph."""
         if not task or not task.task_id:
             raise ValueError("Task must have a valid task_id.")
         with self._lock:
             self._nodes[task.task_id] = task
 
+    def build_graph(self) -> None:
+        """Validates dependencies exist in the graph."""
+        with self._lock:
+            for task_id, task in self._nodes.items():
+                for dep_id in task.dependencies:
+                    if dep_id not in self._nodes:
+                        raise TaskDependencyMissing(task_id, dep_id)
+
     def add_dependency(self, task_id: str, depends_on_task_id: str) -> None:
-        """Adds a dependency relationship: task_id depends on depends_on_task_id."""
+        """Adds a dependency relationship."""
         with self._lock:
             if task_id not in self._nodes:
                 raise TaskDependencyMissing(task_id, task_id)
@@ -44,7 +48,7 @@ class TaskDependencyGraph:
                 task.dependencies.append(depends_on_task_id)
 
     def remove_dependency(self, task_id: str, depends_on_task_id: str) -> bool:
-        """Removes a dependency relationship. Returns True if existed."""
+        """Removes a dependency relationship."""
         with self._lock:
             if task_id in self._nodes:
                 task = self._nodes[task_id]
@@ -54,11 +58,7 @@ class TaskDependencyGraph:
             return False
 
     def detect_cycles(self) -> bool:
-        """
-        Detects if there is any cycle in the dependency graph using DFS coloring algorithm.
-        WHITE (0): Unvisited, GRAY (1): Visiting (on current stack), BLACK (2): Visited.
-        Returns True if a cycle exists, False otherwise.
-        """
+        """Detects if any cycle exists in the dependency graph."""
         with self._lock:
             color: Dict[str, int] = {node_id: 0 for node_id in self._nodes}
 
@@ -81,26 +81,23 @@ class TaskDependencyGraph:
                         return True
             return False
 
-    def independent_tasks(self) -> List[ExecutionTask]:
-        """Returns a list of tasks that have zero dependencies in the graph (thread-safe)."""
+    has_cycle = detect_cycles
+
+    def get_independent_tasks(self) -> List[ExecutionTask]:
+        """Returns tasks that have no dependencies."""
         with self._lock:
             return [task for task in self._nodes.values() if not task.dependencies]
 
+    independent_tasks = get_independent_tasks
+
     def topological_sort(self) -> List[ExecutionTask]:
-        """
-        Performs topological sorting (Kahn's Algorithm) to determine valid task execution sequence.
-        Raises TaskDependencyMissing if any dependency ID is not in the graph.
-        Raises DependencyCycleDetected if a cyclic dependency is detected.
-        """
+        """Performs topological sort (Kahn's Algorithm) to return ordered execution sequence."""
         with self._lock:
-            # 1. Validate dependencies exist
             for task_id, task in self._nodes.items():
                 for dep_id in task.dependencies:
                     if dep_id not in self._nodes:
                         raise TaskDependencyMissing(task_id, dep_id)
 
-            # 2. Build in-degree mapping and adjacency graph
-            # Note: dependency 'dep_id -> task_id' means dep_id must run BEFORE task_id.
             in_degree: Dict[str, int] = {node_id: 0 for node_id in self._nodes}
             adj: Dict[str, List[str]] = defaultdict(list)
 
@@ -109,7 +106,6 @@ class TaskDependencyGraph:
                 for dep_id in task.dependencies:
                     adj[dep_id].append(task_id)
 
-            # 3. Process zero in-degree queue
             queue = deque([node_id for node_id, deg in in_degree.items() if deg == 0])
             sorted_tasks: List[ExecutionTask] = []
 
@@ -122,7 +118,6 @@ class TaskDependencyGraph:
                     if in_degree[neighbor_id] == 0:
                         queue.append(neighbor_id)
 
-            # 4. Check cycle condition
             if len(sorted_tasks) != len(self._nodes):
                 unprocessed = [node_id for node_id, deg in in_degree.items() if deg > 0]
                 raise DependencyCycleDetected("TaskDependencyGraph", unprocessed)
@@ -138,3 +133,6 @@ class TaskDependencyGraph:
         """Returns all nodes in graph."""
         with self._lock:
             return list(self._nodes.values())
+
+
+DependencyGraph = TaskDependencyGraph
