@@ -321,18 +321,29 @@ class BulkImportService:
                         if settings.USE_ENTERPRISE_LABELER and labeled_doc:
                             from app.services.field_labeling import LabeledDocument
                             page_elements = [el for el in labeled_doc.elements if el.coordinates.get("page_number") == chunk.page_number]
-                            page_labeled_doc = LabeledDocument(metadata=labeled_doc.metadata, elements=page_elements)
-                            extracted_dict = FieldLabelingService.map_to_parser_dict(page_labeled_doc)
-                            bill_res = AiExtractionService.map_to_bill_response(extracted_dict, chunk.raw_text)
-                            bill_res.labeledDocument = page_labeled_doc.to_json()
+                            if page_elements:
+                                page_labeled_doc = LabeledDocument(metadata=labeled_doc.metadata, elements=page_elements)
+                                extracted_dict = FieldLabelingService.map_to_parser_dict(page_labeled_doc)
+                            else:
+                                extracted_dict = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name)
+                                page_labeled_doc = None
 
-                            if settings.USE_ENTERPRISE_VALIDATION:
+                            # Merge per-chunk extraction fallback if critical fields are UNKNOWN or 0.0
+                            chunk_extracted = AiExtractionService.extract_page_data(chunk.raw_text, filename=file_name)
+                            for k, v in chunk_extracted.items():
+                                if (not extracted_dict.get(k) or extracted_dict.get(k) == "UNKNOWN" or extracted_dict.get(k) in ["0.0", ""]) and v and v not in ["UNKNOWN", "0.0", ""]:
+                                    extracted_dict[k] = v
+
+                            bill_res = AiExtractionService.map_to_bill_response(extracted_dict, chunk.raw_text)
+                            if page_labeled_doc:
+                                bill_res.labeledDocument = page_labeled_doc.to_json()
+
+                            if settings.USE_ENTERPRISE_VALIDATION and page_labeled_doc:
                                 from app.services.validation_engine import ValidationEngineService
                                 logger.info("USE_ENTERPRISE_VALIDATION is enabled. Running Validation Engine for preview...")
                                 validation_doc = ValidationEngineService.validate_labeled_document(db, page_labeled_doc)
                                 bill_res.validationReport = validation_doc.to_json()
 
-                                # Propagate validation engine issues as warnings
                                 validation_warnings = [f"[{iss.severity}] {iss.message}" for iss in validation_doc.issues]
                                 if bill_res.warnings:
                                     bill_res.warnings.extend(validation_warnings)

@@ -62,15 +62,25 @@ class DocxSegmenterService:
                     p = Paragraph(child, doc)
                     text = p.text.strip()
                     
-                    # 1. Check for page break BEFORE this paragraph (PageBreakBefore paragraph property)
+                    # 1. Check for page break BEFORE this paragraph or NEW BILL HEADER
                     pPr = child.find(qn('w:pPr'))
                     has_break_before = False
                     if pPr is not None:
                         pbb = pPr.find(qn('w:pageBreakBefore'))
                         if pbb is not None:
                             has_break_before = True
-                    
-                    if has_break_before and (current_text_blocks or current_tables):
+
+                    # Check for repeating bill header (Bill No. 02, Bill No 03, Duty Slip, Sri Tulja Bhavani)
+                    import re
+                    is_new_bill_header = False
+                    if text and (current_text_blocks or current_tables):
+                        text_lower = text.lower()
+                        if re.search(r"\b(bill|invoice)\s*(no|num|number|#)?[\.:\s]*\d+\b", text_lower) or "sri tulja bhavani" in text_lower:
+                            combined_current = " ".join(current_text_blocks).lower()
+                            if ("bill no" in combined_current or "duty slip" in combined_current or "sri tulja bhavani" in combined_current):
+                                is_new_bill_header = True
+
+                    if (has_break_before or is_new_bill_header) and (current_text_blocks or current_tables):
                         chunks.append(DocxSegmenterService._create_chunk(
                             current_page, current_text_blocks, current_tables, file_name, current_html_blocks
                         ))
@@ -90,16 +100,14 @@ class DocxSegmenterService:
                     
                     # 2. Check for page breaks WITHIN this paragraph's runs (manual or rendered page breaks)
                     has_break_within = False
-                    # Check for w:br w:type="page"
                     brs = child.xpath('.//w:br[@w:type="page"]')
                     if brs:
                         has_break_within = True
-                    # Check for w:lastRenderedPageBreak (inserted by MS Word engine)
                     lrpbs = child.xpath('.//w:lastRenderedPageBreak')
                     if lrpbs:
                         has_break_within = True
                         
-                    if has_break_within:
+                    if has_break_within and (current_text_blocks or current_tables):
                         chunks.append(DocxSegmenterService._create_chunk(
                             current_page, current_text_blocks, current_tables, file_name, current_html_blocks
                         ))
