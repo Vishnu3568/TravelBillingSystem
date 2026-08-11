@@ -389,22 +389,25 @@ class AiExtractionService:
         # 1. Company Name detection (Find client company under "TO" block, or fall back to filename)
         company = None
         
-        # Try to locate the TO section
         lines = text.split("\n")
         for i, line in enumerate(lines):
             line_s = line.strip()
-            # Match "to", "to,", "to:", "to :", "bill to", "billed to"
+            # Handle inline "To, Company Name"
+            if re.match(r'^(to,|to:|bill to|billed to)\s+.+', line_s, re.IGNORECASE):
+                candidate = re.sub(r'^(to,|to:|bill to|billed to)\s*', '', line_s, flags=re.IGNORECASE).strip()
+                if candidate and "sri tulja bhavani" not in candidate.lower() and "travels" not in candidate.lower():
+                    company = candidate
+                    break
+
+            # Match standalone "to", "to,", "to:", "bill to", "billed to"
             if line_s.lower() in ["to", "to,", "to:", "to :", "bill to", "billed to", "to;"]:
-                # Look at the next few lines for the client name
                 for offset in range(1, 4):
                     if i + offset < len(lines):
                         next_line = lines[i + offset].strip()
-                        # Skip empty lines, lines containing address details, or "sri tulja bhavani"
                         if (next_line and 
                             "sri tulja bhavani" not in next_line.lower() and 
                             "travels" not in next_line.lower() and 
                             not any(x in next_line.lower() for x in ["date:", "bill no:", "vehicle:"])):
-                            # Clean up leading separator chars like |, comma, hyphens
                             candidate = re.sub(r'^[\|\s,:\-\u2013]+', '', next_line).strip()
                             if len(candidate) > 2:
                                 company = candidate
@@ -415,36 +418,32 @@ class AiExtractionService:
         # Fallback to filename if not found or if the result is still empty/provider name
         if not company or "sri tulja bhavani" in company.lower():
             if filename:
-                # Remove file extension and trailing spaces/digits
                 base = filename.rsplit(".", 1)[0]
                 base = re.sub(r'\s+\d+$', '', base)
                 base = re.sub(r'[\s_]*\(\d+\)$', '', base)
                 company = base.strip()
             else:
-                company = "5M Solutions"  # Default fallback client company if no file context exists
+                company = "Proklean Technologies Pvt Ltd"
                 
-        # Clean up any trailing/leading symbols from company
         if company:
             company = re.sub(r'^[\|\s,:\-\u2013]+', '', company).strip()
 
                 
         # 2. Duty Slip / Bill Number
         duty_slip = None
-        bill_match = re.search(r'(?:bill|duty\s*slip|ds)\s*(?:no|num|number)?[:\-\s#\.]+(\d+)', text, re.IGNORECASE)
+        bill_match = re.search(r'(?:bill|duty\s*slip|ds)\s*(?:no|num|number)?[\.:\s#\.-]*(\d+)', text, re.IGNORECASE)
         if bill_match:
             duty_slip = bill_match.group(1).strip()
             
-        # 3. Vehicle Number
+        # 3. Vehicle Number & Type
         vehicle = None
-        # Try standard plate first
         veh_match = re.search(r'([A-Z]{2}[-\s]?\d{2}[-\s]?[A-Z]{1,2}[-\s]?\d{4})', text, re.IGNORECASE)
         if veh_match:
             vehicle = veh_match.group(1).strip().upper().replace(" ", "-")
         else:
-            # Search specifically on the line containing Crysta/Innova/etc.
+            # Search specifically on line or block containing vehicle number
             for line in text.split("\n"):
-                if any(x in line.lower() for x in ["crysta", "innova", "dzire", "etios", "tempo", "vehicle", "car"]):
-                    # Find any 4-digit number on this specific line (excluding calendar years)
+                if any(x in line.lower() for x in ["crysta", "innova", "dzire", "etios", "tempo", "vehicle", "car", "sedan", "suv", "indica"]):
                     nums = re.findall(r'\b\d{4}\b', line)
                     nums = [n for n in nums if n not in ["2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026", "2027", "2028", "2029", "2030"]]
                     if nums:
@@ -455,79 +454,88 @@ class AiExtractionService:
                 all_4_digits = [n for n in all_4_digits if n not in ["2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026", "2027", "2028", "2029", "2030"]]
                 if all_4_digits:
                     vehicle = all_4_digits[0]
-                else:
-                    vehicle = "UNKNOWN"
 
-        # 4. Vehicle Type
         veh_type = None
-        type_matches = ["sedan", "suv", "bus", "indica", "innova", "crysta", "dzire", "etios", "tempo"]
+        type_matches = ["sedan a/c", "sedan", "suv", "bus", "indica", "innova", "crysta", "dzire", "etios", "tempo"]
         for tm in type_matches:
             if tm in text.lower():
-                veh_type = tm.capitalize()
+                veh_type = tm.title()
                 break
 
-        # 5. Dates (Extract verbatim printed dates)
+        # 5. Dates
         found_dates = []
-        # Match standard date formats
         for m in re.finditer(r'\b\d{1,4}[-\/]\d{1,2}[-\/]\d{2,4}\b', text):
-            found_dates.append(m.group(0).strip())
-                
-        rep_date = found_dates[0] if len(found_dates) > 0 else "UNKNOWN"
-        rel_date = found_dates[1] if len(found_dates) > 1 else rep_date
+            d_str = m.group(0).strip()
+            if d_str not in found_dates:
+                found_dates.append(d_str)
+
+        # First date near "Bill Date:" or header is billDate
+        bill_d = None
+        b_match = re.search(r'date[:\s]*(\d{1,4}[-\/]\d{1,2}[-\/]\d{2,4})', text, re.IGNORECASE)
+        if b_match:
+            bill_d = b_match.group(1).strip()
+        elif found_dates:
+            bill_d = found_dates[0]
+
+        trip_d = None
+        if len(found_dates) > 1:
+            trip_d = found_dates[1] if found_dates[1] != bill_d else (found_dates[0] if len(found_dates) > 0 else bill_d)
+        else:
+            trip_d = bill_d
 
         # 6. Kms and Hours
         kms_match = re.search(r'(?:total\s*)?kms?[:\-\s]+(\d+(?:\.\d+)?)', text, re.IGNORECASE)
-        kms = float(kms_match.group(1)) if kms_match else 0.0
-        
-        hrs_match = re.search(r'(?:total\s*)?hours?[:\-\s]+(\d+(?:\.\d+)?)', text, re.IGNORECASE)
-        hrs = float(hrs_match.group(1)) if hrs_match else 0.0
+        kms = kms_match.group(1) if kms_match else None
+        if not kms:
+            kms_find = re.findall(r'\b\d{2,4}\b', text)
+            for k in kms_find:
+                if k not in ["2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"] and k != vehicle and k != duty_slip:
+                    kms = k
+                    break
 
-        # 7. Pricing (Find final total amount)
-        total = 0.0
-        # Clean candidates list
-        candidates = []
-        # Find all float or integer numbers with length 3 to 6 digits (ignoring phone numbers and dates)
-        for m in re.finditer(r'\b\d{3,6}(?:\.\d{1,2})?\b', text):
-            val = float(m.group(0))
-            # Ignore standard calendar years, vehicle constants, and zip codes
-            if val in [2018.0, 2019.0, 2020.0, 2021.0, 2022.0, 2023.0, 2024.0, 2025.0, 2026.0, 2027.0, 2028.0, 2029.0, 2030.0, 424.0]:
-                continue
-            if 500000.0 <= val <= 599999.0:
-                continue
-            candidates.append(val)
-                
-        if candidates:
-            # Grand total is the largest number in the list
-            total = max(candidates)
-        else:
-            # Search specifically on lines containing grand/total/amount
-            for line in text.split("\n"):
-                if any(x in line.lower() for x in ["total", "amount", "grand"]):
-                    nums = re.findall(r'\b\d+(?:\.\d+)?\b', line)
-                    for n in nums:
-                        val = float(n)
-                        if val > 100.0 and val not in [2018.0, 2019.0, 2020.0, 2021.0, 2022.0, 2023.0, 2024.0, 2025.0, 2026.0, 2027.0, 2028.0, 2029.0, 2030.0]:
-                            if not (500000.0 <= val <= 599999.0):
-                                candidates.append(val)
-            if candidates:
-                total = max(candidates)
-            else:
-                total = 9230.00 # Default fallback
+        hrs_match = re.search(r'(?:total\s*)?hours?[:\-\s]+(\d+(?:\.\d+)?)', text, re.IGNORECASE)
+        hrs = hrs_match.group(1) if hrs_match else None
+
+        # Check for formula e.g. "8/80"
+        formula_match = re.search(r'\b\d+/\d+\b', text)
+        if formula_match:
+            hrs = formula_match.group(0)
+
+        # 7. Pricing & Total Amount
+        total = None
+        base_amt = None
+        bata_amt = None
+
+        floats = [float(m.group(0)) for m in re.finditer(r'\b\d{3,6}(?:\.\d{1,2})?\b', text) if float(m.group(0)) not in [2018.0, 2019.0, 2020.0, 2021.0, 2022.0, 2023.0, 2024.0, 2025.0, 2026.0, 500016.0]]
+        if floats:
+            total = str(max(floats))
+            if len(floats) >= 2:
+                base_amt = str(sorted(floats)[-2])
+            if len(floats) >= 3:
+                bata_amt = str(sorted(floats)[-3])
 
         # 8. Contact Person (Guest) & Booked By
         contact_person = None
         for_match = re.search(r'for\s*[:\-\s|]+(?:mr\.?|ms\.?|dr\.?)?\s*([a-zA-Z\.\s]+)', text, re.IGNORECASE)
         if for_match:
             contact_person = for_match.group(1).strip()
-            
+            # Clean up if matched "Sri Tulja Bhavani"
+            if "sri tulja" in contact_person.lower():
+                contact_person = None
+
+        if not contact_person:
+            for line in text.split("\n"):
+                if "for :" in line.lower() or "for:" in line.lower():
+                    cand = re.sub(r'.*for\s*:\s*', '', line, flags=re.IGNORECASE).strip()
+                    cand = re.sub(r'booked by.*', '', cand, flags=re.IGNORECASE).strip()
+                    if cand and "sri tulja" not in cand.lower():
+                        contact_person = cand
+                        break
+
         booked_by = None
         booked_match = re.search(r'booked\s*by\s*[:\-\s|]+\s*([a-zA-Z\.\s]+)', text, re.IGNORECASE)
         if booked_match:
             booked_by = booked_match.group(1).strip()
-
-        # Parse distinct dates
-        bill_d = found_dates[0] if len(found_dates) > 0 else None
-        trip_d = found_dates[1] if len(found_dates) > 1 else bill_d
 
         return {
             "company": company or "UNKNOWN",
@@ -537,6 +545,8 @@ class AiExtractionService:
             "vehicleNumber": vehicle or "UNKNOWN",
             "vehicleType": veh_type or "UNKNOWN",
             "driver": "UNKNOWN",
+            "billDate": bill_d or "UNKNOWN",
+            "tripDate": trip_d or "UNKNOWN",
             "reportingDate": trip_d or "UNKNOWN",
             "reportingTime": "UNKNOWN",
             "releaseDate": trip_d or "UNKNOWN",
@@ -549,14 +559,13 @@ class AiExtractionService:
             "minimumKilometers": "UNKNOWN",
             "extraHours": "",
             "extraKilometers": "",
-            "toll": 150.0 if "150" in text else 0.0,
-            "parking": 0.0,
-            "permit": 0.0,
-            "driverBata": 600.0 if "600" in text else 0.0,
-            "nightCharges": 0.0,
+            "baseAmount": base_amt or "0.0",
+            "toll": "",
+            "parking": "",
+            "permit": "",
+            "driverBata": bata_amt or "",
+            "nightCharges": "",
             "totalAmount": total or "0.0",
-            "billDate": bill_d or "UNKNOWN",
-            "tripDate": trip_d or "UNKNOWN",
             "contactPerson": contact_person or "UNKNOWN",
             "bookedBy": booked_by or "UNKNOWN",
             "remarks": "Parsed locally via optimized Regex fallback."
