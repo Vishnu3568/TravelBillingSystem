@@ -101,37 +101,59 @@ class FieldClassifier:
             label = FieldLabel.UNKNOWN
             confidence = 0.50
 
-            # Simple rule mapping based on text contents
-            if "portescap" in text_lower or "ashapura" in text_lower:
+            # 1. Company Name classification
+            if ("to," in text_lower or "to:" in text_lower or "billed to" in text_lower) and "sri tulja bhavani" not in text_lower:
                 label = FieldLabel.HEADER_COMPANY
                 confidence = 0.98
-            elif re.search(r"\b(bill|invoice)\s*(no|number|#)\b", text_lower) and any(char.isdigit() for char in text):
-                label = FieldLabel.HEADER_BILL_NUMBER
+            elif any(k in text_lower for k in ["pvt ltd", "technologies", "solutions", "industries", "limited", "enterprises", "portescap", "ashapura"]) and "sri tulja bhavani" not in text_lower:
+                label = FieldLabel.HEADER_COMPANY
                 confidence = 0.98
-            elif re.search(r"^ds[-\s]?\d+$", text_lower):
+
+            # 2. Bill Number / Duty Slip classification
+            elif re.search(r"^ds[-\s]?\d+$", text_lower) or re.search(r"\b(duty\s*slip|ds)\s*(no|num|number|#)?[\.:\s\-]*\d+\b", text_lower):
                 label = FieldLabel.HEADER_DUTY_SLIP
                 confidence = 0.98
+            elif re.search(r"\b(bill|invoice)\s*(no|num|number|#)?[\.:\s\-]*\d+\b", text_lower):
+                label = FieldLabel.HEADER_BILL_NUMBER
+                confidence = 0.98
+
+            # 3. GST classification
             elif "gst" in text_lower and any(char.isdigit() for char in text):
                 label = FieldLabel.HEADER_GST
                 confidence = 0.98
+
+            # 4. Address classification
             elif "address" in text_lower and not any(k in text_lower for k in ["to", "company", "name"]):
                 label = FieldLabel.HEADER_ADDRESS
                 confidence = 0.98
+
+            # 5. Phone / Mobile classification
             elif ("phone" in text_lower or "mobile" in text_lower or re.match(r"^\+?[\d\s-]{10,15}$", text)) and any(char.isdigit() for char in text):
                 label = FieldLabel.HEADER_PHONE
                 confidence = 0.98
-            elif re.search(r"\b(sedan|suv|indica|bus|tempo|innova|dezire)\b", text_lower):
+
+            # 6. Vehicle Type & Number classification
+            elif re.search(r"\b(sedan|suv|indica|bus|tempo|innova|crysta|dzire|etios)\b", text_lower):
                 label = FieldLabel.VEHICLE_TYPE
                 confidence = 0.98
-            elif re.search(r"^[A-Z]{2}[-\s]?\d{2}[-\s]?[A-Z0-9-\s]{2,10}$", text.upper()) and any(char.isdigit() for char in text):
+            elif not text_lower.startswith("ds-") and not text_lower.startswith("bill-") and re.search(r"\b[A-Z]{2}[-\s]?\d{2}[-\s]?[A-Z0-9-\s]{2,10}\b", text.upper()) and any(char.isdigit() for char in text):
                 label = FieldLabel.VEHICLE_NUMBER
                 confidence = 0.98
-            elif ("guest" in text_lower or "passenger" in text_lower or "mr." in text_lower or "ms." in text_lower) and not any(k in text_lower for k in ["name", "signature"]):
+
+            # 7. Dates classification
+            elif (re.search(r"\b\d{1,2}[-\/\.]\d{1,2}[-\/\.]\d{2,4}\b", text) or re.search(r"\b\d{4}[-\/\.]\d{1,2}[-\/\.]\d{1,2}\b", text)) and any(char.isdigit() for char in text):
+                label = FieldLabel.HEADER_DATE
+                confidence = 0.98
+
+            # 8. Guest Name & Booker
+            elif ("guest" in text_lower or "passenger" in text_lower or "mr." in text_lower or "ms." in text_lower) and not any(k in text_lower for k in ["name", "signature", "travels"]):
                 label = FieldLabel.GUEST_NAME
                 confidence = 0.98
             elif "booked by" in text_lower and not text_lower.endswith("by"):
                 label = FieldLabel.BOOKED_BY
                 confidence = 0.98
+
+            # 9. Charges & Pricing classification
             elif "bata" in text_lower and any(char.isdigit() for char in text):
                 label = FieldLabel.DRIVER_BATA
                 confidence = 0.98
@@ -159,11 +181,8 @@ class FieldClassifier:
                 else:
                     label = FieldLabel.EXTRA_KM_FORMULA
                 confidence = 0.98
-            elif (re.search(r"\b\d{2}-\d{2}-\d{4}\b", text) or re.search(r"\b\d{4}-\d{2}-\d{2}\b", text)) and any(char.isdigit() for char in text):
-                label = FieldLabel.HEADER_DATE
-                confidence = 0.98
 
-            # Neighbor context rules
+            # Neighbor context fallback rules
             neighbors = el.get("neighbors", {})
             left = str(neighbors.get("left", "")).lower() if neighbors.get("left") else ""
             above = str(neighbors.get("above", "")).lower() if neighbors.get("above") else ""
@@ -176,10 +195,10 @@ class FieldClassifier:
                     elif "duty slip" in left or "slip no" in left:
                         label = FieldLabel.HEADER_DUTY_SLIP
                         confidence = 0.98
-                    elif "vehicle no" in left or "reg no" in left:
+                    elif "vehicle no" in left or "reg no" in left or "vehicle" in left or "car" in left:
                         label = FieldLabel.VEHICLE_NUMBER
                         confidence = 0.98
-                    elif "date" in left:
+                    elif "date" in left or "date" in above:
                         label = FieldLabel.HEADER_DATE
                         confidence = 0.98
                     elif "toll" in left:
@@ -191,7 +210,7 @@ class FieldClassifier:
                     elif "driver bata" in left or "bata" in left:
                         label = FieldLabel.DRIVER_BATA
                         confidence = 0.98
-                    elif "grand total" in left or "total" in left or "total amount" in left:
+                    elif "grand total" in left or "total" in left or "total amount" in left or "grand total" in above or "total amount" in above:
                         label = FieldLabel.TOTAL_AMOUNT
                         confidence = 0.98
                     elif "km" in left or "kms" in left:
@@ -200,6 +219,9 @@ class FieldClassifier:
                     elif "hours" in left or "hrs" in left:
                         label = FieldLabel.TOTAL_HOURS
                         confidence = 0.98
+                    elif re.match(r"^\d{4}$", text) and text not in ["2020", "2021", "2022", "2023", "2024", "2025", "2026"]:
+                        label = FieldLabel.VEHICLE_NUMBER
+                        confidence = 0.95
                 else:
                     if "guest" in left or "passenger" in left:
                         label = FieldLabel.GUEST_NAME
@@ -209,6 +231,9 @@ class FieldClassifier:
                         confidence = 0.98
                     elif "vehicle type" in left or "car type" in left:
                         label = FieldLabel.VEHICLE_TYPE
+                        confidence = 0.98
+                    elif "to" in left or "billed to" in left:
+                        label = FieldLabel.HEADER_COMPANY
                         confidence = 0.98
 
             classifications.append({
