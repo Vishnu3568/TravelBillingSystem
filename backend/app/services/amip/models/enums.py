@@ -1,13 +1,12 @@
 """
-AMIP Platform Enumerations.
-Defines core statuses, priority levels, task types, execution modes, decision policies, planning strategies, and circuit states.
+AMIP platform enums for execution status, task types, priority levels, and decision policies.
 """
 from __future__ import annotations
 from enum import Enum
 
 
 class ExecutionStatus(str, Enum):
-    """Lifecycle status of an execution workflow context."""
+    CREATED = "CREATED"
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
@@ -17,18 +16,25 @@ class ExecutionStatus(str, Enum):
     REJECTED = "REJECTED"
 
 
+class PlanStatus(str, Enum):
+    DRAFT = "DRAFT"
+    READY = "READY"
+    EXECUTING = "EXECUTING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
 class TaskType(str, Enum):
-    """Categorization of tasks processed by the platform."""
     DOCUMENT_IMPORT = "DOCUMENT_IMPORT"
     COPILOT_CHAT = "COPILOT_CHAT"
     PREDICTIVE_FORECAST = "PREDICTIVE_FORECAST"
     GRAPH_QUERY = "GRAPH_QUERY"
     REVIEW_CORRECTION = "REVIEW_CORRECTION"
     GENERAL_QUERY = "GENERAL_QUERY"
+    VALIDATION_ENGINE = "VALIDATION_ENGINE"
 
 
 class Priority(str, Enum):
-    """Priority level assigned to execution tasks."""
     LOW = "LOW"
     NORMAL = "NORMAL"
     HIGH = "HIGH"
@@ -36,7 +42,6 @@ class Priority(str, Enum):
 
 
 class ExecutionMode(str, Enum):
-    """Execution dispatch mode for processing tasks."""
     SYNCHRONOUS = "SYNCHRONOUS"
     ASYNCHRONOUS = "ASYNCHRONOUS"
     BATCH = "BATCH"
@@ -44,7 +49,6 @@ class ExecutionMode(str, Enum):
 
 
 class AgentStatus(str, Enum):
-    """Execution state of an individual agent step."""
     IDLE = "IDLE"
     EXECUTING = "EXECUTING"
     SUCCESS = "SUCCESS"
@@ -54,16 +58,15 @@ class AgentStatus(str, Enum):
 
 
 class DecisionStatus(str, Enum):
-    """Status of an AMIP decision evaluation process."""
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
     REVIEW_REQUIRED = "REVIEW_REQUIRED"
+    REJECTED = "REJECTED"
 
 
 class DecisionPolicy(str, Enum):
-    """Policy resolution rule for AMIP consensus decision making."""
     AUTO_APPROVE = "AUTO_APPROVE"
     AUTO_REVIEW = "AUTO_REVIEW"
     MANUAL_REVIEW = "MANUAL_REVIEW"
@@ -71,14 +74,12 @@ class DecisionPolicy(str, Enum):
 
 
 class PlanningStrategy(str, Enum):
-    """Execution strategy for scheduling and sequencing plan tasks."""
     SEQUENTIAL = "SEQUENTIAL"
     PARALLEL = "PARALLEL"
     HYBRID = "HYBRID"
 
 
 class CircuitState(str, Enum):
-    """Operational states for CircuitBreaker fault protection."""
     CLOSED = "CLOSED"
     OPEN = "OPEN"
     HALF_OPEN = "HALF_OPEN"
