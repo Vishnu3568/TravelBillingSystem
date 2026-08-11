@@ -1,8 +1,5 @@
 """
-AMIP Supervisor Agent.
-Pure workflow orchestrator enforcing the 7-step execution lifecycle:
-Receive Request -> Create Context -> Create Plan -> Execute Tasks -> Collect Results -> Evaluate Decision -> Return Outcome DTO.
-STRICT MANDATE: Zero document parsing, zero Gemini calls, zero SQL queries, zero bill validation, zero business rules.
+Supervisor service orchestrating context management, plan execution, and decision resolution.
 """
 from __future__ import annotations
 import threading
@@ -30,9 +27,7 @@ from app.services.amip.utils.generators import generate_trace_id
 
 
 class AMIPSupervisor(ISupervisor):
-    """
-    Pure orchestrator supervisor coordinating ContextManager, ExecutionPlanner, ExecutionEngine, and DecisionMatrix.
-    """
+    """Orchestrates workflow execution across context, planning, execution, and decision matrix."""
 
     def __init__(
         self,
@@ -57,17 +52,8 @@ class AMIPSupervisor(ISupervisor):
         session_id: str = "default_session",
         timeout_ms: Optional[float] = None,
     ) -> Tuple[DecisionResult, ExecutionContext]:
-        """
-        Orchestrates full workflow execution lifecycle without executing business logic:
-        1. Context Resolution
-        2. Plan Construction (if missing)
-        3. Task Execution Dispatching
-        4. Vote & Evidence Collection
-        5. Decision Matrix Evaluation
-        6. Decision Result Return
-        """
+        """Runs full orchestration workflow and returns final decision result with updated context."""
         with self._lock:
-            # 1. Resolve Context & Blackboard
             if context is None:
                 context = self.context_manager.create_context(
                     task_type=task_type,
@@ -81,7 +67,6 @@ class AMIPSupervisor(ISupervisor):
             blackboard = self.context_manager.get_blackboard(context.request_id)
             context.update_stage("ORCHESTRATION_STARTED", ExecutionStatus.RUNNING)
 
-            # 2. Resolve Plan
             if plan is None:
                 plan = self.planner.create_plan(
                     request_summary=f"Orchestration workflow for task type '{task_type.value}'",
@@ -90,11 +75,9 @@ class AMIPSupervisor(ISupervisor):
                     priority=context.priority,
                 )
 
-            # Validate plan
             self.planner.validate_plan(plan)
             context.update_stage("PLAN_VALIDATED")
 
-            # 3. Execute Plan Tasks via Engine
             votes, state, metrics = self.engine.execute_plan(
                 plan=plan,
                 context=context,
@@ -105,13 +88,11 @@ class AMIPSupervisor(ISupervisor):
             self._last_state = state
             self._last_metrics = metrics
 
-            # 4. Populate DecisionMatrix with collected votes
             matrix = DecisionMatrix(votes)
             overall_conf = matrix.calculate_confidence()
             maj_vote = matrix.majority_vote() or "APPROVED"
             conflicts = matrix.conflicts()
 
-            # 5. Formulate Decision Policy
             if conflicts:
                 policy_enum = DecisionPolicy.AUTO_REVIEW
                 status_enum = DecisionStatus.REVIEW_REQUIRED
@@ -128,7 +109,6 @@ class AMIPSupervisor(ISupervisor):
                 rec_action = "REQUIRE_MANUAL_INTERVENTION"
                 reason_str = f"Medium/low confidence score ({overall_conf:.2f})."
 
-            # Build Evidence DTO
             evidence_dto = DecisionEvidence(
                 supporting_agents=[v.agent_name for v in votes if v.vote == maj_vote],
                 conflicting_agents=[v.agent_name for v in votes if v.vote != maj_vote],
@@ -139,7 +119,6 @@ class AMIPSupervisor(ISupervisor):
                 predictive_summary=blackboard.get("predictive_summary", {}),
             )
 
-            # Build Final DecisionResult
             result = DecisionResult(
                 trace_id=context.trace_id,
                 workflow_id=context.workflow_id,
@@ -152,7 +131,6 @@ class AMIPSupervisor(ISupervisor):
                 evidence=evidence_dto,
             )
 
-            # Update final context state
             context.update_stage(
                 "ORCHESTRATION_COMPLETED",
                 ExecutionStatus.COMPLETED if status_enum == DecisionStatus.COMPLETED else ExecutionStatus.DEGRADED
@@ -162,11 +140,11 @@ class AMIPSupervisor(ISupervisor):
             return result, context
 
     def get_state(self) -> Optional[SupervisorState]:
-        """Returns the most recent supervisor state (thread-safe)."""
+        """Returns current supervisor state."""
         with self._lock:
             return self._last_state
 
     def get_metrics(self) -> Optional[SupervisorMetrics]:
-        """Returns the most recent supervisor metrics (thread-safe)."""
+        """Returns current supervisor metrics."""
         with self._lock:
             return self._last_metrics
