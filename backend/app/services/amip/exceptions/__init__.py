@@ -7,6 +7,8 @@ from app.services.amip.exceptions.exceptions import (
     ContextNotFound,
     ContextAlreadyExists,
     ContextCorrupted,
+    ContextStateError,
+    BlackboardKeyNotFound,
     DecisionConflict,
     DecisionFailed,
     DecisionTimeout,
@@ -24,6 +26,12 @@ from app.services.amip.exceptions.exceptions import (
     CircuitBreakerOpen,
     WorkflowCancelled,
     ExecutionTimeout,
+    HealthCheckFailed,
+    CycleDetected,
+    InvalidTaskDependency,
+    PlanningFailed,
+    TimeoutException,
+    OperationCancelled,
 )
 
 __all__ = [
@@ -31,6 +39,8 @@ __all__ = [
     "ContextNotFound",
     "ContextAlreadyExists",
     "ContextCorrupted",
+    "ContextStateError",
+    "BlackboardKeyNotFound",
     "DecisionConflict",
     "DecisionFailed",
     "DecisionTimeout",
@@ -48,4 +58,10 @@ __all__ = [
     "CircuitBreakerOpen",
     "WorkflowCancelled",
     "ExecutionTimeout",
+    "HealthCheckFailed",
+    "CycleDetected",
+    "InvalidTaskDependency",
+    "PlanningFailed",
+    "TimeoutException",
+    "OperationCancelled",
 ]
