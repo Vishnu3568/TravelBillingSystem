@@ -21,6 +21,7 @@ from app.routers.learning import router as learning_router
 from app.services.enterprise_copilot.copilot_router import router as copilot_router
 from app.routers.graph import router as graph_router
 from app.routers.predictive import router as predictive_router
+from app.routers.amip_monitoring import router as amip_monitoring_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -56,6 +57,7 @@ app.include_router(learning_router)
 app.include_router(copilot_router)
 app.include_router(graph_router)
 app.include_router(predictive_router)
+app.include_router(amip_monitoring_router)
 
 @app.on_event("startup")
 def on_startup():
