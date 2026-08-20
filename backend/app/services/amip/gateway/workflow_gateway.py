@@ -34,6 +34,10 @@ from app.schemas.amip_workflow import (
     WorkflowCancelResponse,
     WorkflowAuditBundleResponse,
 )
+from app.schemas.amip_hitl import (
+    HITLReviewItemResponse,
+    HITLOverrideResponse,
+)
 
 
 class AMIPWorkflowGateway:
@@ -381,6 +385,151 @@ class AMIPWorkflowGateway:
             logs=logs,
             runtime_metrics=snapshot.get("runtime_metrics", {}),
             generated_at=current_utc_timestamp(),
+        )
+
+    def get_pending_reviews(self) -> List[HITLReviewItemResponse]:
+        """
+        Retrieves all workflows currently in REVIEW_REQUIRED status awaiting human operator intervention.
+        """
+        results: Dict[str, HITLReviewItemResponse] = {}
+
+        # 1. Check in-memory snapshots
+        for snp in self.monitoring_service.get_execution_snapshots():
+            if snp.get("status") == "REVIEW_REQUIRED":
+                w_id = snp.get("workflow_id", "")
+                if w_id:
+                    results[w_id] = HITLReviewItemResponse(
+                        workflow_id=w_id,
+                        trace_id=snp.get("trace_id", ""),
+                        task_type=snp.get("task_type", "GENERAL_QUERY"),
+                        current_task=snp.get("current_task", ""),
+                        status=snp.get("status", "REVIEW_REQUIRED"),
+                        confidence=float(snp.get("runtime_metrics", {}).get("confidence", 0.0)),
+                        reason=snp.get("runtime_metrics", {}).get("reason", "Conflicting agent votes or low confidence."),
+                        duration_ms=float(snp.get("duration_ms", 0.0)),
+                        completed_tasks=snp.get("completed_tasks", []),
+                        pending_tasks=snp.get("pending_tasks", []),
+                        agent_states=snp.get("agent_states", {}),
+                        retry_counts=snp.get("retry_counts", {}),
+                        created_at=snp.get("timestamp", ""),
+                    )
+
+        # 2. Check persistent repository
+        try:
+            db_records = self.monitoring_service.repository.get_workflow_executions(limit=50, status="REVIEW_REQUIRED")
+            for rec in db_records:
+                w_id = rec.get("workflow_id", "")
+                if w_id and w_id not in results:
+                    results[w_id] = HITLReviewItemResponse(
+                        workflow_id=w_id,
+                        trace_id=rec.get("trace_id", ""),
+                        task_type=rec.get("task_type", "GENERAL_QUERY"),
+                        current_task=rec.get("current_task", ""),
+                        status=rec.get("status", "REVIEW_REQUIRED"),
+                        confidence=float(rec.get("runtime_metrics", {}).get("confidence", 0.0)),
+                        reason=rec.get("runtime_metrics", {}).get("reason", "Conflicting agent votes or low confidence."),
+                        duration_ms=float(rec.get("duration_ms", 0.0)),
+                        completed_tasks=rec.get("completed_tasks", []),
+                        pending_tasks=rec.get("pending_tasks", []),
+                        agent_states=rec.get("agent_states", {}),
+                        retry_counts=rec.get("retry_counts", {}),
+                        created_at=rec.get("started_at", ""),
+                    )
+        except Exception:
+            pass
+
+        return list(results.values())
+
+    def submit_human_override(
+        self,
+        workflow_id: str,
+        action: str,
+        reason: str,
+        notes: Optional[str] = None,
+        operator: str = "system",
+    ) -> HITLOverrideResponse:
+        """
+        Submits a human operator override (APPROVE, REJECT, ESCALATE) for a workflow in review.
+        """
+        from fastapi import HTTPException, status as http_status
+
+        action_norm = (action or "").strip().upper()
+        if action_norm not in ("APPROVE", "REJECT", "ESCALATE"):
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid action '{action}'. Supported actions are APPROVE, REJECT, ESCALATE.",
+            )
+
+        snapshot = self.monitoring_service.get_execution_snapshot(workflow_id)
+        if not snapshot:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND,
+                detail=f"Workflow '{workflow_id}' not found",
+            )
+
+        current_status = snapshot.get("status", "UNKNOWN")
+        if current_status != "REVIEW_REQUIRED":
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot override workflow '{workflow_id}' with status '{current_status}'. Only REVIEW_REQUIRED workflows can be overridden.",
+            )
+
+        # Map new status
+        status_map = {
+            "APPROVE": "APPROVED",
+            "REJECT": "REJECTED",
+            "ESCALATE": "ESCALATED",
+        }
+        new_status = status_map[action_norm]
+        now_ts = current_utc_timestamp()
+        trace_id = snapshot.get("trace_id") or snapshot.get("runtime_metrics", {}).get("trace_id", "")
+
+        # 1. Update in-memory snapshot if present
+        with self.monitoring_service._lock:
+            mem_snp = self.monitoring_service._snapshots.get(workflow_id)
+            if mem_snp:
+                mem_snp.agent_states["HumanOperator"] = new_status
+                mem_snp.current_task = f"override_{action_norm.lower()}"
+
+        # 2. Record auditable structured log
+        self.monitoring_service.record_log(
+            level="INFO" if action_norm == "APPROVE" else "WARNING",
+            message=f"Human operator '{operator}' submitted override '{action_norm}': {reason}",
+            trace_id=trace_id,
+            workflow_id=workflow_id,
+            task_id="hitl_override",
+            agent_name="HumanOperator",
+            status=new_status,
+            metadata={"operator": operator, "action": action_norm, "reason": reason, "notes": notes or ""},
+        )
+
+        # 3. Persist updated execution state
+        updated_exec_data = {
+            "workflow_id": workflow_id,
+            "execution_id": snapshot.get("execution_id") or snapshot.get("snapshot_id"),
+            "trace_id": trace_id,
+            "status": new_status,
+            "current_task": f"override_{action_norm.lower()}",
+            "completed_tasks": snapshot.get("completed_tasks", []),
+            "pending_tasks": snapshot.get("pending_tasks", []),
+            "agent_states": {**snapshot.get("agent_states", {}), "HumanOperator": new_status},
+            "retry_counts": snapshot.get("retry_counts", {}),
+            "duration_ms": snapshot.get("duration_ms", 0.0),
+        }
+        try:
+            self.monitoring_service.repository.save_workflow_execution(updated_exec_data)
+        except Exception:
+            pass
+
+        return HITLOverrideResponse(
+            workflow_id=workflow_id,
+            previous_status=current_status,
+            new_status=new_status,
+            action=action_norm,
+            operator=operator,
+            reason=reason,
+            updated_at=now_ts,
+            message=f"Workflow '{workflow_id}' successfully updated to status '{new_status}' by operator '{operator}'",
         )
 
 
