@@ -16,6 +16,7 @@ import AuditLogPage from "./pages/AuditLogPage.jsx";
 import EditBillPage from "./pages/EditBillPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import ImportBillsPage from "./pages/ImportBillsPage.jsx";
+import AMIPControlCenterPage from "./pages/AMIPControlCenterPage.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import { Toaster } from "sonner";
 import "./styles/index.css";
@@ -54,6 +55,14 @@ const router = createBrowserRouter([
             element: (
               <ProtectedRoute allowedRoles={["OWNER"]}>
                 <ImportBillsPage />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "amip-control-center",
+            element: (
+              <ProtectedRoute allowedRoles={["OWNER", "MANAGER"]}>
+                <AMIPControlCenterPage />
               </ProtectedRoute>
             ),
           },
