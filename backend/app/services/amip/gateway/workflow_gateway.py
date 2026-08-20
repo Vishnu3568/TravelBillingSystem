@@ -15,6 +15,7 @@ from app.services.amip.models.enums import (
     DecisionPolicy,
 )
 from app.services.amip.models.execution_context import ExecutionContext
+from app.services.amip.models.execution_task import ExecutionTask
 from app.services.amip.context.context_manager import ContextManager
 from app.services.amip.planner.execution_planner import ExecutionPlanner
 from app.services.amip.supervisor.amip_supervisor import AMIPSupervisor
@@ -63,8 +64,6 @@ class AMIPWorkflowGateway:
     @staticmethod
     def _synthesize_tasks_for_type(task_type: TaskType) -> List[ExecutionTask]:
         """Synthesizes appropriate execution tasks and dependencies for a given task type."""
-        from app.services.amip.models.execution_task import ExecutionTask
-
         if task_type == TaskType.DOCUMENT_IMPORT:
             return [
                 ExecutionTask(task_id="t1_parse", task_name="Parse OCR & Structure", task_type=task_type, required_agents=["DocIntelAgent"]),
