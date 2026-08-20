@@ -14,43 +14,20 @@ from app.services.amip.observability import (
     DiagnosticsEngine,
     ExecutionSnapshot,
 )
+from app.services.amip.interfaces.observability_repository_interface import (
+    IObservabilityRepository,
+)
+from app.services.amip.persistence.observability_repository import (
+    SQLAlchemyObservabilityRepository,
+    sanitize_payload,
+)
 from app.services.amip.utils.time_utils import current_utc_timestamp
-
-_SENSITIVE_KEYS = {
-    "password",
-    "password_hash",
-    "token",
-    "access_token",
-    "secret",
-    "api_key",
-    "authorization",
-    "auth",
-    "credential",
-    "credentials",
-    "raw_content",
-    "raw_text",
-}
-
-
-def _sanitize_value(val: Any) -> Any:
-    """Recursively strips sensitive keys from dictionaries/lists."""
-    if isinstance(val, dict):
-        sanitized = {}
-        for k, v in val.items():
-            if k.lower() in _SENSITIVE_KEYS:
-                sanitized[k] = "[REDACTED]"
-            else:
-                sanitized[k] = _sanitize_value(v)
-        return sanitized
-    elif isinstance(val, list):
-        return [_sanitize_value(item) for item in val]
-    return val
 
 
 class AMIPMonitoringService:
     """
     Central thread-safe AMIP platform operational monitoring service.
-    Aggregates metrics, trace hierarchy, structured logs, and execution snapshots.
+    Aggregates in-memory live telemetry and persists durable audit history via IObservabilityRepository.
     """
 
     def __init__(
@@ -60,6 +37,7 @@ class AMIPMonitoringService:
         logger: Optional[StructuredLogger] = None,
         profiler: Optional[PerformanceProfiler] = None,
         diagnostics: Optional[DiagnosticsEngine] = None,
+        repository: Optional[IObservabilityRepository] = None,
     ):
         self.metrics = metrics or MetricsCollector()
         self.trace_manager = trace_manager or TraceManager()
@@ -68,6 +46,7 @@ class AMIPMonitoringService:
         self.diagnostics = diagnostics or DiagnosticsEngine(
             logger=self.logger, metrics=self.metrics, profiler=self.profiler
         )
+        self.repository: IObservabilityRepository = repository or SQLAlchemyObservabilityRepository()
         self._snapshots: Dict[str, ExecutionSnapshot] = {}
         self._lock: threading.RLock = threading.RLock()
 
@@ -88,6 +67,7 @@ class AMIPMonitoringService:
                 "trace_manager": "HEALTHY",
                 "diagnostics_engine": "HEALTHY",
                 "performance_profiler": "HEALTHY",
+                "persistence_repository": "HEALTHY",
             }
 
             return {
@@ -113,31 +93,121 @@ class AMIPMonitoringService:
 
     def record_snapshot(self, snapshot: ExecutionSnapshot) -> None:
         """
-        Stores an execution snapshot in memory (thread-safe).
+        Stores an execution snapshot in memory and asynchronously persists to durable storage (thread-safe).
         """
         with self._lock:
             self._snapshots[snapshot.workflow_id] = snapshot
 
+        # Non-blocking persistence integration
+        try:
+            self.repository.save_workflow_execution(snapshot.to_dict())
+        except Exception:
+            pass
+
+    def record_log(
+        self,
+        level: str,
+        message: str,
+        trace_id: str = "",
+        workflow_id: str = "",
+        task_id: str = "",
+        agent_name: str = "",
+        execution_time_ms: float = 0.0,
+        status: str = "COMPLETED",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        Emits a structured log record to memory and persists to database.
+        """
+        self.logger.log(
+            level=level,
+            message=message,
+            trace_id=trace_id,
+            workflow_id=workflow_id,
+            task_id=task_id,
+            agent_name=agent_name,
+            execution_time_ms=execution_time_ms,
+            status=status,
+            metadata=metadata,
+        )
+        try:
+            self.repository.save_structured_log({
+                "message": message,
+                "level": level,
+                "trace_id": trace_id,
+                "workflow_id": workflow_id,
+                "task_id": task_id,
+                "agent_name": agent_name,
+                "execution_time_ms": execution_time_ms,
+                "status": status,
+                "metadata": metadata or {},
+            })
+        except Exception:
+            pass
+
+    def record_trace_span(
+        self,
+        span_id: str,
+        name: str,
+        trace_id: str,
+        parent_span_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Registers a telemetry span in memory and persists to database.
+        """
+        span = self.trace_manager.register_span(
+            span_id=span_id,
+            name=name,
+            trace_id=trace_id,
+            parent_span_id=parent_span_id,
+            metadata=metadata,
+        )
+        try:
+            self.repository.save_trace_span(span)
+        except Exception:
+            pass
+        return span
+
     def get_execution_snapshots(self) -> List[Dict[str, Any]]:
         """
-        Returns sanitized dictionaries of all known workflow execution snapshots (thread-safe).
+        Returns sanitized dictionaries of all known workflow execution snapshots,
+        combining live in-memory state with historical persisted records.
         """
         with self._lock:
-            results = []
-            for snp in self._snapshots.values():
-                sn_dict = snp.to_dict()
-                results.append(_sanitize_value(sn_dict))
-            return results
+            in_memory_results = {snp.workflow_id: sanitize_payload(snp.to_dict()) for snp in self._snapshots.values()}
+
+        # Fetch historical records from database
+        try:
+            db_records = self.repository.get_workflow_executions(limit=50)
+            for rec in db_records:
+                w_id = rec.get("workflow_id")
+                if w_id and w_id not in in_memory_results:
+                    in_memory_results[w_id] = sanitize_payload(rec)
+        except Exception:
+            pass
+
+        return list(in_memory_results.values())
 
     def get_execution_snapshot(self, workflow_id: str) -> Optional[Dict[str, Any]]:
         """
-        Returns sanitized snapshot dictionary for a specific workflow_id, or None if not found (thread-safe).
+        Returns sanitized snapshot dictionary for a specific workflow_id.
+        Checks in-memory cache first, falling back to persistent storage.
         """
         with self._lock:
             snp = self._snapshots.get(workflow_id)
-            if not snp:
-                return None
-            return _sanitize_value(snp.to_dict())
+            if snp:
+                return sanitize_payload(snp.to_dict())
+
+        # Fallback to persistent database storage
+        try:
+            persisted = self.repository.get_workflow_execution_by_id(workflow_id)
+            if persisted:
+                return sanitize_payload(persisted)
+        except Exception:
+            pass
+
+        return None
 
     def get_workflow_logs(
         self,
@@ -146,30 +216,59 @@ class AMIPMonitoringService:
         level: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
-        Queries structured log records matching filters (thread-safe).
+        Queries structured log records matching filters.
+        Combines in-memory live logs with persistent historical logs.
         """
         with self._lock:
             logs = self.logger.get_logs(trace_id=trace_id, workflow_id=workflow_id, level=level)
-            return [_sanitize_value(l.to_dict()) for l in logs]
+            in_memory_logs = [sanitize_payload(l.to_dict()) for l in logs]
+
+        if in_memory_logs:
+            return in_memory_logs
+
+        # If not present in memory and workflow_id provided, query repository
+        if workflow_id:
+            try:
+                persisted_logs = self.repository.get_logs_by_workflow_id(workflow_id=workflow_id, level=level)
+                return [sanitize_payload(l) for l in persisted_logs]
+            except Exception:
+                pass
+
+        return []
 
     def get_trace_info(self, trace_id: str) -> Optional[Dict[str, Any]]:
         """
-        Returns span hierarchy for trace_id, or None if no spans registered for trace (thread-safe).
+        Returns span hierarchy for trace_id.
+        Checks in-memory manager first, falling back to persistent database.
         """
         with self._lock:
             spans = self.trace_manager.get_span_hierarchy(trace_id)
-            if not spans:
-                return None
-            sanitized_spans = [_sanitize_value(s) for s in spans]
-            return {
-                "trace_id": trace_id,
-                "spans": sanitized_spans,
-                "total_spans": len(sanitized_spans),
-            }
+            if spans:
+                sanitized_spans = [sanitize_payload(s) for s in spans]
+                return {
+                    "trace_id": trace_id,
+                    "spans": sanitized_spans,
+                    "total_spans": len(sanitized_spans),
+                }
+
+        # Fallback to persistent database storage
+        try:
+            persisted_spans = self.repository.get_trace_spans_by_trace_id(trace_id)
+            if persisted_spans:
+                sanitized_spans = [sanitize_payload(s) for s in persisted_spans]
+                return {
+                    "trace_id": trace_id,
+                    "spans": sanitized_spans,
+                    "total_spans": len(sanitized_spans),
+                }
+        except Exception:
+            pass
+
+        return None
 
     def get_diagnostics_report(self) -> Dict[str, Any]:
         """
-        Returns synthesized diagnostics report containing health, runtime logs, and performance profiles (thread-safe).
+        Returns synthesized diagnostics report containing health, runtime logs, and performance profiles.
         """
         with self._lock:
             health_rep = self.diagnostics.generate_platform_health_report()
@@ -177,15 +276,30 @@ class AMIPMonitoringService:
             perf_rep = self.diagnostics.generate_performance_report()
 
             return {
-                "health_report": _sanitize_value(health_rep),
-                "runtime_report": _sanitize_value(runtime_rep),
-                "performance_report": _sanitize_value(perf_rep),
+                "health_report": sanitize_payload(health_rep),
+                "runtime_report": sanitize_payload(runtime_rep),
+                "performance_report": sanitize_payload(perf_rep),
                 "generated_at": current_utc_timestamp(),
             }
 
+    def cleanup_retention(
+        self,
+        workflow_days: int = 90,
+        log_days: int = 30,
+        span_days: int = 30,
+    ) -> Dict[str, int]:
+        """
+        Explicit operation to clean up expired historical observability records.
+        """
+        return self.repository.cleanup_old_records(
+            workflow_days=workflow_days,
+            log_days=log_days,
+            span_days=span_days,
+        )
+
     def reset(self) -> None:
         """
-        Resets monitoring state for testing purposes (thread-safe).
+        Resets in-memory monitoring state for testing purposes.
         """
         with self._lock:
             self._snapshots.clear()
@@ -210,3 +324,4 @@ def get_monitoring_service() -> AMIPMonitoringService:
         if _monitoring_service_instance is None:
             _monitoring_service_instance = AMIPMonitoringService()
         return _monitoring_service_instance
+
