@@ -25,6 +25,18 @@ from app.services.amip.monitoring_service import (
     AMIPMonitoringService,
     get_monitoring_service,
 )
+from app.services.amip.runtime.idempotency_manager import (
+    IdempotencyManager,
+    get_idempotency_manager,
+)
+from app.services.amip.runtime.async_worker import (
+    AsyncWorkflowWorker,
+    get_async_worker,
+)
+from app.services.amip.runtime.recovery_service import (
+    RecoveryService,
+    get_recovery_service,
+)
 from app.services.amip.observability import ExecutionSnapshot
 from app.services.amip.utils.generators import generate_trace_id, generate_workflow_id
 from app.services.amip.utils.time_utils import current_utc_timestamp
@@ -53,6 +65,9 @@ class AMIPWorkflowGateway:
         planner: Optional[ExecutionPlanner] = None,
         explainability: Optional[ExplainabilityEngine] = None,
         monitoring_service: Optional[AMIPMonitoringService] = None,
+        idempotency_manager: Optional[IdempotencyManager] = None,
+        async_worker: Optional[AsyncWorkflowWorker] = None,
+        recovery_service: Optional[RecoveryService] = None,
     ):
         self.context_manager = context_manager or ContextManager()
         self.planner = planner or ExecutionPlanner()
@@ -62,6 +77,9 @@ class AMIPWorkflowGateway:
         )
         self.explainability = explainability or ExplainabilityEngine()
         self.monitoring_service = monitoring_service or get_monitoring_service()
+        self.idempotency_manager = idempotency_manager or get_idempotency_manager()
+        self.async_worker = async_worker or get_async_worker()
+        self.recovery_service = recovery_service or get_recovery_service()
         self._active_tokens: Dict[str, CancellationToken] = {}
         self._lock: threading.RLock = threading.RLock()
 
@@ -111,6 +129,7 @@ class AMIPWorkflowGateway:
     ) -> WorkflowExecutionResponse:
         """
         Triggers and orchestrates an autonomous multi-agent workflow end-to-end.
+        Supports idempotency deduplication and asynchronous background execution.
         """
         # 1. Parse Enums safely
         task_type_str = (request.task_type or "GENERAL_QUERY").upper()
@@ -136,6 +155,30 @@ class AMIPWorkflowGateway:
         trace_id = generate_trace_id()
         started_at = current_utc_timestamp()
 
+        # 3. Idempotency Check
+        if request.idempotency_key:
+            lease_acquired, cached_entry = self.idempotency_manager.acquire_lease(
+                idempotency_key=request.idempotency_key,
+                workflow_id=workflow_id,
+                payload=request.input_payload,
+            )
+            if not lease_acquired and cached_entry:
+                if cached_entry.get("result"):
+                    return WorkflowExecutionResponse(**cached_entry["result"])
+                # In-flight duplicate execution
+                return WorkflowExecutionResponse(
+                    workflow_id=cached_entry.get("workflow_id", workflow_id),
+                    trace_id=trace_id,
+                    status="RUNNING",
+                    confidence=0.0,
+                    recommended_action="WAIT_FOR_COMPLETION",
+                    reason="Duplicate execution already in progress for this idempotency key",
+                    summary=request.summary,
+                    policy="IDEMPOTENCY_DEDUPLICATED",
+                    execution_duration_ms=0.0,
+                    started_at=started_at,
+                )
+
         self.monitoring_service.record_trace_span(
             span_id=f"span-root-{workflow_id}",
             name=f"WorkflowExecution_{task_type.value}",
@@ -152,7 +195,7 @@ class AMIPWorkflowGateway:
             agent_name="AMIPWorkflowGateway",
         )
 
-        # 3. Create Execution Context & Cancellation Token
+        # 4. Create Execution Context & Cancellation Token
         cancel_token = CancellationToken()
         with self._lock:
             self._active_tokens[workflow_id] = cancel_token
@@ -174,7 +217,7 @@ class AMIPWorkflowGateway:
             for k, v in request.input_payload.items():
                 blackboard.put(str(k), v)
 
-        # 4. Synthesize Tasks & Generate Execution Plan
+        # 5. Synthesize Tasks & Generate Execution Plan
         tasks = self._synthesize_tasks_for_type(task_type)
         plan = self.planner.create_plan(
             request_summary=request.summary,
@@ -184,19 +227,98 @@ class AMIPWorkflowGateway:
             priority=priority,
         )
 
-        # Record Initial Snapshot
-        self.monitoring_service.record_snapshot(
-            ExecutionSnapshot.capture(
+        # Record Initial Snapshot & Database Checkpoint
+        initial_snapshot = ExecutionSnapshot.capture(
+            workflow_id=workflow_id,
+            current_task=plan.tasks[0].task_id if plan.tasks else "t_init",
+            completed_tasks=[],
+            pending_tasks=[t.task_id for t in plan.tasks],
+            agent_states={"AMIPWorkflowGateway": "RUNNING"},
+            runtime_metrics={"trace_id": trace_id, "heartbeat_at": started_at, "status": "RUNNING"},
+        )
+        self.monitoring_service.record_snapshot(initial_snapshot)
+        try:
+            self.monitoring_service.repository.save_workflow_execution({
+                "workflow_id": workflow_id,
+                "trace_id": trace_id,
+                "status": "RUNNING",
+                "current_task": plan.tasks[0].task_id if plan.tasks else "t_init",
+                "completed_tasks": [],
+                "pending_tasks": [t.task_id for t in plan.tasks],
+                "agent_states": {"AMIPWorkflowGateway": "RUNNING"},
+                "duration_ms": 0.0,
+                "started_at": started_at,
+                "metadata": {"heartbeat_at": started_at, "idempotency_key": request.idempotency_key or ""},
+            })
+        except Exception:
+            pass
+
+        # 6. Branch Execution: Asynchronous vs Synchronous
+        if exec_mode == ExecutionMode.ASYNCHRONOUS:
+            self.async_worker.submit_workflow(
+                self._run_workflow_pipeline,
                 workflow_id=workflow_id,
-                current_task=plan.tasks[0].task_id if plan.tasks else "t_init",
-                completed_tasks=[],
-                pending_tasks=[t.task_id for t in plan.tasks],
-                agent_states={"AMIPWorkflowGateway": "RUNNING"},
+                trace_id=trace_id,
+                task_type=task_type,
+                request=request,
+                context=context,
+                plan=plan,
+                cancel_token=cancel_token,
+                started_at=started_at,
+                user_id=user_id,
+                user_role=user_role,
+                session_id=session_id,
             )
+            return WorkflowExecutionResponse(
+                workflow_id=workflow_id,
+                trace_id=trace_id,
+                status="RUNNING",
+                confidence=0.0,
+                recommended_action="POLL_STATUS",
+                reason="Asynchronous workflow dispatched to background worker pool",
+                summary=request.summary,
+                policy="ASYNC_DISPATCH",
+                execution_duration_ms=0.0,
+                supporting_agents=[],
+                conflicting_agents=[],
+                confidence_breakdown={},
+                started_at=started_at,
+                completed_at=None,
+            )
+
+        return self._run_workflow_pipeline(
+            workflow_id=workflow_id,
+            trace_id=trace_id,
+            task_type=task_type,
+            request=request,
+            context=context,
+            plan=plan,
+            cancel_token=cancel_token,
+            started_at=started_at,
+            user_id=user_id,
+            user_role=user_role,
+            session_id=session_id,
         )
 
+    def _run_workflow_pipeline(
+        self,
+        workflow_id: str,
+        trace_id: str,
+        task_type: TaskType,
+        request: WorkflowExecutionRequest,
+        context: ExecutionContext,
+        plan: Any,
+        cancel_token: CancellationToken,
+        started_at: str,
+        user_id: str,
+        user_role: str,
+        session_id: str,
+    ) -> WorkflowExecutionResponse:
+        """
+        Executes the end-to-end multi-agent orchestration pipeline with step checkpointing.
+        """
         try:
-            # 5. Orchestrate via AMIPSupervisor
+            # 1. Orchestrate via AMIPSupervisor
             decision_result, updated_context = self.supervisor.orchestrate(
                 context=context,
                 plan=plan,
@@ -214,7 +336,7 @@ class AMIPWorkflowGateway:
                 decision_result.reason = f"Workflow was cancelled: {cancel_token.cancellation_reason or 'Requested by operator'}"
                 decision_result.recommended_action = "ABORT_EXECUTION"
 
-            # 6. Generate Narrative Explainability Report
+            # 2. Generate Narrative Explainability Report
             explanation_rep = self.explainability.generate_report(
                 context=updated_context,
                 plan=plan,
@@ -225,7 +347,7 @@ class AMIPWorkflowGateway:
             completed_at = current_utc_timestamp()
             duration_ms = explanation_rep.execution_duration_ms
 
-            # 7. Record Metrics & Final Snapshot
+            # 3. Record Metrics & Final Snapshot
             success = decision_result.status in (DecisionStatus.COMPLETED, DecisionStatus.REVIEW_REQUIRED)
             self.monitoring_service.metrics.record_workflow_execution(
                 workflow_id=workflow_id,
@@ -242,16 +364,20 @@ class AMIPWorkflowGateway:
             for c in conflicting:
                 agent_states[c] = "CONFLICT"
 
-            self.monitoring_service.record_snapshot(
-                ExecutionSnapshot.capture(
-                    workflow_id=workflow_id,
-                    current_task="t_completed",
-                    completed_tasks=[t.task_id for t in plan.tasks],
-                    pending_tasks=[],
-                    agent_states=agent_states,
-                    runtime_metrics={"duration_ms": duration_ms, "trace_id": trace_id},
-                )
+            final_snapshot = ExecutionSnapshot.capture(
+                workflow_id=workflow_id,
+                current_task="t_completed",
+                completed_tasks=[t.task_id for t in plan.tasks],
+                pending_tasks=[],
+                agent_states=agent_states,
+                runtime_metrics={
+                    "duration_ms": duration_ms,
+                    "trace_id": trace_id,
+                    "heartbeat_at": completed_at,
+                    "status": decision_result.status.value,
+                },
             )
+            self.monitoring_service.record_snapshot(final_snapshot)
 
             self.monitoring_service.record_log(
                 level="INFO" if success else "WARNING",
@@ -265,7 +391,29 @@ class AMIPWorkflowGateway:
                 metadata={"confidence": decision_result.confidence, "policy": decision_result.policy.value},
             )
 
-            return WorkflowExecutionResponse(
+            # 4. Checkpoint Final Execution in Database
+            try:
+                self.monitoring_service.repository.save_workflow_execution({
+                    "workflow_id": workflow_id,
+                    "trace_id": trace_id,
+                    "status": decision_result.status.value,
+                    "current_task": "t_completed",
+                    "completed_tasks": [t.task_id for t in plan.tasks],
+                    "pending_tasks": [],
+                    "agent_states": agent_states,
+                    "duration_ms": duration_ms,
+                    "started_at": started_at,
+                    "metadata": {
+                        "heartbeat_at": completed_at,
+                        "idempotency_key": request.idempotency_key or "",
+                        "confidence": decision_result.confidence,
+                        "policy": decision_result.policy.value,
+                    },
+                })
+            except Exception:
+                pass
+
+            response_dto = WorkflowExecutionResponse(
                 workflow_id=workflow_id,
                 trace_id=trace_id,
                 status=decision_result.status.value,
@@ -281,6 +429,17 @@ class AMIPWorkflowGateway:
                 started_at=started_at,
                 completed_at=completed_at,
             )
+
+            # 5. Record Idempotency Completion
+            if request.idempotency_key:
+                result_payload = response_dto.model_dump() if hasattr(response_dto, "model_dump") else response_dto.dict()
+                self.idempotency_manager.record_completion(
+                    idempotency_key=request.idempotency_key,
+                    workflow_id=workflow_id,
+                    result=result_payload,
+                )
+
+            return response_dto
 
         finally:
             with self._lock:
@@ -460,36 +619,37 @@ class AMIPWorkflowGateway:
                 detail=f"Invalid action '{action}'. Supported actions are APPROVE, REJECT, ESCALATE.",
             )
 
-        snapshot = self.monitoring_service.get_execution_snapshot(workflow_id)
-        if not snapshot:
-            raise HTTPException(
-                status_code=http_status.HTTP_404_NOT_FOUND,
-                detail=f"Workflow '{workflow_id}' not found",
-            )
+        with self._lock:
+            snapshot = self.monitoring_service.get_execution_snapshot(workflow_id)
+            if not snapshot:
+                raise HTTPException(
+                    status_code=http_status.HTTP_404_NOT_FOUND,
+                    detail=f"Workflow '{workflow_id}' not found",
+                )
 
-        current_status = snapshot.get("status", "UNKNOWN")
-        if current_status != "REVIEW_REQUIRED":
-            raise HTTPException(
-                status_code=http_status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot override workflow '{workflow_id}' with status '{current_status}'. Only REVIEW_REQUIRED workflows can be overridden.",
-            )
+            current_status = snapshot.get("status", "UNKNOWN")
+            if current_status != "REVIEW_REQUIRED":
+                raise HTTPException(
+                    status_code=http_status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cannot override workflow '{workflow_id}' with status '{current_status}'. Only REVIEW_REQUIRED workflows can be overridden.",
+                )
 
-        # Map new status
-        status_map = {
-            "APPROVE": "APPROVED",
-            "REJECT": "REJECTED",
-            "ESCALATE": "ESCALATED",
-        }
-        new_status = status_map[action_norm]
-        now_ts = current_utc_timestamp()
-        trace_id = snapshot.get("trace_id") or snapshot.get("runtime_metrics", {}).get("trace_id", "")
+            # Map new status
+            status_map = {
+                "APPROVE": "APPROVED",
+                "REJECT": "REJECTED",
+                "ESCALATE": "ESCALATED",
+            }
+            new_status = status_map[action_norm]
+            now_ts = current_utc_timestamp()
+            trace_id = snapshot.get("trace_id") or snapshot.get("runtime_metrics", {}).get("trace_id", "")
 
-        # 1. Update in-memory snapshot if present
-        with self.monitoring_service._lock:
-            mem_snp = self.monitoring_service._snapshots.get(workflow_id)
-            if mem_snp:
-                mem_snp.agent_states["HumanOperator"] = new_status
-                mem_snp.current_task = f"override_{action_norm.lower()}"
+            # 1. Update in-memory snapshot if present
+            with self.monitoring_service._lock:
+                mem_snp = self.monitoring_service._snapshots.get(workflow_id)
+                if mem_snp:
+                    mem_snp.agent_states["HumanOperator"] = new_status
+                    mem_snp.current_task = f"override_{action_norm.lower()}"
 
         # 2. Record auditable structured log
         self.monitoring_service.record_log(

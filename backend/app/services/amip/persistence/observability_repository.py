@@ -91,6 +91,17 @@ class SQLAlchemyObservabilityRepository(IObservabilityRepository):
                 (AMIPWorkflowExecution.execution_id == exec_id) | (AMIPWorkflowExecution.workflow_id == wfk_id)
             ).first()
 
+            started_at_val = datetime.utcnow()
+            if clean_data.get("started_at"):
+                try:
+                    if isinstance(clean_data["started_at"], str):
+                        clean_ts = clean_data["started_at"].replace("Z", "+00:00")
+                        started_at_val = datetime.fromisoformat(clean_ts)
+                    elif isinstance(clean_data["started_at"], datetime):
+                        started_at_val = clean_data["started_at"]
+                except Exception:
+                    started_at_val = datetime.utcnow()
+
             if existing:
                 existing.status = status
                 existing.current_task = current_task
@@ -100,7 +111,7 @@ class SQLAlchemyObservabilityRepository(IObservabilityRepository):
                 existing.retry_counts_json = json.dumps(retry_counts)
                 if duration_ms is not None:
                     existing.duration_ms = float(duration_ms)
-                if status in ("COMPLETED", "FAILED", "CANCELLED") and not existing.completed_at:
+                if status in ("COMPLETED", "FAILED", "CANCELLED", "STALE_TERMINATED") and not existing.completed_at:
                     existing.completed_at = datetime.utcnow()
             else:
                 new_record = AMIPWorkflowExecution(
@@ -114,8 +125,8 @@ class SQLAlchemyObservabilityRepository(IObservabilityRepository):
                     agent_states_json=json.dumps(agent_states),
                     retry_counts_json=json.dumps(retry_counts),
                     duration_ms=float(duration_ms) if duration_ms is not None else None,
-                    started_at=datetime.utcnow(),
-                    completed_at=datetime.utcnow() if status in ("COMPLETED", "FAILED", "CANCELLED") else None,
+                    started_at=started_at_val,
+                    completed_at=datetime.utcnow() if status in ("COMPLETED", "FAILED", "CANCELLED", "STALE_TERMINATED") else None,
                 )
                 db.add(new_record)
 
@@ -272,6 +283,10 @@ class SQLAlchemyObservabilityRepository(IObservabilityRepository):
         finally:
             if db:
                 db.close()
+
+    def get_workflow_execution(self, workflow_id: str) -> Optional[Dict[str, Any]]:
+        """Convenience alias for get_workflow_execution_by_id."""
+        return self.get_workflow_execution_by_id(workflow_id)
 
     def get_logs_by_workflow_id(
         self,

@@ -14,6 +14,7 @@ class WorkflowExecutionRequest(BaseModel):
     priority: str = Field(default="NORMAL", description="Priority level (LOW, NORMAL, HIGH, CRITICAL)")
     execution_mode: str = Field(default="SYNCHRONOUS", description="Execution mode (SYNCHRONOUS, ASYNCHRONOUS, BATCH, DEGRADED)")
     timeout_ms: Optional[float] = Field(default=None, description="Optional execution timeout in milliseconds")
+    idempotency_key: Optional[str] = Field(default=None, description="Optional unique key to ensure idempotent, at-most-once execution")
     input_payload: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Arbitrary task context or payload data")
 
 
