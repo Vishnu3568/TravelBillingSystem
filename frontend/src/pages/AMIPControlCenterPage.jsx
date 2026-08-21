@@ -61,6 +61,7 @@ export default function AMIPControlCenterPage() {
     priority: "NORMAL",
     summary: "Manual AMIP multi-agent execution",
     execution_mode: "SYNCHRONOUS",
+    idempotency_key: "",
     input_payload: '{\n  "filename": "sample_invoice.docx",\n  "amount": 4500\n}',
   });
 
@@ -126,13 +127,18 @@ export default function AMIPControlCenterPage() {
     }
 
     try {
-      const res = await amipService.executeWorkflow({
+      const payload = {
         task_type: triggerForm.task_type,
         priority: triggerForm.priority,
         summary: triggerForm.summary,
         execution_mode: triggerForm.execution_mode,
         input_payload: parsedPayload,
-      });
+      };
+      if (triggerForm.idempotency_key.trim()) {
+        payload.idempotency_key = triggerForm.idempotency_key.trim();
+      }
+
+      const res = await amipService.executeWorkflow(payload);
 
       toast.success(`Workflow '${res.workflow_id}' triggered: ${res.status}`);
       setShowTriggerModal(false);
@@ -845,15 +851,27 @@ export default function AMIPControlCenterPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1 font-bold">Summary / Description</label>
-                <input
-                  type="text"
-                  value={triggerForm.summary}
-                  onChange={(e) => setTriggerForm({ ...triggerForm, summary: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 text-white p-2.5 focus:outline-none"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 mb-1 font-bold">Summary / Description</label>
+                  <input
+                    type="text"
+                    value={triggerForm.summary}
+                    onChange={(e) => setTriggerForm({ ...triggerForm, summary: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white p-2.5 focus:outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1 font-bold">Idempotency Key (Optional)</label>
+                  <input
+                    type="text"
+                    value={triggerForm.idempotency_key}
+                    onChange={(e) => setTriggerForm({ ...triggerForm, idempotency_key: e.target.value })}
+                    placeholder="e.g. req-invoice-988"
+                    className="w-full bg-slate-950 border border-slate-800 text-white p-2.5 font-mono text-xs focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div>
