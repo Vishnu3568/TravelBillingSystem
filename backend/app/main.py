@@ -28,42 +28,10 @@ from app.routers.amip_workflow import router as amip_workflow_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("main")
 
-app = FastAPI(
-    title="Travel Billing System API",
-    description="Python backend rewritten from Spring Boot using FastAPI",
-    version="1.0.0"
-)
+from contextlib import asynccontextmanager
 
-# CORS configuration (Replicates Spring Security settings exactly)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex=".*",  # Standard way to allow credentials with wildcard-like pattern
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
-)
-
-# Include Routers
-app.include_router(auth_router)
-app.include_router(users_router)
-app.include_router(companies_router)
-app.include_router(vehicles_router)
-app.include_router(bills_router)
-app.include_router(audit_logs_router)
-app.include_router(analytics_router)
-app.include_router(reports_router)
-app.include_router(imports_router)
-app.include_router(dashboard_router)
-app.include_router(learning_router)
-app.include_router(copilot_router)
-app.include_router(graph_router)
-app.include_router(predictive_router)
-app.include_router(amip_monitoring_router)
-app.include_router(amip_workflow_router)
-
-
-@app.on_event("startup")
-def on_startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     logger.info("Initializing database metadata...")
     # Replicates spring.jpa.hibernate.ddl-auto=update by creating tables/columns if missing
     Base.metadata.create_all(bind=engine)
@@ -174,9 +142,67 @@ def on_startup():
             "  ===================================================="
         )
 
-@app.on_event("shutdown")
-def on_shutdown():
-    pass
+    logger.info(
+        "AMIP Framework Ready: Subsystems initialized, observability foundation active."
+    )
+
+    # AMIP Checkpoint 8.6: Reconcile stale/zombie workflows from previous runs
+    try:
+        from app.services.amip.monitoring_service import get_monitoring_service
+        from app.services.amip.runtime.recovery_service import get_recovery_service
+        ms = get_monitoring_service()
+        rec_service = get_recovery_service()
+        reconciled = rec_service.reconcile_stale_workflows(
+            repository=ms.repository,
+            monitoring_service=ms,
+        )
+        if reconciled:
+            logger.info(f"AMIP Startup Recovery: Reconciled {len(reconciled)} stale workflows: {reconciled}")
+    except Exception as e:
+        logger.warning(f"AMIP Startup Recovery encountered non-fatal error: {e}")
+
+    yield
+
+    try:
+        from app.services.amip.runtime.async_worker import get_async_worker
+        get_async_worker().shutdown(wait=False)
+    except Exception:
+        pass
+
+
+app = FastAPI(
+    title="Travel Billing System API",
+    description="Python backend rewritten from Spring Boot using FastAPI",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# CORS configuration (Replicates Spring Security settings exactly)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=".*",  # Standard way to allow credentials with wildcard-like pattern
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+
+# Include Routers
+app.include_router(auth_router)
+app.include_router(users_router)
+app.include_router(companies_router)
+app.include_router(vehicles_router)
+app.include_router(bills_router)
+app.include_router(audit_logs_router)
+app.include_router(analytics_router)
+app.include_router(reports_router)
+app.include_router(imports_router)
+app.include_router(dashboard_router)
+app.include_router(learning_router)
+app.include_router(copilot_router)
+app.include_router(graph_router)
+app.include_router(predictive_router)
+app.include_router(amip_monitoring_router)
+app.include_router(amip_workflow_router)
 
 @app.get("/")
 def read_root():

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -11,6 +11,8 @@ class UserRequest(BaseModel):
     active: Optional[bool] = None
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     username: str
     fullName: Optional[str] = None
@@ -18,6 +20,3 @@ class UserResponse(BaseModel):
     role: Optional[str] = None
     active: bool
     createdAt: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True

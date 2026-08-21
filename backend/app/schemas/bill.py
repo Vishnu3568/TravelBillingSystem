@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import date, datetime
 
@@ -36,6 +36,8 @@ class BillRequest(BaseModel):
     originalDoc: Optional[str] = None
 
 class BillResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     billNumber: str
     billDate: Optional[date] = None
@@ -67,6 +69,3 @@ class BillResponse(BaseModel):
     managerName: Optional[str] = None
     rawValues: Optional[str] = None
     originalDoc: Optional[str] = None
-
-    class Config:
-        from_attributes = True
