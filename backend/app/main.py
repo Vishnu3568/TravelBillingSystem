@@ -203,6 +203,37 @@ app.include_router(graph_router)
 app.include_router(predictive_router)
 app.include_router(amip_monitoring_router)
 app.include_router(amip_workflow_router)
+from fastapi import Request, HTTPException
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from datetime import datetime, timezone
+
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "status": "error",
+            "status_code": exc.status_code,
+            "detail": exc.detail,
+            "path": str(request.url.path),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "status": "error",
+            "status_code": 422,
+            "detail": "Request payload validation failed",
+            "errors": exc.errors(),
+            "path": str(request.url.path),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+    )
 
 @app.get("/")
 def read_root():
