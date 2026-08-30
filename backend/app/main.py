@@ -239,10 +239,47 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 def read_root():
     return {"message": "Travel Billing System Python API rewrite is up and running."}
 
+import time
+import platform
+
+_SERVER_START_TIME = time.time()
+
+@app.get("/api/health/live")
+def api_health_live():
+    """Kubernetes / Container Liveness probe."""
+    return {
+        "status": "ALIVE",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "uptime_seconds": round(time.time() - _SERVER_START_TIME, 2),
+    }
+
+@app.get("/api/health/ready")
+def api_health_ready(db: Session = Depends(get_db)):
+    """Kubernetes / Container Readiness probe checking DB connectivity."""
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        return {
+            "status": "READY",
+            "database": "CONNECTED",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "NOT_READY",
+                "database": f"UNAVAILABLE: {e}",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+
 @app.get("/api/health")
 def api_health(db: Session = Depends(get_db)):
     health_status = {
         "status": "UP",
+        "uptime_seconds": round(time.time() - _SERVER_START_TIME, 2),
+        "python_version": platform.python_version(),
         "node_server": "DOWN",
         "python_server_rag": "DOWN",
         "gemini": "DOWN",
@@ -251,7 +288,7 @@ def api_health(db: Session = Depends(get_db)):
         "knowledge_graph": "DOWN",
         "predictive_engine": "DOWN",
         "learning_engine": "DOWN",
-        "database": "DOWN"
+        "database": "DOWN",
     }
 
     # 1. Database Connection check
