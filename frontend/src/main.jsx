@@ -173,11 +173,15 @@ const router = createBrowserRouter([
   basename: import.meta.env.BASE_URL
 });
 
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <AuthProvider>
-      <RouterProvider router={router} />
-      <Toaster position="top-right" richColors />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <RouterProvider router={router} />
+        <Toaster position="top-right" richColors />
+      </AuthProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 );
