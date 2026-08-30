@@ -15,18 +15,42 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+const MAX_RETRIES = 2;
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const config = error.config;
+
+    // Handle 401 Unauthorized
     if (error.response && error.response.status === 401) {
       localStorage.removeItem("jwtToken");
       localStorage.removeItem("username");
       localStorage.removeItem("role");
-      
+
       if (!window.location.pathname.endsWith("/login")) {
         window.location.href = "/login";
       }
+      return Promise.reject(error);
     }
+
+    // Auto-retry transient network/server errors (502, 503, 504, network timeout) on GET requests
+    const isGetRequest = config && config.method && config.method.toLowerCase() === "get";
+    const isTransientError =
+      !error.response ||
+      [502, 503, 504].includes(error.response.status) ||
+      error.code === "ECONNABORTED";
+
+    if (isGetRequest && isTransientError) {
+      config.__retryCount = config.__retryCount || 0;
+      if (config.__retryCount < MAX_RETRIES) {
+        config.__retryCount += 1;
+        const delay = Math.pow(2, config.__retryCount) * 500;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return api(config);
+      }
+    }
+
     return Promise.reject(error);
   }
 );
