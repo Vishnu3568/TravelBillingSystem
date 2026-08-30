@@ -175,3 +175,62 @@ def delete_bill(
 ):
     ip = request.headers.get("X-Forwarded-For", request.client.host if request.client else "")
     BillService.delete_bill(db, id, current_user.get("sub"), current_user.get("role"), ip)
+
+@router.get("/export/csv")
+def export_bills_csv(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(auth_guard)
+):
+    """Generates and streams a CSV export of all bills."""
+    import io
+    import csv
+    from app.models.bill import Bill
+
+    bills = db.query(Bill).order_by(Bill.id.desc()).all()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow([
+        "ID", "Bill Number", "Bill Date", "Company", "Vehicle",
+        "Duty Slip", "Total KMs", "Total Hours", "Grand Total", "Created By"
+    ])
+
+    for b in bills:
+        writer.writerow([
+            b.id,
+            b.bill_number or "",
+            b.bill_date.isoformat() if b.bill_date else "",
+            b.company_name or "",
+            b.vehicle_name or "",
+            b.duty_slip_no or "",
+            b.total_kms or 0.0,
+            b.total_hours or 0.0,
+            b.grand_total or 0.0,
+            b.created_by or "",
+        ])
+
+    csv_content = output.getvalue()
+    headers = {"Content-Disposition": 'attachment; filename="bills_export.csv"'}
+    return Response(content=csv_content, media_type="text/csv", headers=headers)
+
+@router.get("/export/summary")
+def get_bills_summary(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(auth_guard)
+):
+    """Returns aggregated summary metrics across all bills."""
+    from sqlalchemy import func
+    from app.models.bill import Bill
+
+    total_count = db.query(func.count(Bill.id)).scalar() or 0
+    total_amount = db.query(func.sum(Bill.grand_total)).scalar() or 0.0
+    avg_amount = db.query(func.avg(Bill.grand_total)).scalar() or 0.0
+    total_kms = db.query(func.sum(Bill.total_kms)).scalar() or 0.0
+
+    return {
+        "total_bills": total_count,
+        "total_revenue": round(float(total_amount), 2),
+        "average_bill_amount": round(float(avg_amount), 2),
+        "total_kms_recorded": round(float(total_kms), 2),
+    }
