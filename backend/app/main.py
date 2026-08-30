@@ -186,6 +186,17 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
+@app.middleware("http")
+async def add_security_and_timing_headers(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    duration_ms = round((time.time() - start_time) * 1000, 2)
+    response.headers["Server-Timing"] = f"total;dur={duration_ms}"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    return response
+
 # Include Routers
 app.include_router(auth_router)
 app.include_router(users_router)
