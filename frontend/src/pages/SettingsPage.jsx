@@ -134,6 +134,48 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        {/* Interface Preferences Section */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-12 border-b border-slate-200">
+          <div>
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Bell size={20} />
+              Interface Preferences
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">Configure appearance, notifications, and localized display options.</p>
+          </div>
+          <div className="md:col-span-2 space-y-6">
+            <div className="max-w-lg space-y-4">
+              <div>
+                <label className="block text-sm font-bold uppercase tracking-wider text-slate-700 mb-2">Display Theme</label>
+                <select
+                  defaultValue="dark"
+                  onChange={(e) => {
+                    localStorage.setItem("theme_preference", e.target.value);
+                    toast.success(`Theme preference saved: ${e.target.value}`);
+                  }}
+                  className="w-full bg-white border border-slate-300 p-3 text-sm focus:outline-none focus:border-cyan-600 font-medium"
+                >
+                  <option value="dark">Dark Theme (Standard Mission Control)</option>
+                  <option value="light">Light Theme (Classic Document)</option>
+                  <option value="system">System Synchronized</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold uppercase tracking-wider text-slate-700 mb-2">Timezone</label>
+                <select
+                  defaultValue="Asia/Kolkata"
+                  className="w-full bg-white border border-slate-300 p-3 text-sm focus:outline-none focus:border-cyan-600 font-medium"
+                >
+                  <option value="Asia/Kolkata">Asia/Kolkata (IST - UTC+05:30)</option>
+                  <option value="UTC">UTC (Universal Coordinated Time)</option>
+                  <option value="America/New_York">America/New_York (EST/EDT)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Danger Zone */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
